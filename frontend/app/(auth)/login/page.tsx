@@ -39,9 +39,30 @@ export default function LoginPage() {
     });
   }
 
+  function fillDemo() {
+    setEmail("demo@agentforge.dev");
+    setPassword("demo1234");
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
+        <button
+          onClick={fillDemo}
+          className="w-full rounded-lg border border-primary/20 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Try the demo</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Click to fill demo credentials — no signup needed
+              </p>
+            </div>
+            <span className="text-xs text-muted-foreground">demo@agentforge.dev</span>
+          </div>
+        </button>
+
+        <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>Sign in to your AgentForge account</CardDescription>
@@ -101,6 +122,7 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
