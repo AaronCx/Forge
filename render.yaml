@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: agentforge-api
+    runtime: python
+    repo: https://github.com/AaronCx/AgentForge
+    branch: main
+    rootDir: backend
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        value: https://cerdzdwscovegegnedhi.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://agentforge-six.vercel.app
