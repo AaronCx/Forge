@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import MessageFeed from "@/components/dashboard/MessageFeed";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -44,6 +45,7 @@ export default function OrchestratePage() {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [result, setResult] = useState("");
   const [taskStates, setTaskStates] = useState<Record<number, string>>({});
+  const [groupId, setGroupId] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -55,6 +57,7 @@ export default function OrchestratePage() {
     setEvents([]);
     setResult("");
     setTaskStates({});
+    setGroupId("");
 
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
@@ -99,6 +102,7 @@ export default function OrchestratePage() {
                 setTaskStates((prev) => ({ ...prev, [event.data.index]: "completed" }));
               } else if (event.type === "result") {
                 setResult(event.data);
+                if (event.group_id) setGroupId(event.group_id);
               }
             } catch {}
           }
@@ -259,6 +263,21 @@ export default function OrchestratePage() {
             <div className="whitespace-pre-wrap rounded-lg bg-muted p-4 text-sm">
               {result}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Agent Messages */}
+      {groupId && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Agent Messages</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MessageFeed
+              groupId={groupId}
+              taskNames={plan.map((t, i) => `Task ${i + 1}: ${t.role}`)}
+            />
           </CardContent>
         </Card>
       )}
