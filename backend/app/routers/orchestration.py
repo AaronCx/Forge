@@ -2,13 +2,14 @@
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.database import supabase
 from app.routers.auth import get_current_user
 from app.services.orchestrator import orchestrator
+from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["orchestration"])
 
@@ -19,8 +20,10 @@ class OrchestrationRequest(BaseModel):
 
 
 @router.post("/orchestrate")
+@limiter.limit("5/hour")
 async def start_orchestration(
     body: OrchestrationRequest,
+    request: Request,
     user=Depends(get_current_user),  # noqa: B008
 ):
     """Start an orchestration run. Returns SSE stream of progress."""
