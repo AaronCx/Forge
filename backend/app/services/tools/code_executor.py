@@ -8,11 +8,23 @@ from langchain.tools import tool
 @tool
 def code_executor(code: str) -> str:
     """Execute Python code in a sandboxed environment and return the output. Only pure computation is allowed — no network access, file system writes, or imports of dangerous modules."""
-    # Block dangerous imports
-    blocked = ["os.system", "subprocess", "shutil.rmtree", "eval(", "exec(", "__import__"]
+    # Block dangerous patterns (case-insensitive, covers obfuscation attempts)
+    blocked = [
+        "os.system", "subprocess", "shutil.rmtree", "eval(", "exec(",
+        "__import__", "importlib", "getattr", "__subclasses__",
+        "__builtins__", "__globals__", "__code__", "compile(",
+        "open(", "pathlib", "socket", "http.", "urllib",
+        "requests", "ctypes", "multiprocessing", "threading",
+        "signal", "sys.exit", "quit(", "exit(",
+    ]
+    code_lower = code.lower()
     for b in blocked:
-        if b in code:
+        if b.lower() in code_lower:
             return f"Blocked: code contains disallowed pattern '{b}'"
+
+    # Reject code that's too long (limit to 10KB)
+    if len(code) > 10_000:
+        return "Blocked: code exceeds maximum length of 10,000 characters"
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
@@ -20,12 +32,14 @@ def code_executor(code: str) -> str:
         tmp_path = f.name
 
     try:
+        # Run with restricted environment — strip most env vars
+        safe_env = {"PYTHONDONTWRITEBYTECODE": "1", "PATH": "/usr/bin:/usr/local/bin"}
         result = subprocess.run(
-            ["python3", tmp_path],
+            ["python3", "-u", tmp_path],
             capture_output=True,
             text=True,
             timeout=10,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            env=safe_env,
         )
 
         output = result.stdout
