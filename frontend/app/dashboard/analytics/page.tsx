@@ -5,8 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { isDemoMode, DEMO_COST_SUMMARY, DEMO_COST_PROJECTION } from "@/lib/demo-data";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { API_URL } from "@/lib/constants";
 
 interface CostSummary {
   period: string;

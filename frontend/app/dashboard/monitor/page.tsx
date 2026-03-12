@@ -6,8 +6,7 @@ import { MetricsBar } from "@/components/dashboard/MetricsBar";
 import { AgentStatusGrid, AgentHeartbeat } from "@/components/dashboard/AgentStatusGrid";
 import { EventTimeline, TimelineEvent } from "@/components/dashboard/EventTimeline";
 import { isDemoMode, DEMO_METRICS, DEMO_ACTIVE_AGENTS, DEMO_TIMELINE } from "@/lib/demo-data";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { API_URL } from "@/lib/constants";
 
 export default function MonitorPage() {
   const [metrics, setMetrics] = useState({
