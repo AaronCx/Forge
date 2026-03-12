@@ -253,6 +253,51 @@ export interface Approval {
   created_at: string;
 }
 
+export interface Trace {
+  id: string;
+  user_id: string;
+  run_id: string | null;
+  blueprint_run_id: string | null;
+  agent_id: string | null;
+  span_type: string;
+  span_name: string;
+  parent_span_id: string | null;
+  model: string | null;
+  provider: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  status: string;
+  input_preview: string;
+  output_preview: string;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+  children?: Trace[];
+}
+
+export interface TraceStats {
+  total_spans: number;
+  error_count: number;
+  error_rate: number;
+  total_tokens: number;
+  avg_latency_ms: number;
+  by_type: Record<string, number>;
+}
+
+export interface PromptVersion {
+  id: string;
+  agent_id: string;
+  version_number: number;
+  system_prompt?: string;
+  change_summary: string;
+  diff_from_previous?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export const api = {
   agents: {
     list: (token: string) => request<Agent[]>("/api/agents", { token }),
@@ -364,5 +409,33 @@ export const api = {
       request<Trigger>(`/api/triggers/${id}/toggle`, { method: "PUT", token }),
     history: (id: string, token: string) =>
       request<TriggerHistory[]>(`/api/triggers/${id}/history`, { token }),
+  },
+  traces: {
+    list: (token: string, params?: { run_id?: string; agent_id?: string; span_type?: string; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.run_id) qs.set("run_id", params.run_id);
+      if (params?.agent_id) qs.set("agent_id", params.agent_id);
+      if (params?.span_type) qs.set("span_type", params.span_type);
+      if (params?.limit) qs.set("limit", String(params.limit));
+      const query = qs.toString();
+      return request<Trace[]>(`/api/traces${query ? `?${query}` : ""}`, { token });
+    },
+    get: (id: string, token: string) => request<Trace>(`/api/traces/${id}`, { token }),
+    tree: (id: string, token: string) => request<Trace>(`/api/traces/${id}/tree`, { token }),
+    stats: (token: string) => request<TraceStats>("/api/traces/stats", { token }),
+  },
+  promptVersions: {
+    list: (agentId: string, token: string) =>
+      request<PromptVersion[]>(`/api/agents/${agentId}/prompts`, { token }),
+    getActive: (agentId: string, token: string) =>
+      request<PromptVersion>(`/api/agents/${agentId}/prompts/active`, { token }),
+    create: (agentId: string, data: { system_prompt: string; change_summary?: string }, token: string) =>
+      request<PromptVersion>(`/api/agents/${agentId}/prompts`, { method: "POST", body: JSON.stringify(data), token }),
+    get: (versionId: string, token: string) =>
+      request<PromptVersion>(`/api/prompts/${versionId}`, { token }),
+    rollback: (versionId: string, token: string) =>
+      request<PromptVersion>(`/api/prompts/${versionId}/rollback`, { method: "POST", token }),
+    diff: (versionA: string, versionB: string, token: string) =>
+      request<{ version_a: { id: string; version_number: number }; version_b: { id: string; version_number: number }; diff: string }>(`/api/prompts/${versionA}/diff/${versionB}`, { token }),
   },
 };

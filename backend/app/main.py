@@ -23,8 +23,10 @@ from app.routers import (
     mcp,
     messages,
     orchestration,
+    prompt_versions,
     providers,
     runs,
+    traces,
     triggers,
 )
 from app.services.blueprint_templates import seed_blueprint_templates
@@ -55,7 +57,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="AgentForge API",
     description="AI workflow agent platform backend",
-    version="1.4.0",
+    version="1.5.0",
     lifespan=lifespan,
 )
 
@@ -86,11 +88,13 @@ app.include_router(mcp.router, prefix="/api")
 app.include_router(triggers.router, prefix="/api")
 app.include_router(evals.router, prefix="/api")
 app.include_router(approvals.router, prefix="/api")
+app.include_router(traces.router, prefix="/api")
+app.include_router(prompt_versions.router, prefix="/api")
 
 
 @app.get("/")
 async def root():
-    return {"name": "AgentForge API", "version": "1.4.0", "status": "running"}
+    return {"name": "AgentForge API", "version": "1.5.0", "status": "running"}
 
 
 @app.get("/health")

@@ -20,6 +20,8 @@ const navItems = [
   { href: "/dashboard/evals", label: "Evals" },
   { href: "/dashboard/approvals", label: "Approvals" },
   { href: "/dashboard/triggers", label: "Triggers" },
+  { href: "/dashboard/traces", label: "Traces" },
+  { href: "/dashboard/prompts", label: "Prompts" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
