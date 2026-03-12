@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.database import supabase
@@ -35,7 +35,7 @@ async def get_dashboard_metrics(
 @router.get("/dashboard/timeline")
 async def get_event_timeline(
     user=Depends(get_current_user),  # noqa: B008
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),
     agent_id: str | None = None,
 ):
     """Get recent agent events for the timeline."""

@@ -1,5 +1,7 @@
 """Cost and token usage API routes."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 
 from app.routers.auth import get_current_user
@@ -11,7 +13,7 @@ router = APIRouter(tags=["costs"])
 @router.get("/costs/summary")
 async def cost_summary(
     user=Depends(get_current_user),  # noqa: B008
-    period: str = Query("today", regex="^(today|week|month)$"),
+    period: Literal["today", "week", "month"] = Query("today"),
 ):
     """Get cost summary for a period."""
     return token_tracker.get_summary(user.id, period)
@@ -20,7 +22,7 @@ async def cost_summary(
 @router.get("/costs/breakdown")
 async def cost_breakdown(
     user=Depends(get_current_user),  # noqa: B008
-    group_by: str = Query("agent", regex="^(agent|model)$"),
+    group_by: Literal["agent", "model"] = Query("agent"),
 ):
     """Get cost breakdown by agent or model."""
     return token_tracker.get_breakdown(user.id, group_by)
