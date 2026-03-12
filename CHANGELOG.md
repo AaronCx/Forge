@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-03-12
+
+### Added
+
+- Enhanced landing page with feature showcase, template gallery, and tech stack section
+- Demo mode (?demo=true) for exploring the dashboard without authentication
+- Comprehensive README with full API docs, CLI usage, architecture diagram, setup guide
+- Demo data module with sample agents, metrics, heartbeats, timeline, and cost data
+
+### Changed
+
+- Landing page now highlights orchestration, monitoring, messaging, and cost analytics
+- Dashboard layout skips auth redirect in demo mode
+- Architecture diagram updated with orchestrator and messaging service
+
 ## [0.7.0] - 2026-03-12
 
 ### Added
