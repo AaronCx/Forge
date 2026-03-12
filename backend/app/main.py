@@ -5,7 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
-from app.routers import agents, runs, api_keys
+from app.routers import agents, runs, api_keys, dashboard
 from app.services.rate_limiter import limiter
 from app.services.templates import seed_templates
 from app.database import supabase as supabase_client
@@ -34,6 +34,7 @@ app.add_middleware(
 app.include_router(agents.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(api_keys.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
 
 
 @app.on_event("startup")
