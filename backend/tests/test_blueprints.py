@@ -120,8 +120,8 @@ async def test_output_formatter_markdown():
 def test_registry_has_all_nodes():
     from app.services.blueprint_nodes.registry import NODE_REGISTRY
 
-    # 10 deterministic + 5 agent = 15 total
-    assert len(NODE_REGISTRY) == 15
+    # 10 deterministic + 5 agent + 12 steer + 6 drive + 4 cu_agent = 37 total
+    assert len(NODE_REGISTRY) == 37
 
 
 def test_registry_list_by_category():
@@ -261,7 +261,7 @@ def test_get_node_types(client):
     response = client.get("/api/blueprints/node-types")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 15
+    assert len(data) == 37
 
 
 def test_get_node_types_filtered(client):

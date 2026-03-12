@@ -148,6 +148,55 @@ export const DEMO_COST_PROJECTION = {
   tokens_per_day: 22_000,
 };
 
+export const DEMO_CU_STATUS = {
+  steer_available: true,
+  steer_version: "0.3.2",
+  drive_available: true,
+  drive_version: "0.2.1",
+  tmux_available: true,
+  tmux_version: "3.4",
+  macos_version: "15.3",
+  is_macos: true,
+  computer_use_ready: true,
+  missing: [],
+  install_instructions: {},
+  steer_commands: ["see", "ocr", "click", "type", "hotkey", "scroll", "drag", "focus", "find", "wait", "clipboard", "apps"],
+  drive_commands: ["session", "run", "send", "logs", "poll", "fanout"],
+};
+
+export const DEMO_CU_AUDIT_LOG = [
+  {
+    id: "audit-1",
+    node_type: "steer_ocr",
+    command: "ocr",
+    arguments: { target: "Safari" },
+    target: "Safari",
+    result: "Found 42 elements",
+    success: true,
+    created_at: "2026-03-12T12:30:00Z",
+  },
+  {
+    id: "audit-2",
+    node_type: "steer_click",
+    command: "click",
+    arguments: { x: 450, y: 320 },
+    target: "(450, 320)",
+    result: "clicked",
+    success: true,
+    created_at: "2026-03-12T12:30:05Z",
+  },
+  {
+    id: "audit-3",
+    node_type: "drive_run",
+    command: "npm test",
+    arguments: { session: "af-runner" },
+    target: "af-runner",
+    result: "All 42 tests passed",
+    success: true,
+    created_at: "2026-03-12T12:30:10Z",
+  },
+];
+
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
   return (

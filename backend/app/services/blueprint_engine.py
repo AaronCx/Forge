@@ -14,6 +14,13 @@ from app.services.blueprint_nodes.agent_nodes import AGENT_EXECUTORS
 from app.services.blueprint_nodes.context_assembly import assemble_context
 from app.services.blueprint_nodes.deterministic import DETERMINISTIC_EXECUTORS
 from app.services.blueprint_nodes.registry import NODE_REGISTRY
+from app.services.computer_use.agent_nodes import CU_AGENT_EXECUTORS
+from app.services.computer_use.drive.nodes import DRIVE_EXECUTORS
+from app.services.computer_use.steer.nodes import STEER_EXECUTORS
+
+# Merge computer use executors into the dispatch tables
+_ALL_DETERMINISTIC = {**DETERMINISTIC_EXECUTORS, **STEER_EXECUTORS, **DRIVE_EXECUTORS}
+_ALL_AGENT = {**AGENT_EXECUTORS, **CU_AGENT_EXECUTORS}
 from app.services.token_tracker import calculate_cost, token_tracker
 
 logger = logging.getLogger(__name__)
@@ -138,14 +145,14 @@ class BlueprintEngine:
                 node_tokens = {"input_tokens": 0, "output_tokens": 0}
 
                 if node_type.node_class == "deterministic":
-                    executor = DETERMINISTIC_EXECUTORS.get(node_type_key)
+                    executor = _ALL_DETERMINISTIC.get(node_type_key)
                     if not executor:
                         raise ValueError(f"No executor for deterministic node: {node_type_key}")
 
                     output = await executor(node_config, upstream)
 
                 elif node_type.node_class == "agent":
-                    executor = AGENT_EXECUTORS.get(node_type_key)
+                    executor = _ALL_AGENT.get(node_type_key)
                     if not executor:
                         raise ValueError(f"No executor for agent node: {node_type_key}")
 

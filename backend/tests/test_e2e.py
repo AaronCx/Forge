@@ -62,7 +62,7 @@ def test_root_endpoint(client):
     response = client.get("/")
     data = response.json()
     assert data["name"] == "AgentForge API"
-    assert data["version"] == "1.7.0"
+    assert data["version"] == "1.8.0"
     assert data["status"] == "running"
 
 
@@ -325,7 +325,7 @@ def test_blueprint_node_types(client):
     response = client.get("/api/blueprints/node-types")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 15
+    assert len(data) == 37  # 10 det + 5 agent + 12 steer + 6 drive + 4 cu_agent
 
     # Check categories
     categories = {d["category"] for d in data}
@@ -334,6 +334,9 @@ def test_blueprint_node_types(client):
     assert "validate" in categories
     assert "agent" in categories
     assert "output" in categories
+    assert "computer_use_gui" in categories
+    assert "computer_use_terminal" in categories
+    assert "computer_use_agent" in categories
 
     # Check specific nodes exist
     keys = {d["key"] for d in data}
@@ -341,6 +344,9 @@ def test_blueprint_node_types(client):
     assert "llm_generate" in keys
     assert "approval_gate" in keys
     assert "knowledge_retrieval" in keys
+    assert "steer_see" in keys
+    assert "drive_run" in keys
+    assert "cu_planner" in keys
 
 
 def test_blueprint_node_types_filtered(client):

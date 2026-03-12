@@ -1698,6 +1698,239 @@ def teams_add_member(
         raise typer.Exit(1)
 
 
+# ============================================================
+# Computer Use commands
+# ============================================================
+
+cu_app = typer.Typer(help="Computer use — GUI and terminal automation")
+app.add_typer(cu_app, name="computer-use")
+app.add_typer(cu_app, name="cu")
+
+
+@cu_app.command("status")
+def cu_status():
+    """Show computer use capability status."""
+    try:
+        report = client.get("/api/computer-use/status")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    ready = report.get("computer_use_ready", False)
+    console.print()
+    console.print(
+        f"[{'green' if ready else 'yellow'}]Computer Use: "
+        f"{'Ready' if ready else 'Not Ready'}[/{'green' if ready else 'yellow'}]"
+    )
+    console.print()
+
+    table = Table(title="Components")
+    table.add_column("Component")
+    table.add_column("Status")
+    table.add_column("Version")
+
+    for name, avail_key, ver_key in [
+        ("Steer (GUI)", "steer_available", "steer_version"),
+        ("Drive (Terminal)", "drive_available", "drive_version"),
+        ("tmux", "tmux_available", "tmux_version"),
+    ]:
+        available = report.get(avail_key, False)
+        version = report.get(ver_key, "")
+        status = f"[green]Installed[/green]" if available else "[red]Missing[/red]"
+        table.add_row(name, status, version)
+
+    table.add_row(
+        "macOS",
+        f"[green]{report.get('macos_version', 'Yes')}[/green]" if report.get("is_macos") else "[red]Not macOS[/red]",
+        report.get("macos_version", ""),
+    )
+
+    console.print(table)
+
+    missing = report.get("missing", [])
+    if missing:
+        console.print()
+        console.print("[yellow]Install instructions:[/yellow]")
+        for component, instruction in report.get("install_instructions", {}).items():
+            console.print(f"\n[bold]{component}:[/bold]")
+            console.print(f"  {instruction}")
+
+
+@cu_app.command("see")
+def cu_see(
+    app_name: str = typer.Option("screen", "--app", "-a", help="App to screenshot"),
+):
+    """Take a screenshot."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "steer_see",
+            "config": {"target": app_name},
+        })
+        path = result.get("screenshot_path", "")
+        console.print(f"[green]Screenshot saved: {path}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("ocr")
+def cu_ocr(
+    app_name: str = typer.Option("screen", "--app", "-a", help="App to read"),
+):
+    """Run OCR and display detected text."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "steer_ocr",
+            "config": {"target": app_name},
+        })
+        text = result.get("text", "")
+        count = result.get("element_count", 0)
+        console.print(f"[dim]({count} elements detected)[/dim]")
+        console.print(text)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("click")
+def cu_click(
+    x: int = typer.Argument(..., help="X coordinate"),
+    y: int = typer.Argument(..., help="Y coordinate"),
+):
+    """Click at coordinates."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "steer_click",
+            "config": {"x": x, "y": y},
+        })
+        console.print(f"[green]Clicked at ({x}, {y})[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("type")
+def cu_type(
+    text: str = typer.Argument(..., help="Text to type"),
+):
+    """Type text into the focused app."""
+    try:
+        client.post("/api/blueprints/node-exec", json={
+            "node_type": "steer_type",
+            "config": {"text": text},
+        })
+        console.print(f"[green]Typed {len(text)} characters[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("hotkey")
+def cu_hotkey(
+    keys: str = typer.Argument(..., help="Key combination (e.g. cmd+s)"),
+):
+    """Send a keyboard shortcut."""
+    try:
+        client.post("/api/blueprints/node-exec", json={
+            "node_type": "steer_hotkey",
+            "config": {"keys": keys},
+        })
+        console.print(f"[green]Sent hotkey: {keys}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("run")
+def cu_run(
+    command: str = typer.Argument(..., help="Command to execute"),
+    session: str = typer.Option("", "--session", "-s", help="tmux session name"),
+):
+    """Run a terminal command via Drive."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "drive_run",
+            "config": {"command": command, "session": session},
+        })
+        console.print(result.get("text", ""))
+        exit_code = result.get("exit_code", 0)
+        if exit_code != 0:
+            console.print(f"[yellow]Exit code: {exit_code}[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("logs")
+def cu_logs(
+    session: str = typer.Option("", "--session", "-s", help="tmux session name"),
+    lines: int = typer.Option(100, "--lines", "-n", help="Number of lines"),
+):
+    """Capture terminal output from a tmux pane."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "drive_logs",
+            "config": {"session": session, "lines": lines},
+        })
+        console.print(result.get("text", ""))
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("sessions")
+def cu_sessions():
+    """List active tmux sessions."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "drive_session",
+            "config": {"action": "list"},
+        })
+        sessions = result.get("sessions", [])
+        if not sessions:
+            console.print("[dim]No active sessions.[/dim]")
+            return
+        for s in sessions:
+            console.print(f"  {s}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("apps")
+def cu_apps():
+    """List running macOS applications."""
+    try:
+        result = client.post("/api/blueprints/node-exec", json={
+            "node_type": "steer_apps",
+            "config": {},
+        })
+        apps = result.get("apps", [])
+        if not apps:
+            console.print("[dim]No apps detected.[/dim]")
+            return
+        for app_info in apps:
+            name = app_info.get("name", str(app_info)) if isinstance(app_info, dict) else str(app_info)
+            console.print(f"  {name}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("remote")
+def cu_remote_test():
+    """Test connection to the remote Listen server."""
+    try:
+        result = client.post("/api/computer-use/remote/test")
+        if result.get("connected"):
+            console.print(f"[green]Connected to {result.get('server_url')}[/green]")
+        else:
+            console.print(f"[red]Not connected: {result.get('error', 'Unknown error')}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
 
