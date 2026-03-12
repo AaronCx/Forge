@@ -7,11 +7,11 @@ Version: v1.7.0
 ## Summary
 
 - Total tests: 108
-- Passed: 82
+- Passed: 85
 - Failed: 0
-- Incomplete: 23
-- Fixed during testing: 12
-- GitHub issues created: 3
+- Incomplete: 20
+- Fixed during testing: 15
+- GitHub issues created: 3 (all resolved)
 
 ## Results by Section
 
@@ -130,7 +130,7 @@ Version: v1.7.0
 - [PASS] 11.4 Broadcast — broadcast capability in message service
 - [INCOMPLETE] 11.5 Message SSE stream — SSE endpoint exists, streaming not tested
 - [PASS] 11.6 Message feed — messages visible in dashboard
-- [INCOMPLETE] 11.7 CLI mail — **MISSING**: CLI has `messages` command, not `mail` — see [issue #8](https://github.com/AaronCx/AgentForge/issues/8)
+- [PASS] 11.7 CLI mail — `agentforge mail` alias added for `messages` command group — fixed in issue #8
 
 ### 12. Eval Framework
 
@@ -210,8 +210,8 @@ Version: v1.7.0
 ### 20. Landing Page and Demo Mode
 
 - [PASS] 20.1 Landing page — `frontend/app/page.tsx` exists, renders landing content
-- [INCOMPLETE] 20.2 Demo mode — **MISSING**: no `/demo` route exists — see [issue #9](https://github.com/AaronCx/AgentForge/issues/9)
-- [INCOMPLETE] 20.3 Documentation — **MISSING**: no frontend documentation page — see [issue #10](https://github.com/AaronCx/AgentForge/issues/10)
+- [PASS] 20.2 Demo mode — `/demo` route redirects to `/dashboard?demo=true`, sets cookie, bypasses auth — fixed in issue #9
+- [PASS] 20.3 Documentation — `/docs` page with Getting Started, Agents, Blueprints, CLI Usage, and API Reference sections — fixed in issue #10
 
 ## Node Executor Tests
 
@@ -235,12 +235,15 @@ Version: v1.7.0
 10. **fix(e2e): correct prompt version status code** — 201 → 200
 11. **fix(e2e): use AsyncMock for async services** — `MagicMock` → `AsyncMock` for awaited methods
 12. **fix(frontend): add ESLint disable for tailwind require** — suppress `@typescript-eslint/no-require-imports` warning
+13. **fix(cli): add `mail` alias** — `app.add_typer(messages_app, name="mail")` so `agentforge mail` works alongside `agentforge messages`
+14. **fix(frontend): add `/demo` route** — redirects to `/dashboard?demo=true` with cookie, no auth required
+15. **fix(frontend): add `/docs` page** — documentation page with Getting Started, Agents, Blueprints, CLI Usage, and API Reference sections
 
 ## Issues Created
 
-- [#8](https://github.com/AaronCx/AgentForge/issues/8): [QA] Missing CLI 'mail' command group
-- [#9](https://github.com/AaronCx/AgentForge/issues/9): [QA] Missing demo mode page (/demo)
-- [#10](https://github.com/AaronCx/AgentForge/issues/10): [QA] Missing frontend documentation page
+- [#8](https://github.com/AaronCx/AgentForge/issues/8): [QA] Missing CLI 'mail' command group — **RESOLVED**
+- [#9](https://github.com/AaronCx/AgentForge/issues/9): [QA] Missing demo mode page (/demo) — **RESOLVED**
+- [#10](https://github.com/AaronCx/AgentForge/issues/10): [QA] Missing frontend documentation page — **RESOLVED**
 
 ## Test Infrastructure
 
@@ -251,16 +254,10 @@ Version: v1.7.0
 
 ## Recommendations
 
-1. **Add live integration tests**: The 23 INCOMPLETE items all require a running server with Supabase connection. Consider adding a CI job that spins up the backend with a test database for integration testing.
+1. **Add live integration tests**: The 20 INCOMPLETE items all require a running server with Supabase connection. Consider adding a CI job that spins up the backend with a test database for integration testing.
 
 2. **Add CLI integration tests**: CLI commands are registered but not tested against a live API. Add pytest tests that mock the HTTP client to verify CLI output formatting.
 
-3. **Implement demo mode** (issue #9): A `/demo` route with mock data would significantly improve the onboarding experience for new users evaluating AgentForge.
+3. **SSE streaming tests**: 6 sections reference SSE streaming but none were tested end-to-end. Consider adding integration tests with `httpx` SSE client.
 
-4. **Add frontend documentation** (issue #10): A user-facing docs page with getting started guides, API reference, and CLI usage would reduce the learning curve.
-
-5. **Rename `messages` CLI to `mail`** (issue #8): The test plan references `agentforge mail` but the CLI uses `agentforge messages`. Either add an alias or standardize naming.
-
-6. **SSE streaming tests**: 6 sections reference SSE streaming but none were tested end-to-end. Consider adding integration tests with `httpx` SSE client.
-
-7. **Concurrent operation testing**: Section 19.4 (concurrent operations) was not tested. Add tests for race conditions in shared resources (e.g., concurrent blueprint edits, simultaneous org member modifications).
+4. **Concurrent operation testing**: Section 19.4 (concurrent operations) was not tested. Add tests for race conditions in shared resources (e.g., concurrent blueprint edits, simultaneous org member modifications).

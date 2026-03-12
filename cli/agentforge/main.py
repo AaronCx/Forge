@@ -518,6 +518,7 @@ def blueprints_run(
 
 messages_app = typer.Typer(help="View inter-agent messages")
 app.add_typer(messages_app, name="messages")
+app.add_typer(messages_app, name="mail")
 
 
 @messages_app.command("list")

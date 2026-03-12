@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes
-  if (pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/") {
+  if (pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/demo") || pathname.startsWith("/docs") || pathname === "/") {
     if (token && (pathname === "/login" || pathname === "/signup")) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

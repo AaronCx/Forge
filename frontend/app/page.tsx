@@ -87,7 +87,7 @@ export default function Home() {
                 Start Building
               </Button>
             </Link>
-            <Link href="/dashboard?demo=true">
+            <Link href="/demo">
               <Button variant="outline" size="lg" className="text-base px-8">
                 Try Demo
               </Button>
