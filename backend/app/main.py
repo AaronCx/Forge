@@ -1,5 +1,7 @@
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -22,10 +24,23 @@ from app.services.templates import seed_templates
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    try:
+        await seed_templates(supabase_client)
+    except Exception:
+        logger.warning("Failed to seed templates — will retry on next startup", exc_info=True)
+    yield
+
+
 app = FastAPI(
     title="AgentForge API",
     description="AI workflow agent platform backend",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -48,17 +63,6 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(costs.router, prefix="/api")
 app.include_router(orchestration.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
-
-
-logger = logging.getLogger(__name__)
-
-
-@app.on_event("startup")
-async def startup():
-    try:
-        await seed_templates(supabase_client)
-    except Exception:
-        logger.warning("Failed to seed templates — will retry on next startup", exc_info=True)
 
 
 @app.get("/")
