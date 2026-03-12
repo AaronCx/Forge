@@ -15,7 +15,7 @@ async def test_execute_single_step():
     mock_response.usage = MagicMock()
     mock_response.usage.total_tokens = 50
 
-    with patch("app.services.agent_executor.AsyncOpenAI") as mock_cls:
+    with patch("openai.AsyncOpenAI") as mock_cls:
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         mock_cls.return_value = mock_client
@@ -47,7 +47,7 @@ async def test_execute_multi_step():
     mock_response.usage = MagicMock()
     mock_response.usage.total_tokens = 30
 
-    with patch("app.services.agent_executor.AsyncOpenAI") as mock_cls:
+    with patch("openai.AsyncOpenAI") as mock_cls:
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         mock_cls.return_value = mock_client
