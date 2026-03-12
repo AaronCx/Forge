@@ -92,6 +92,13 @@ class Orchestrator:
             supabase.table("task_groups").update({"status": "failed"}).eq("id", group_id).execute()
             return
 
+        # Validate dependency indices
+        num_tasks = len(tasks)
+        for i, task in enumerate(tasks):
+            deps = task.get("dependencies", [])
+            valid_deps = [d for d in deps if isinstance(d, int) and 0 <= d < num_tasks and d != i]
+            task["dependencies"] = valid_deps
+
         # Store plan
         supabase.table("task_groups").update({
             "plan": tasks,
