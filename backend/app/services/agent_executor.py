@@ -1,14 +1,16 @@
 import os
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from app.services.tools.web_search import web_search
-from app.services.tools.document_reader import document_reader
+from langchain_openai import ChatOpenAI
+
 from app.services.tools.code_executor import code_executor
 from app.services.tools.data_extractor import data_extractor
+from app.services.tools.document_reader import document_reader
 from app.services.tools.summarizer import summarizer
+from app.services.tools.web_search import web_search
 
 load_dotenv()
 

@@ -1,6 +1,7 @@
 """Agent heartbeat service for real-time monitoring."""
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from app.database import supabase
 
 STALE_THRESHOLD_SECONDS = 30
@@ -71,7 +72,7 @@ class HeartbeatService:
     def detect_stalled(self) -> list[dict]:
         """Find heartbeats that haven't been updated within the threshold."""
         threshold = (
-            datetime.now(timezone.utc) - timedelta(seconds=STALE_THRESHOLD_SECONDS)
+            datetime.now(UTC) - timedelta(seconds=STALE_THRESHOLD_SECONDS)
         ).isoformat()
 
         result = (
@@ -100,7 +101,7 @@ class HeartbeatService:
         all_today = (
             supabase.table("agent_heartbeats")
             .select("tokens_used, cost_estimate", count="exact")
-            .gte("created_at", datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat())
+            .gte("created_at", datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat())
             .execute()
         )
 

@@ -1,12 +1,13 @@
 """Orchestration API routes."""
 
 import json
-from fastapi import APIRouter, Depends, HTTPException, Request
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.routers.auth import get_current_user
 from app.database import supabase
+from app.routers.auth import get_current_user
 from app.services.orchestrator import orchestrator
 
 router = APIRouter(tags=["orchestration"])
@@ -20,7 +21,7 @@ class OrchestrationRequest(BaseModel):
 @router.post("/orchestrate")
 async def start_orchestration(
     body: OrchestrationRequest,
-    user=Depends(get_current_user),
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """Start an orchestration run. Returns SSE stream of progress."""
 
@@ -40,7 +41,9 @@ async def start_orchestration(
 
 
 @router.get("/orchestrate/groups")
-async def list_groups(user=Depends(get_current_user)):
+async def list_groups(
+    user=Depends(get_current_user),  # noqa: B008
+):
     """List all orchestration groups for the user."""
     result = (
         supabase.table("task_groups")
@@ -54,7 +57,10 @@ async def list_groups(user=Depends(get_current_user)):
 
 
 @router.get("/orchestrate/groups/{group_id}")
-async def get_group(group_id: str, user=Depends(get_current_user)):
+async def get_group(
+    group_id: str,
+    user=Depends(get_current_user),  # noqa: B008
+):
     """Get orchestration group details with members."""
     group = (
         supabase.table("task_groups")
@@ -82,7 +88,10 @@ async def get_group(group_id: str, user=Depends(get_current_user)):
 
 
 @router.get("/orchestrate/groups/{group_id}/result")
-async def get_group_result(group_id: str, user=Depends(get_current_user)):
+async def get_group_result(
+    group_id: str,
+    user=Depends(get_current_user),  # noqa: B008
+):
     """Get the final result of an orchestration."""
     group = (
         supabase.table("task_groups")

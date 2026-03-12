@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   agent_id: string;
   agent_name: string;

@@ -34,7 +34,8 @@ interface TaskPlan {
 
 interface TaskEvent {
   type: string;
-  data: any;
+  data: unknown;
+  group_id?: string;
 }
 
 export default function OrchestratePage() {
@@ -108,8 +109,8 @@ export default function OrchestratePage() {
           }
         }
       }
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== "AbortError") {
         setEvents((prev) => [...prev, { type: "error", data: String(err) }]);
       }
     } finally {
@@ -244,7 +245,10 @@ export default function OrchestratePage() {
                   <span className="text-muted-foreground">
                     {typeof ev.data === "string"
                       ? ev.data
-                      : ev.data?.description || ev.data?.preview || JSON.stringify(ev.data)}
+                      : (() => {
+                          const d = ev.data as Record<string, unknown>;
+                          return String(d?.description ?? d?.preview ?? JSON.stringify(ev.data));
+                        })()}
                   </span>
                 </div>
               ))}

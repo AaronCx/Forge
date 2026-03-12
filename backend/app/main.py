@@ -1,14 +1,24 @@
+import contextlib
 import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from dotenv import load_dotenv
 
-from app.routers import agents, runs, api_keys, dashboard, costs, orchestration, messages
+from app.database import supabase as supabase_client
+from app.routers import (
+    agents,
+    api_keys,
+    costs,
+    dashboard,
+    messages,
+    orchestration,
+    runs,
+)
 from app.services.rate_limiter import limiter
 from app.services.templates import seed_templates
-from app.database import supabase as supabase_client
 
 load_dotenv()
 
@@ -42,10 +52,8 @@ app.include_router(messages.router, prefix="/api")
 
 @app.on_event("startup")
 async def startup():
-    try:
-        await seed_templates(supabase_client)
-    except Exception:
-        pass  # Templates will be seeded on next startup if DB isn't ready
+    with contextlib.suppress(Exception):
+        await seed_templates(supabase_client)  # Templates will be seeded on next startup if DB isn't ready
 
 
 @app.get("/")

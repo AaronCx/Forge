@@ -1,5 +1,5 @@
+
 from pydantic import BaseModel
-from typing import Optional
 
 
 class ApiKeyCreate(BaseModel):
@@ -10,4 +10,4 @@ class ApiKeyResponse(BaseModel):
     id: str
     name: str
     created_at: str
-    last_used_at: Optional[str] = None
+    last_used_at: str | None = None

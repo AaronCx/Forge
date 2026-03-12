@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-interface AgentHeartbeat {
+export interface AgentHeartbeat {
   id: string;
   agent_id: string;
   run_id: string | null;

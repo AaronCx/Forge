@@ -2,27 +2,31 @@
 
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.routers.auth import get_current_user
 from app.database import supabase
+from app.routers.auth import get_current_user
 from app.services.heartbeat import heartbeat_service
 
 router = APIRouter(tags=["dashboard"])
 
 
 @router.get("/dashboard/active")
-async def get_active_agents(user=Depends(get_current_user)):
+async def get_active_agents(
+    user=Depends(get_current_user),  # noqa: B008
+):
     """Get all active agent heartbeats with agent details."""
     heartbeats = heartbeat_service.get_active()
     return heartbeats
 
 
 @router.get("/dashboard/metrics")
-async def get_dashboard_metrics(user=Depends(get_current_user)):
+async def get_dashboard_metrics(
+    user=Depends(get_current_user),  # noqa: B008
+):
     """Get aggregate dashboard metrics."""
     metrics = heartbeat_service.get_metrics()
     return metrics
@@ -30,7 +34,7 @@ async def get_dashboard_metrics(user=Depends(get_current_user)):
 
 @router.get("/dashboard/timeline")
 async def get_event_timeline(
-    user=Depends(get_current_user),
+    user=Depends(get_current_user),  # noqa: B008
     limit: int = 50,
     agent_id: str | None = None,
 ):
@@ -106,7 +110,7 @@ async def stream_dashboard_updates(
             payload = {
                 "active_agents": active,
                 "metrics": metrics,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             yield f"data: {json.dumps(payload, default=str)}\n\n"
@@ -128,5 +132,5 @@ async def dashboard_health():
     return {
         "status": "ok",
         "service": "dashboard",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

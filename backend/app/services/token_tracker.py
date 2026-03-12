@@ -1,6 +1,7 @@
 """Token tracking service with cost calculation."""
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from app.database import supabase
 
 # Pricing per 1M tokens (USD)
@@ -54,7 +55,7 @@ class TokenTracker:
 
     def get_summary(self, user_id: str, period: str = "today") -> dict:
         """Get cost summary for a period (today, week, month)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if period == "today":
             since = now.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == "week":

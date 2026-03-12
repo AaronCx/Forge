@@ -1,8 +1,9 @@
+import io
+
+import httpx
+from docx import Document
 from langchain.tools import tool
 from PyPDF2 import PdfReader
-from docx import Document
-import io
-import httpx
 
 
 @tool

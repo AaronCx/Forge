@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { MetricsBar } from "@/components/dashboard/MetricsBar";
-import { AgentStatusGrid } from "@/components/dashboard/AgentStatusGrid";
-import { EventTimeline } from "@/components/dashboard/EventTimeline";
+import { AgentStatusGrid, AgentHeartbeat } from "@/components/dashboard/AgentStatusGrid";
+import { EventTimeline, TimelineEvent } from "@/components/dashboard/EventTimeline";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -15,8 +15,8 @@ export default function MonitorPage() {
     tokens_today: 0,
     cost_today: 0,
   });
-  const [activeAgents, setActiveAgents] = useState<any[]>([]);
-  const [timeline, setTimeline] = useState<any[]>([]);
+  const [activeAgents, setActiveAgents] = useState<AgentHeartbeat[]>([]);
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);

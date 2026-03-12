@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class AgentCreate(BaseModel):
@@ -12,11 +12,11 @@ class AgentCreate(BaseModel):
 
 
 class AgentUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    system_prompt: Optional[str] = None
-    tools: Optional[list[str]] = None
-    workflow_steps: Optional[list[str]] = None
+    name: str | None = None
+    description: str | None = None
+    system_prompt: str | None = None
+    tools: list[str] | None = None
+    workflow_steps: list[str] | None = None
 
 
 class AgentResponse(BaseModel):

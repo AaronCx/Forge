@@ -3,13 +3,12 @@
 import asyncio
 import json
 import os
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI
 
 from app.database import supabase
 from app.services.agent_executor import AgentRunner
-from app.services.heartbeat import heartbeat_service
 from app.services.messaging import messaging_service
 
 AGENT_ROLES = {

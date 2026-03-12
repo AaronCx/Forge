@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from app.routers.auth import get_current_user
 from app.database import supabase
+from app.routers.auth import get_current_user
 from app.services.messaging import messaging_service
 
 router = APIRouter(tags=["messages"])
@@ -20,7 +20,10 @@ class SendMessageRequest(BaseModel):
 
 
 @router.post("/messages")
-async def send_message(body: SendMessageRequest, user=Depends(get_current_user)):
+async def send_message(
+    body: SendMessageRequest,
+    user=Depends(get_current_user),  # noqa: B008
+):
     """Send a message between agents."""
     # Verify group belongs to user
     group = (
@@ -51,7 +54,7 @@ async def get_messages(
     receiver_index: int | None = Query(None),
     message_type: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
-    user=Depends(get_current_user),
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """Get messages for a task group."""
     # Verify group belongs to user
@@ -80,7 +83,7 @@ async def get_conversation(
     agent_a: int = Query(...),
     agent_b: int = Query(...),
     limit: int = Query(50, ge=1, le=200),
-    user=Depends(get_current_user),
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """Get messages exchanged between two specific agents."""
     group = (
