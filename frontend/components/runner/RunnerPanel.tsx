@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { api, Agent } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,13 @@ export function RunnerPanel({ agent }: RunnerPanelProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const runAgent = useCallback(async () => {
     setRunning(true);
@@ -41,9 +48,11 @@ export function RunnerPanel({ agent }: RunnerPanelProps) {
     }
 
     const url = api.runs.start(agent.id, { text: input }, data.session.access_token);
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
-      const response = await fetch(url, { method: "POST" });
+      const response = await fetch(url, { method: "POST", signal: controller.signal });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: "Run failed" }));
@@ -98,7 +107,9 @@ export function RunnerPanel({ agent }: RunnerPanelProps) {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connection failed");
+      if (err instanceof Error && err.name !== "AbortError") {
+        setError(err.message);
+      }
     } finally {
       setRunning(false);
     }
