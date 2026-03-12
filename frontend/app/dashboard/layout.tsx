@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/monitor", label: "Monitor" },
+  { href: "/dashboard/analytics", label: "Analytics" },
   { href: "/dashboard/agents", label: "Agents" },
   { href: "/dashboard/runs", label: "Runs" },
   { href: "/dashboard/settings", label: "Settings" },
