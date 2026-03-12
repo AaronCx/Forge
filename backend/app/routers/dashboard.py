@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.database import supabase
@@ -86,14 +86,16 @@ async def stream_dashboard_updates(
     token: str = "",
 ):
     """SSE stream for real-time dashboard updates."""
-    # Verify token
-    if token:
-        try:
-            user_response = supabase.auth.get_user(token)
-            if not user_response or not user_response.user:
-                return {"error": "Invalid token"}
-        except Exception:
-            return {"error": "Invalid token"}
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
     async def event_generator():
         while True:
