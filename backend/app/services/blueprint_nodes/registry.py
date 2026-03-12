@@ -485,6 +485,101 @@ CU_AGENT_NODES: dict[str, NodeType] = {
     ),
 }
 
+# --- Agent Control node types (agent-on-agent orchestration) ---
+
+AGENT_CONTROL_NODES: dict[str, NodeType] = {
+    "agent_spawn": NodeType(
+        key="agent_spawn",
+        display_name="Spawn Agent",
+        category="agent_control",
+        node_class="deterministic",
+        description="Spawn a coding agent (Claude Code, Codex, Gemini CLI, Aider) in a tmux session.",
+        input_schema={
+            "backend": {"type": "string", "default": "claude-code", "enum": ["claude-code", "codex-cli", "gemini-cli", "aider", "custom"]},
+            "working_directory": {"type": "string", "default": ""},
+            "env_vars": {"type": "object", "default": {}},
+        },
+        output_schema={"session": {"type": "string"}, "backend": {"type": "string"}, "status": {"type": "string"}},
+    ),
+    "agent_prompt": NodeType(
+        key="agent_prompt",
+        display_name="Prompt Agent",
+        category="agent_control",
+        node_class="deterministic",
+        description="Send a task prompt to a running coding agent.",
+        input_schema={
+            "session": {"type": "string", "required": True},
+            "prompt": {"type": "string", "required": True},
+        },
+        output_schema={"prompt_sent": {"type": "boolean"}, "prompt_length": {"type": "integer"}},
+    ),
+    "agent_monitor": NodeType(
+        key="agent_monitor",
+        display_name="Monitor Agent",
+        category="agent_control",
+        node_class="deterministic",
+        description="Capture the current output of a running coding agent.",
+        input_schema={
+            "session": {"type": "string", "required": True},
+            "lines": {"type": "integer", "default": 100},
+        },
+        output_schema={"text": {"type": "string"}, "line_count": {"type": "integer"}},
+    ),
+    "agent_wait": NodeType(
+        key="agent_wait",
+        display_name="Wait for Agent",
+        category="agent_control",
+        node_class="deterministic",
+        description="Wait for a spawned coding agent to complete its task.",
+        input_schema={
+            "session": {"type": "string", "required": True},
+            "timeout": {"type": "integer", "default": 300},
+            "completion_pattern": {"type": "string", "default": ""},
+        },
+        output_schema={"completed": {"type": "boolean"}, "elapsed_seconds": {"type": "integer"}, "text": {"type": "string"}},
+    ),
+    "agent_stop": NodeType(
+        key="agent_stop",
+        display_name="Stop Agent",
+        category="agent_control",
+        node_class="deterministic",
+        description="Stop a running coding agent and clean up its tmux session.",
+        input_schema={
+            "session": {"type": "string", "required": True},
+        },
+        output_schema={"stopped": {"type": "boolean"}},
+    ),
+    "agent_result": NodeType(
+        key="agent_result",
+        display_name="Agent Result",
+        category="agent_control",
+        node_class="deterministic",
+        description="Extract and parse the final result from a completed agent session.",
+        input_schema={
+            "session": {"type": "string", "required": True},
+            "output_format": {"type": "string", "default": "text", "enum": ["text", "json", "diff"]},
+        },
+        output_schema={"text": {"type": "string"}, "parsed": {"type": "object"}, "length": {"type": "integer"}},
+    ),
+}
+
+# --- Recording control node type ---
+
+RECORDING_NODES: dict[str, NodeType] = {
+    "recording_control": NodeType(
+        key="recording_control",
+        display_name="Recording Control",
+        category="computer_use_gui",
+        node_class="deterministic",
+        description="Start or stop screen recording during a blueprint run.",
+        input_schema={
+            "action": {"type": "string", "default": "start", "enum": ["start", "stop"]},
+            "quality": {"type": "string", "default": "medium", "enum": ["low", "medium", "high"]},
+        },
+        output_schema={"recording_path": {"type": "string"}, "status": {"type": "string"}},
+    ),
+}
+
 # Combined registry
 NODE_REGISTRY: dict[str, NodeType] = {
     **DETERMINISTIC_NODES,
@@ -492,6 +587,8 @@ NODE_REGISTRY: dict[str, NodeType] = {
     **STEER_NODES,
     **DRIVE_NODES,
     **CU_AGENT_NODES,
+    **AGENT_CONTROL_NODES,
+    **RECORDING_NODES,
 }
 
 

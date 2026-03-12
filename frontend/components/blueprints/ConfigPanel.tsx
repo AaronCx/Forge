@@ -437,6 +437,152 @@ export function ConfigPanel({
           </div>
         )}
 
+        {/* Agent Control node config */}
+        {type === "agent_spawn" && (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Agent Backend</Label>
+              <select
+                value={(config.backend as string) || "claude-code"}
+                onChange={(e) => updateConfig("backend", e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="claude-code">Claude Code</option>
+                <option value="codex-cli">Codex CLI</option>
+                <option value="gemini-cli">Gemini CLI</option>
+                <option value="aider">Aider</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Working Directory</Label>
+              <Input
+                value={(config.working_directory as string) || ""}
+                onChange={(e) => updateConfig("working_directory", e.target.value)}
+                placeholder="/path/to/project"
+                className="mt-1"
+              />
+            </div>
+          </div>
+        )}
+        {(type === "agent_prompt") && (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Session</Label>
+              <Input
+                value={(config.session as string) || ""}
+                onChange={(e) => updateConfig("session", e.target.value)}
+                placeholder="Session name (from agent_spawn)"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Prompt</Label>
+              <Textarea
+                value={(config.prompt as string) || ""}
+                onChange={(e) => updateConfig("prompt", e.target.value)}
+                placeholder="Task prompt to send to the agent"
+                className="mt-1"
+                rows={4}
+              />
+            </div>
+          </div>
+        )}
+        {(type === "agent_monitor" || type === "agent_stop") && (
+          <div>
+            <Label className="text-xs">Session</Label>
+            <Input
+              value={(config.session as string) || ""}
+              onChange={(e) => updateConfig("session", e.target.value)}
+              placeholder="Session name"
+              className="mt-1"
+            />
+          </div>
+        )}
+        {type === "agent_wait" && (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Session</Label>
+              <Input
+                value={(config.session as string) || ""}
+                onChange={(e) => updateConfig("session", e.target.value)}
+                placeholder="Session name"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Timeout (seconds)</Label>
+              <Input
+                type="number"
+                value={(config.timeout as number) || 300}
+                onChange={(e) => updateConfig("timeout", parseInt(e.target.value) || 300)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Completion Pattern (optional regex)</Label>
+              <Input
+                value={(config.completion_pattern as string) || ""}
+                onChange={(e) => updateConfig("completion_pattern", e.target.value)}
+                placeholder="e.g. >\s*$"
+                className="mt-1"
+              />
+            </div>
+          </div>
+        )}
+        {type === "agent_result" && (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Session</Label>
+              <Input
+                value={(config.session as string) || ""}
+                onChange={(e) => updateConfig("session", e.target.value)}
+                placeholder="Session name"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Output Format</Label>
+              <select
+                value={(config.output_format as string) || "text"}
+                onChange={(e) => updateConfig("output_format", e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="text">Text</option>
+                <option value="json">JSON</option>
+                <option value="diff">Diff</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {type === "recording_control" && (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Action</Label>
+              <select
+                value={(config.action as string) || "start"}
+                onChange={(e) => updateConfig("action", e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="start">Start Recording</option>
+                <option value="stop">Stop Recording</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Quality</Label>
+              <select
+                value={(config.quality as string) || "medium"}
+                onChange={(e) => updateConfig("quality", e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="low">Low (720p 15fps)</option>
+                <option value="medium">Medium (1080p 30fps)</option>
+                <option value="high">High (native 30fps)</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* Agent node config */}
         {nodeClass === "agent" && (
           <>

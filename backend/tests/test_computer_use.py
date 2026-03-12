@@ -57,6 +57,26 @@ def test_capability_report_to_dict():
     assert d["drive_available"] is False
     assert d["computer_use_ready"] is False  # drive missing
     assert "missing" in d
+    assert "platform" in d
+    assert "agent_backends" in d
+
+
+def test_capability_report_platform_field():
+    """CapabilityReport includes platform name."""
+    from app.services.computer_use.detector import CapabilityReport
+
+    report = CapabilityReport(platform_name="linux")
+    d = report.to_dict()
+    assert d["platform"] == "linux"
+
+
+def test_capability_detector_agent_backends():
+    """Detector discovers available agent backends."""
+    from app.services.computer_use.detector import CapabilityDetector
+
+    detector = CapabilityDetector()
+    report = detector.detect(force_refresh=True)
+    assert isinstance(report.agent_backends, list)
 
 
 # ============================================================
@@ -419,3 +439,318 @@ def test_cli_cu_commands():
     assert "sessions" in output
     assert "apps" in output
     assert "remote" in output
+
+
+# ============================================================
+# v1.9: Agent Backends Configuration
+# ============================================================
+
+
+def test_builtin_backends():
+    """Pre-configured agent backends are defined."""
+    from app.config.agent_backends import BUILTIN_BACKENDS
+
+    assert "claude-code" in BUILTIN_BACKENDS
+    assert "codex-cli" in BUILTIN_BACKENDS
+    assert "gemini-cli" in BUILTIN_BACKENDS
+    assert "aider" in BUILTIN_BACKENDS
+
+
+def test_backend_lookup():
+    """Can look up backends by name."""
+    from app.config.agent_backends import get_backend
+
+    backend = get_backend("claude-code")
+    assert backend is not None
+    assert backend.command == "claude"
+    assert backend.prompt_method == "argument"
+
+
+def test_backend_list():
+    """Can list all backends."""
+    from app.config.agent_backends import list_backends
+
+    backends = list_backends()
+    assert len(backends) >= 4
+    names = {b["name"] for b in backends}
+    assert "claude-code" in names
+
+
+def test_unknown_backend_returns_none():
+    """Unknown backend returns None."""
+    from app.config.agent_backends import get_backend
+
+    assert get_backend("nonexistent-agent") is None
+
+
+# ============================================================
+# v1.9: Agent Control Node Types
+# ============================================================
+
+
+def test_agent_control_nodes_registered():
+    """All 6 agent control node types are registered."""
+    from app.services.blueprint_nodes.registry import AGENT_CONTROL_NODES
+
+    expected = ["agent_spawn", "agent_prompt", "agent_monitor", "agent_wait", "agent_stop", "agent_result"]
+    for key in expected:
+        assert key in AGENT_CONTROL_NODES, f"Missing agent control node: {key}"
+    assert len(AGENT_CONTROL_NODES) == 6
+
+
+def test_agent_control_nodes_are_deterministic():
+    """Agent control nodes are classified as deterministic."""
+    from app.services.blueprint_nodes.registry import AGENT_CONTROL_NODES
+
+    for node in AGENT_CONTROL_NODES.values():
+        assert node.node_class == "deterministic"
+        assert node.category == "agent_control"
+
+
+def test_agent_control_executors_match_nodes():
+    """Every agent control node type has a corresponding executor."""
+    from app.services.blueprint_nodes.registry import AGENT_CONTROL_NODES
+    from app.services.computer_use.agents.nodes import AGENT_CONTROL_EXECUTORS
+
+    for key in AGENT_CONTROL_NODES:
+        assert key in AGENT_CONTROL_EXECUTORS, f"Missing executor for {key}"
+
+
+def test_blueprint_engine_knows_agent_control_nodes():
+    """Blueprint engine's dispatch tables include agent control executors."""
+    from app.services.blueprint_engine import _ALL_DETERMINISTIC
+
+    assert "agent_spawn" in _ALL_DETERMINISTIC
+    assert "agent_prompt" in _ALL_DETERMINISTIC
+    assert "agent_wait" in _ALL_DETERMINISTIC
+    assert "agent_result" in _ALL_DETERMINISTIC
+
+
+# ============================================================
+# v1.9: Recording Control
+# ============================================================
+
+
+def test_recording_control_node_registered():
+    """recording_control node type is registered."""
+    from app.services.blueprint_nodes.registry import RECORDING_NODES
+
+    assert "recording_control" in RECORDING_NODES
+    assert RECORDING_NODES["recording_control"].node_class == "deterministic"
+
+
+def test_recording_executor_registered():
+    """Recording executor is in the dispatch table."""
+    from app.services.computer_use.recorder import RECORDING_EXECUTORS
+
+    assert "recording_control" in RECORDING_EXECUTORS
+
+
+def test_blueprint_engine_knows_recording_node():
+    """Blueprint engine includes recording executor."""
+    from app.services.blueprint_engine import _ALL_DETERMINISTIC
+
+    assert "recording_control" in _ALL_DETERMINISTIC
+
+
+def test_recorder_service_cleanup():
+    """Recorder cleanup handles empty directory."""
+    from app.services.computer_use.recorder import RecorderService
+
+    recorder = RecorderService()
+    removed = recorder.cleanup_recordings(older_than_days=0)
+    assert isinstance(removed, int)
+
+
+# ============================================================
+# v1.9: Multi-Machine Dispatch
+# ============================================================
+
+
+def test_dispatch_service_local_target():
+    """Dispatch service always has local target."""
+    from app.services.computer_use.dispatch import DispatchService
+
+    service = DispatchService()
+    targets = service.list_targets()
+    assert len(targets) >= 1
+    assert any(t["id"] == "local" for t in targets)
+
+
+def test_dispatch_register_target():
+    """Can register and remove execution targets."""
+    from app.services.computer_use.dispatch import DispatchService
+
+    service = DispatchService()
+    target = service.register_target(
+        target_id="test-1",
+        name="Test Server",
+        target_type="remote",
+        listen_url="http://test:7600",
+        platform="linux",
+    )
+    assert target.name == "Test Server"
+    assert target.platform == "linux"
+
+    targets = service.list_targets()
+    assert len(targets) == 2
+
+    assert service.remove_target("test-1") is True
+    assert service.remove_target("local") is False  # Can't remove local
+
+
+def test_dispatch_resolve_fallback():
+    """Dispatch resolves to local target by default."""
+    from app.services.computer_use.dispatch import DispatchService
+
+    service = DispatchService()
+    target = service.resolve_target("steer_see", {})
+    assert target.id == "local"
+
+
+def test_dispatch_resolve_explicit_target():
+    """Dispatch uses explicit target_id from node config."""
+    from app.services.computer_use.dispatch import DispatchService
+
+    service = DispatchService()
+    service.register_target("remote-1", "Remote Mac", "remote", "http://r:7600")
+    target = service.resolve_target("steer_see", {"target_id": "remote-1"})
+    assert target.id == "remote-1"
+
+
+# ============================================================
+# v1.9: Cross-Platform
+# ============================================================
+
+
+def test_platform_detection():
+    """Platform layer detects current platform."""
+    from app.services.computer_use.platform import get_platform
+
+    p = get_platform()
+    assert p in ("macos", "linux", "windows", "unknown")
+
+
+def test_platform_capabilities():
+    """Platform layer returns capabilities."""
+    from app.services.computer_use.platform import get_capabilities
+
+    caps = get_capabilities()
+    assert "platform" in caps
+    assert "steer_available" in caps
+    assert "drive_available" in caps
+    assert "tmux_available" in caps
+
+
+def test_platform_install_instructions():
+    """Platform install instructions are defined for all platforms."""
+    from app.services.computer_use.platform import PLATFORM_INSTALL_INSTRUCTIONS
+
+    assert "macos" in PLATFORM_INSTALL_INSTRUCTIONS
+    assert "linux" in PLATFORM_INSTALL_INSTRUCTIONS
+    assert "windows" in PLATFORM_INSTALL_INSTRUCTIONS
+
+
+def test_linux_steer_map():
+    """Linux steer map has all 12 node implementations."""
+    from app.services.computer_use.linux.linux_steer import LINUX_STEER_MAP
+
+    assert len(LINUX_STEER_MAP) == 12
+    assert "steer_see" in LINUX_STEER_MAP
+    assert "steer_click" in LINUX_STEER_MAP
+    assert "steer_ocr" in LINUX_STEER_MAP
+    assert "steer_apps" in LINUX_STEER_MAP
+
+
+def test_windows_steer_map():
+    """Windows steer map has all 12 node implementations."""
+    from app.services.computer_use.windows.windows_steer import WINDOWS_STEER_MAP
+
+    assert len(WINDOWS_STEER_MAP) == 12
+    assert "steer_see" in WINDOWS_STEER_MAP
+    assert "steer_click" in WINDOWS_STEER_MAP
+
+
+def test_windows_drive_map():
+    """Windows drive map has key commands."""
+    from app.services.computer_use.windows.windows_drive import WINDOWS_DRIVE_MAP
+
+    assert "drive_session" in WINDOWS_DRIVE_MAP
+    assert "drive_run" in WINDOWS_DRIVE_MAP
+    assert "drive_logs" in WINDOWS_DRIVE_MAP
+
+
+def test_virtual_display_init():
+    """Virtual display service initializes."""
+    from app.services.computer_use.linux.virtual_display import VirtualDisplay
+
+    vd = VirtualDisplay()
+    assert vd.is_running(99) is False
+
+
+# ============================================================
+# v1.9: Blueprint Templates
+# ============================================================
+
+
+def test_v19_blueprint_templates_exist():
+    """v1.9 blueprint templates are defined."""
+    from app.services.blueprint_templates import V19_BLUEPRINT_TEMPLATES
+
+    assert len(V19_BLUEPRINT_TEMPLATES) == 3
+
+    names = {t["name"] for t in V19_BLUEPRINT_TEMPLATES}
+    assert "Agent Inception — Claude Code Review" in names
+    assert "Parallel Multi-Agent Code Review" in names
+    assert "Universal Browser Automation" in names
+
+
+def test_v19_templates_use_agent_control_nodes():
+    """v1.9 templates use agent control node types."""
+    from app.services.blueprint_templates import V19_BLUEPRINT_TEMPLATES
+
+    all_types = set()
+    for template in V19_BLUEPRINT_TEMPLATES:
+        for node in template["nodes"]:
+            all_types.add(node["type"])
+
+    assert "agent_spawn" in all_types
+    assert "agent_prompt" in all_types
+    assert "agent_wait" in all_types
+    assert "agent_result" in all_types
+
+
+# ============================================================
+# v1.9: API Endpoints — Targets
+# ============================================================
+
+
+def test_targets_list_endpoint(auth_client):
+    """GET /api/targets returns target list."""
+    response = auth_client.get("/api/targets")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1  # At least local target
+
+
+def test_targets_create_endpoint(auth_client):
+    """POST /api/targets creates a new target."""
+    response = auth_client.post("/api/targets", json={
+        "name": "Test Server",
+        "target_type": "remote",
+        "listen_url": "http://test:7600",
+        "platform": "linux",
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Test Server"
+
+
+def test_targets_capabilities_endpoint(auth_client):
+    """GET /api/targets/capabilities returns aggregated capabilities."""
+    response = auth_client.get("/api/targets/capabilities")
+    assert response.status_code == 200
+    data = response.json()
+    assert "target_count" in data
+    assert "capabilities" in data

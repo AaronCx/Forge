@@ -407,9 +407,73 @@ CU_BLUEPRINT_TEMPLATES = [
 ]
 
 
+V19_BLUEPRINT_TEMPLATES = [
+    {
+        "name": "Agent Inception — Claude Code Review",
+        "description": "Spawn Claude Code to implement a feature, wait for it to finish, then review the result with LLM.",
+        "is_template": True,
+        "nodes": [
+            {"id": "spawn", "type": "agent_spawn", "label": "Spawn Claude Code", "config": {"backend": "claude-code", "working_directory": ""}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "prompt", "type": "agent_prompt", "label": "Send Task", "config": {"prompt": "Implement the login feature with proper error handling"}, "dependencies": ["spawn"], "position": {"x": 300, "y": 200}},
+            {"id": "wait", "type": "agent_wait", "label": "Wait for Completion", "config": {"timeout": 300}, "dependencies": ["prompt"], "position": {"x": 550, "y": 200}},
+            {"id": "result", "type": "agent_result", "label": "Capture Result", "config": {"output_format": "text"}, "dependencies": ["wait"], "position": {"x": 800, "y": 200}},
+            {"id": "review", "type": "llm_review", "label": "Review Code", "config": {"review_type": "code"}, "dependencies": ["result"], "position": {"x": 1050, "y": 200}},
+            {"id": "output", "type": "output_formatter", "label": "Format Report", "config": {"format": "markdown"}, "dependencies": ["review"], "position": {"x": 1300, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 1},
+        "output_schema": {"type": "markdown"},
+    },
+    {
+        "name": "Parallel Multi-Agent Code Review",
+        "description": "Spawn 3 coding agents (Claude Code, Codex, Gemini CLI) in parallel, each reviewing a different aspect of the code.",
+        "is_template": True,
+        "nodes": [
+            {"id": "plan", "type": "cu_planner", "label": "Plan Review Areas", "config": {"objective": "Decompose code review into 3 areas"}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "spawn1", "type": "agent_spawn", "label": "Spawn Claude Code", "config": {"backend": "claude-code"}, "dependencies": ["plan"], "position": {"x": 300, "y": 100}},
+            {"id": "spawn2", "type": "agent_spawn", "label": "Spawn Codex", "config": {"backend": "codex-cli"}, "dependencies": ["plan"], "position": {"x": 300, "y": 200}},
+            {"id": "spawn3", "type": "agent_spawn", "label": "Spawn Gemini", "config": {"backend": "gemini-cli"}, "dependencies": ["plan"], "position": {"x": 300, "y": 300}},
+            {"id": "prompt1", "type": "agent_prompt", "label": "Review: Security", "config": {"prompt": "Review for security issues"}, "dependencies": ["spawn1"], "position": {"x": 550, "y": 100}},
+            {"id": "prompt2", "type": "agent_prompt", "label": "Review: Errors", "config": {"prompt": "Review error handling"}, "dependencies": ["spawn2"], "position": {"x": 550, "y": 200}},
+            {"id": "prompt3", "type": "agent_prompt", "label": "Review: Tests", "config": {"prompt": "Review test coverage"}, "dependencies": ["spawn3"], "position": {"x": 550, "y": 300}},
+            {"id": "wait1", "type": "agent_wait", "label": "Wait (1)", "config": {"timeout": 300}, "dependencies": ["prompt1"], "position": {"x": 800, "y": 100}},
+            {"id": "wait2", "type": "agent_wait", "label": "Wait (2)", "config": {"timeout": 300}, "dependencies": ["prompt2"], "position": {"x": 800, "y": 200}},
+            {"id": "wait3", "type": "agent_wait", "label": "Wait (3)", "config": {"timeout": 300}, "dependencies": ["prompt3"], "position": {"x": 800, "y": 300}},
+            {"id": "result1", "type": "agent_result", "label": "Result (1)", "config": {}, "dependencies": ["wait1"], "position": {"x": 1050, "y": 100}},
+            {"id": "result2", "type": "agent_result", "label": "Result (2)", "config": {}, "dependencies": ["wait2"], "position": {"x": 1050, "y": 200}},
+            {"id": "result3", "type": "agent_result", "label": "Result (3)", "config": {}, "dependencies": ["wait3"], "position": {"x": 1050, "y": 300}},
+            {"id": "synthesize", "type": "llm_generate", "label": "Synthesize Reviews", "config": {"system_prompt": "Combine the three code reviews into a single comprehensive report."}, "dependencies": ["result1", "result2", "result3"], "position": {"x": 1300, "y": 200}},
+            {"id": "output", "type": "output_formatter", "label": "Format", "config": {"format": "markdown"}, "dependencies": ["synthesize"], "position": {"x": 1550, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 1},
+        "output_schema": {"type": "markdown"},
+    },
+    {
+        "name": "Universal Browser Automation",
+        "description": "Cross-platform browser automation — works on macOS, Linux, and Windows.",
+        "is_template": True,
+        "nodes": [
+            {"id": "focus", "type": "steer_focus", "label": "Focus Browser", "config": {"app": ""}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "ocr", "type": "steer_ocr", "label": "Read Page", "config": {}, "dependencies": ["focus"], "position": {"x": 250, "y": 200}},
+            {"id": "plan", "type": "cu_planner", "label": "Plan Actions", "config": {"objective": ""}, "dependencies": ["ocr"], "position": {"x": 450, "y": 200}},
+            {"id": "click", "type": "steer_click", "label": "Click Element", "config": {}, "dependencies": ["plan"], "position": {"x": 650, "y": 200}},
+            {"id": "type", "type": "steer_type", "label": "Enter Text", "config": {}, "dependencies": ["click"], "position": {"x": 850, "y": 200}},
+            {"id": "see", "type": "steer_see", "label": "Confirmation Screenshot", "config": {}, "dependencies": ["type"], "position": {"x": 1050, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 2},
+        "output_schema": {"type": "json"},
+    },
+]
+
+
 async def seed_blueprint_templates(supabase_client) -> None:
     """Seed pre-built blueprint templates if they don't already exist."""
-    for template in BLUEPRINT_TEMPLATES + CU_BLUEPRINT_TEMPLATES:
+    for template in BLUEPRINT_TEMPLATES + CU_BLUEPRINT_TEMPLATES + V19_BLUEPRINT_TEMPLATES:
         try:
             existing = (
                 supabase_client.table("blueprints")

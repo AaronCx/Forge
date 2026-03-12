@@ -1931,6 +1931,210 @@ def cu_remote_test():
         raise typer.Exit(1)
 
 
+# ─── Agent Backends (agent-on-agent orchestration) ───
+
+backends_app = typer.Typer(help="Manage agent backends (Claude Code, Codex, Gemini CLI, Aider)")
+cu_app.add_typer(backends_app, name="backends")
+
+
+@backends_app.command("list")
+def backends_list():
+    """List configured agent backends."""
+    try:
+        result = client.get("/api/computer-use/status")
+        backends = result.get("agent_backends", [])
+        table = Table(title="Agent Backends")
+        table.add_column("Name", style="cyan")
+        table.add_column("Available", style="green")
+
+        known = ["claude-code", "codex-cli", "gemini-cli", "aider"]
+        for name in known:
+            avail = "✓" if name in backends else "✗"
+            style = "green" if name in backends else "red"
+            table.add_row(name, f"[{style}]{avail}[/{style}]")
+
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@backends_app.command("test")
+def backends_test(name: str = typer.Argument(..., help="Backend name to test")):
+    """Verify a backend CLI is installed and working."""
+    import shutil
+    from agentforge import client as _  # noqa
+
+    backend_commands = {
+        "claude-code": "claude",
+        "codex-cli": "codex",
+        "gemini-cli": "gemini",
+        "aider": "aider",
+    }
+    cmd = backend_commands.get(name, name)
+    path = shutil.which(cmd)
+    if path:
+        console.print(f"[green]✓ {name} found at {path}[/green]")
+    else:
+        console.print(f"[red]✗ {name} ({cmd}) not found in PATH[/red]")
+        raise typer.Exit(1)
+
+
+# ─── Execution Targets (multi-machine dispatch) ───
+
+targets_app = typer.Typer(help="Manage execution targets for multi-machine dispatch")
+app.add_typer(targets_app, name="targets")
+
+
+@targets_app.command("list")
+def targets_list():
+    """Show all execution targets with health status."""
+    try:
+        result = client.get("/api/targets")
+        table = Table(title="Execution Targets")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="cyan")
+        table.add_column("Type")
+        table.add_column("Platform")
+        table.add_column("Status")
+        table.add_column("URL")
+
+        for t in result:
+            status_style = "green" if t["status"] == "healthy" else "red" if t["status"] == "unhealthy" else "yellow"
+            table.add_row(
+                t["id"][:8],
+                t["name"],
+                t["type"],
+                t.get("platform", ""),
+                f"[{status_style}]{t['status']}[/{status_style}]",
+                t.get("listen_url", "") or "local",
+            )
+
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@targets_app.command("add")
+def targets_add(
+    name: str = typer.Option(..., "--name", help="Target name"),
+    url: str = typer.Option(..., "--url", help="Listen server URL"),
+    api_key: str = typer.Option("", "--api-key", help="API key"),
+    platform: str = typer.Option("macos", "--platform", help="Platform (macos/linux/windows)"),
+):
+    """Register a new execution target."""
+    try:
+        result = client.post("/api/targets", json={
+            "name": name,
+            "target_type": "remote",
+            "listen_url": url,
+            "api_key": api_key,
+            "platform": platform,
+        })
+        console.print(f"[green]✓ Added target: {result.get('name')} (ID: {result.get('id', '')[:8]})[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@targets_app.command("health")
+def targets_health():
+    """Run health checks on all targets."""
+    try:
+        targets = client.get("/api/targets")
+        for t in targets:
+            result = client.post(f"/api/targets/{t['id']}/health")
+            status = result.get("status", "unknown")
+            style = "green" if status == "healthy" else "red"
+            console.print(f"  [{style}]{t['name']}: {status}[/{style}]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@targets_app.command("remove")
+def targets_remove(target_id: str = typer.Argument(..., help="Target ID")):
+    """Remove an execution target."""
+    try:
+        result = client.delete(f"/api/targets/{target_id}")
+        if result.get("removed"):
+            console.print(f"[green]✓ Removed target {target_id}[/green]")
+        else:
+            console.print(f"[red]Failed: {result.get('error', 'unknown')}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# ─── Screen Recordings ───
+
+recordings_app = typer.Typer(help="Manage screen recordings of agent sessions")
+app.add_typer(recordings_app, name="recordings")
+
+
+@recordings_app.command("list")
+def recordings_list():
+    """List available recordings."""
+    import os
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    if not os.path.exists(storage):
+        console.print("[yellow]No recordings directory found.[/yellow]")
+        return
+
+    files = sorted(os.listdir(storage), reverse=True)
+    if not files:
+        console.print("[yellow]No recordings found.[/yellow]")
+        return
+
+    table = Table(title="Screen Recordings")
+    table.add_column("File", style="cyan")
+    table.add_column("Size")
+    table.add_column("Modified")
+
+    for f in files[:20]:
+        path = os.path.join(storage, f)
+        size = os.path.getsize(path)
+        mtime = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))
+        table.add_row(f, f"{size / 1024 / 1024:.1f} MB", mtime)
+
+    console.print(table)
+
+
+@recordings_app.command("play")
+def recordings_play(run_id: str = typer.Argument(..., help="Run ID")):
+    """Open a recording in the system video player."""
+    import os
+    import subprocess
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    for f in os.listdir(storage) if os.path.exists(storage) else []:
+        if run_id in f:
+            path = os.path.join(storage, f)
+            subprocess.run(["open", path])
+            console.print(f"[green]Opening {f}[/green]")
+            return
+    console.print(f"[red]No recording found for run {run_id}[/red]")
+
+
+@recordings_app.command("cleanup")
+def recordings_cleanup(older_than: int = typer.Option(30, "--older-than", help="Days")):
+    """Delete recordings older than N days."""
+    import os
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    if not os.path.exists(storage):
+        console.print("[yellow]No recordings directory.[/yellow]")
+        return
+
+    cutoff = time.time() - (older_than * 86400)
+    removed = 0
+    for f in os.listdir(storage):
+        path = os.path.join(storage, f)
+        if os.path.getmtime(path) < cutoff:
+            os.remove(path)
+            removed += 1
+    console.print(f"[green]Removed {removed} recordings older than {older_than} days.[/green]")
+
+
 if __name__ == "__main__":
     app()
 

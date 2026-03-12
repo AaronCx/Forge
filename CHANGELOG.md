@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-03-12
+
+### Added
+
+- **Agent-on-Agent Orchestration**: Spawn and control external coding agents (Claude Code, Codex, Gemini CLI, Aider) as workers in tmux sessions
+  - Agent backend configuration system with 4 pre-configured backends + custom support
+  - Agent runner service with full lifecycle: spawn, prompt, monitor, wait, capture, stop
+  - 6 new deterministic node types: agent_spawn, agent_prompt, agent_monitor, agent_wait, agent_stop, agent_result
+  - Agent Control category in blueprint editor palette with orange styling
+  - Config panels for all agent control nodes (backend selector, session, prompt, timeout, output format)
+  - CLI `backends list` and `backends test` subcommands under `cu`
+- **Multi-Machine Dispatch**: Route blueprint nodes to different execution targets
+  - Execution targets registry (local + remote machines)
+  - Dispatch routing: explicit target → blueprint default → capability-based → local fallback
+  - REST API endpoints: POST/GET/DELETE /api/targets, POST /api/targets/:id/health, GET /api/targets/capabilities
+  - `execution_targets` database table with RLS policies
+  - CLI `targets` command group (list, add, health, remove)
+  - Target selector dropdown in API client
+- **Screen Recording**: Capture video of computer use agent sessions
+  - Recorder service with ffmpeg (avfoundation on macOS, x11grab on Linux)
+  - recording_control blueprint node type (start/stop, quality settings)
+  - Recording storage management with cleanup
+  - CLI `recordings` command group (list, play, cleanup)
+- **Linux Computer Use**: Full GUI automation on Linux
+  - Linux Steer implementation via xdotool, scrot, tesseract, wmctrl, xclip (12 commands)
+  - Xvfb virtual display manager for headless Linux environments
+  - Platform detection for Linux-specific tools
+- **Windows Computer Use**: Full GUI and terminal automation on Windows
+  - Windows Steer implementation via pyautogui, pytesseract, pygetwindow, pyperclip (12 commands)
+  - Windows Drive implementation via PowerShell subprocess management
+  - WSL detection and tmux-via-WSL option for Drive commands
+- **Cross-Platform Unification**: Abstract platform layer
+  - `platform.py` with get_platform(), get_capabilities(), get_steer_executor(), get_drive_executor()
+  - Platform-specific install instructions for macOS, Linux, and Windows
+  - Capability detector extended with platform detection, Linux tools, Windows tools, and agent backends
+- 3 new blueprint templates: Agent Inception, Parallel Multi-Agent Code Review, Universal Browser Automation
+- Platform and agent backend display in settings page
+- Demo data for targets, agent-on-agent sessions
+- 44 total blueprint node types (was 37)
+- 40+ new tests for all v1.9 features
+
 ## [1.8.0] - 2026-03-12
 
 ### Added

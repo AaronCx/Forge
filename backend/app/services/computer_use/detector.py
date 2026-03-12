@@ -26,6 +26,20 @@ class CapabilityReport:
     missing: list[str] = field(default_factory=list)
     install_instructions: dict[str, str] = field(default_factory=dict)
 
+    platform_name: str = "unknown"  # "macos", "linux", "windows"
+    # Linux-specific capabilities
+    xdotool_available: bool = False
+    tesseract_available: bool = False
+    scrot_available: bool = False
+    wmctrl_available: bool = False
+    xclip_available: bool = False
+    xvfb_available: bool = False
+    # Windows-specific capabilities
+    pyautogui_available: bool = False
+    wsl_available: bool = False
+    # Agent backends
+    agent_backends: list[str] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "steer_available": self.steer_available,
@@ -38,9 +52,22 @@ class CapabilityReport:
             "tmux_version": self.tmux_version,
             "macos_version": self.macos_version,
             "is_macos": self.is_macos,
-            "computer_use_ready": self.steer_available and self.drive_available and self.tmux_available,
+            "platform": self.platform_name,
+            "computer_use_ready": self.steer_available and self.drive_available,
             "missing": self.missing,
             "install_instructions": self.install_instructions,
+            # Linux
+            "xdotool_available": self.xdotool_available,
+            "tesseract_available": self.tesseract_available,
+            "scrot_available": self.scrot_available,
+            "wmctrl_available": self.wmctrl_available,
+            "xclip_available": self.xclip_available,
+            "xvfb_available": self.xvfb_available,
+            # Windows
+            "pyautogui_available": self.pyautogui_available,
+            "wsl_available": self.wsl_available,
+            # Agent backends
+            "agent_backends": self.agent_backends,
         }
 
 
@@ -102,60 +129,102 @@ class CapabilityDetector:
 
         report = CapabilityReport()
 
-        # Check macOS
-        report.is_macos = platform.system() == "Darwin"
+        # Detect platform
+        system = platform.system()
+        report.is_macos = system == "Darwin"
         if report.is_macos:
+            report.platform_name = "macos"
             report.macos_version = platform.mac_ver()[0]
+        elif system == "Linux":
+            report.platform_name = "linux"
+        elif system == "Windows":
+            report.platform_name = "windows"
 
-        # Check Steer
-        steer_path = shutil.which("steer")
-        if steer_path:
-            version = _run_version("steer")
-            report.steer_available = True
-            report.steer_version = version or "unknown"
-            report.steer_commands = _get_commands("steer")
-        else:
-            report.missing.append("steer")
-            report.install_instructions["steer"] = (
-                "Install Steer CLI for GUI automation:\n"
-                "  brew install disler/tap/steer\n"
-                "  # Or: pip install steer-cli"
-            )
+        # --- macOS: Check Steer & Drive CLIs ---
+        if report.is_macos:
+            steer_path = shutil.which("steer")
+            if steer_path:
+                version = _run_version("steer")
+                report.steer_available = True
+                report.steer_version = version or "unknown"
+                report.steer_commands = _get_commands("steer")
+            else:
+                report.missing.append("steer")
+                report.install_instructions["steer"] = (
+                    "Install Steer CLI for GUI automation:\n"
+                    "  brew install disler/tap/steer\n"
+                    "  # Or: pip install steer-cli"
+                )
 
-        # Check Drive
-        drive_path = shutil.which("drive")
-        if drive_path:
-            version = _run_version("drive")
-            report.drive_available = True
-            report.drive_version = version or "unknown"
-            report.drive_commands = _get_commands("drive")
-        else:
-            report.missing.append("drive")
-            report.install_instructions["drive"] = (
-                "Install Drive CLI for terminal automation:\n"
-                "  brew install disler/tap/drive\n"
-                "  # Or: pip install drive-cli"
-            )
+            drive_path = shutil.which("drive")
+            if drive_path:
+                version = _run_version("drive")
+                report.drive_available = True
+                report.drive_version = version or "unknown"
+                report.drive_commands = _get_commands("drive")
+            else:
+                report.missing.append("drive")
+                report.install_instructions["drive"] = (
+                    "Install Drive CLI for terminal automation:\n"
+                    "  brew install disler/tap/drive\n"
+                    "  # Or: pip install drive-cli"
+                )
 
-        # Check tmux
+        # --- Linux: Check xdotool, tesseract, scrot, wmctrl, xclip, Xvfb ---
+        elif report.platform_name == "linux":
+            linux_tools = {
+                "xdotool": "xdotool_available",
+                "tesseract": "tesseract_available",
+                "scrot": "scrot_available",
+                "wmctrl": "wmctrl_available",
+                "xclip": "xclip_available",
+                "Xvfb": "xvfb_available",
+            }
+            for tool, attr in linux_tools.items():
+                if shutil.which(tool):
+                    setattr(report, attr, True)
+                else:
+                    report.missing.append(tool)
+                    report.install_instructions[tool] = f"sudo apt install {tool.lower()}"
+
+            # Steer available if xdotool is present
+            report.steer_available = report.xdotool_available
+            if report.steer_available:
+                report.steer_version = "linux-xdotool"
+            # Drive available if tmux is present
+            report.drive_available = shutil.which("tmux") is not None
+
+        # --- Windows: Check pyautogui, WSL ---
+        elif report.platform_name == "windows":
+            try:
+                import pyautogui  # noqa: F401
+                report.pyautogui_available = True
+                report.steer_available = True
+                report.steer_version = "windows-pyautogui"
+            except ImportError:
+                report.missing.append("pyautogui")
+                report.install_instructions["pyautogui"] = "pip install pyautogui"
+
+            report.wsl_available = shutil.which("wsl") is not None
+            report.drive_available = True  # PowerShell always available
+            report.drive_version = "powershell" + (" + wsl-tmux" if report.wsl_available else "")
+
+        # --- Common: Check tmux ---
         tmux_path = shutil.which("tmux")
         if tmux_path:
             version = _run_version("tmux")
             report.tmux_available = True
             report.tmux_version = version or "unknown"
         else:
-            report.missing.append("tmux")
-            report.install_instructions["tmux"] = (
-                "Install tmux (required by Drive):\n"
-                "  brew install tmux"
-            )
+            if "tmux" not in report.missing:
+                report.missing.append("tmux")
+            report.install_instructions.setdefault("tmux", "brew install tmux")
 
-        if not report.is_macos:
-            report.missing.append("macos")
-            report.install_instructions["macos"] = (
-                "Computer use requires macOS. Run AgentForge's backend on a Mac,\n"
-                "or configure remote execution to dispatch to a Mac Mini via Listen."
-            )
+        # --- Check agent backends ---
+        from app.config.agent_backends import BUILTIN_BACKENDS
+        for name, backend in BUILTIN_BACKENDS.items():
+            if shutil.which(backend.command):
+                report.agent_backends.append(name)
 
         self._cached_report = report
         return report

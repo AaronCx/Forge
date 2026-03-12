@@ -157,11 +157,21 @@ export const DEMO_CU_STATUS = {
   tmux_version: "3.4",
   macos_version: "15.3",
   is_macos: true,
+  platform: "macos",
   computer_use_ready: true,
   missing: [],
   install_instructions: {},
   steer_commands: ["see", "ocr", "click", "type", "hotkey", "scroll", "drag", "focus", "find", "wait", "clipboard", "apps"],
   drive_commands: ["session", "run", "send", "logs", "poll", "fanout"],
+  agent_backends: ["claude-code", "aider"],
+  xdotool_available: false,
+  tesseract_available: false,
+  scrot_available: false,
+  wmctrl_available: false,
+  xclip_available: false,
+  xvfb_available: false,
+  pyautogui_available: false,
+  wsl_available: false,
 };
 
 export const DEMO_CU_AUDIT_LOG = [
@@ -196,6 +206,48 @@ export const DEMO_CU_AUDIT_LOG = [
     created_at: "2026-03-12T12:30:10Z",
   },
 ];
+
+export const DEMO_TARGETS = [
+  {
+    id: "local",
+    name: "Local Machine",
+    type: "local",
+    platform: "macos",
+    listen_url: "",
+    capabilities: { steer_available: true, drive_available: true, tmux_available: true },
+    status: "healthy",
+    last_health_check: "2026-03-12T12:00:00Z",
+  },
+  {
+    id: "demo-target-1",
+    name: "Linux Build Server",
+    type: "remote",
+    platform: "linux",
+    listen_url: "http://build-server.tailnet:7600",
+    capabilities: { steer_available: true, drive_available: true, xdotool_available: true },
+    status: "healthy",
+    last_health_check: "2026-03-12T12:00:00Z",
+  },
+];
+
+export const DEMO_AGENT_ON_AGENT = {
+  active_agents: [
+    {
+      session: "af-agent-abc123",
+      backend: "claude-code",
+      status: "running",
+      elapsed_seconds: 42,
+      output_preview: "Analyzing auth module for security issues...",
+    },
+    {
+      session: "af-agent-def456",
+      backend: "codex-cli",
+      status: "running",
+      elapsed_seconds: 38,
+      output_preview: "Checking error handling patterns...",
+    },
+  ],
+};
 
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;

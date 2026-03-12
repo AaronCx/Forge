@@ -563,6 +563,18 @@ export const api = {
     auditLog: (token: string, limit?: number) =>
       request<Record<string, unknown>[]>(`/api/computer-use/audit-log?limit=${limit || 50}`, { token }),
   },
+  targets: {
+    list: (token: string) =>
+      request<Record<string, unknown>[]>("/api/targets", { token }),
+    create: (data: { name: string; target_type: string; listen_url: string; api_key?: string; platform?: string }, token: string) =>
+      request<Record<string, unknown>>("/api/targets", { method: "POST", body: JSON.stringify(data), token }),
+    remove: (id: string, token: string) =>
+      request<Record<string, unknown>>(`/api/targets/${id}`, { method: "DELETE", token }),
+    healthCheck: (id: string, token: string) =>
+      request<Record<string, unknown>>(`/api/targets/${id}/health`, { method: "POST", token }),
+    capabilities: (token: string) =>
+      request<Record<string, unknown>>("/api/targets/capabilities", { token }),
+  },
   organizations: {
     list: (token: string) =>
       request<Organization[]>("/api/organizations", { token }),

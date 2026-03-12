@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { NodeTypeInfo } from "@/lib/api";
 
-const CATEGORY_ORDER = ["context", "transform", "validate", "agent", "output", "computer_use_gui", "computer_use_terminal", "computer_use_agent"];
+const CATEGORY_ORDER = ["context", "transform", "validate", "agent", "output", "computer_use_gui", "computer_use_terminal", "computer_use_agent", "agent_control"];
 const CATEGORY_LABELS: Record<string, string> = {
   context: "Context",
   transform: "Transform",
@@ -13,6 +13,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   computer_use_gui: "GUI (Steer)",
   computer_use_terminal: "Terminal (Drive)",
   computer_use_agent: "CU Agent",
+  agent_control: "Agent Control",
 };
 
 interface NodePaletteProps {
@@ -59,9 +60,11 @@ export function NodePalette({ nodeTypes }: NodePaletteProps) {
                         ? "border-amber-500/30 bg-amber-500/5"
                         : nt.category === "computer_use_agent"
                           ? "border-purple-500/30 bg-green-500/5"
-                          : nt.node_class === "agent"
-                            ? "border-purple-500/30 bg-purple-500/5"
-                            : "border-border bg-muted/50"
+                          : nt.category === "agent_control"
+                            ? "border-orange-500/30 bg-orange-500/5"
+                            : nt.node_class === "agent"
+                              ? "border-purple-500/30 bg-purple-500/5"
+                              : "border-border bg-muted/50"
                   }`}
                 >
                   <div className="font-medium">{nt.display_name}</div>

@@ -26,9 +26,19 @@ interface CUStatus {
   tmux_version: string;
   macos_version: string;
   is_macos: boolean;
+  platform: string;
   computer_use_ready: boolean;
   missing: string[];
   install_instructions: Record<string, string>;
+  agent_backends: string[];
+  xdotool_available?: boolean;
+  tesseract_available?: boolean;
+  scrot_available?: boolean;
+  wmctrl_available?: boolean;
+  xclip_available?: boolean;
+  xvfb_available?: boolean;
+  pyautogui_available?: boolean;
+  wsl_available?: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -64,8 +74,9 @@ export default function SettingsPage() {
       setCuStatus({
         steer_available: false, steer_version: "", drive_available: false, drive_version: "",
         tmux_available: true, tmux_version: "3.4", macos_version: "15.3", is_macos: true,
-        computer_use_ready: false, missing: ["steer", "drive"],
+        platform: "macos", computer_use_ready: false, missing: ["steer", "drive"],
         install_instructions: { steer: "brew install disler/tap/steer", drive: "brew install disler/tap/drive" },
+        agent_backends: [],
       });
       return;
     }
@@ -221,10 +232,24 @@ export default function SettingsPage() {
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
+            Platform: <span className="font-mono">{cuStatus.platform || "unknown"}</span>
+            {" — "}
             {cuStatus.computer_use_ready
               ? "All components installed — computer use nodes available in blueprints."
               : "Install missing components to enable computer use in blueprints."}
           </p>
+          {cuStatus.agent_backends && cuStatus.agent_backends.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-medium mb-2">Agent Backends (Agent-on-Agent)</p>
+              <div className="flex flex-wrap gap-2">
+                {cuStatus.agent_backends.map((b) => (
+                  <span key={b} className="rounded-full border border-orange-500/30 bg-orange-500/5 px-2 py-0.5 text-xs font-medium text-orange-400">
+                    {b}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
