@@ -1373,6 +1373,117 @@ def prompts_diff(
     console.print()
 
 
+# --- Knowledge commands ---
+
+knowledge_app = typer.Typer(help="Manage knowledge base collections")
+app.add_typer(knowledge_app, name="knowledge")
+
+
+@knowledge_app.command("list")
+def knowledge_list():
+    """List knowledge collections."""
+    try:
+        collections = client.get("/api/knowledge/collections")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not collections:
+        console.print("[dim]No knowledge collections.[/dim]")
+        return
+
+    table = Table(title="Knowledge Collections")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Name", style="bold")
+    table.add_column("Docs", justify="right")
+    table.add_column("Chunks", justify="right")
+    table.add_column("Model", style="dim")
+
+    for c in collections:
+        table.add_row(
+            c["id"][:8],
+            c["name"],
+            str(c.get("document_count", 0)),
+            str(c.get("chunk_count", 0)),
+            c.get("embedding_model", ""),
+        )
+
+    console.print(table)
+
+
+@knowledge_app.command("create")
+def knowledge_create(
+    name: str = typer.Option(..., "--name", "-n", help="Collection name"),
+    description: str = typer.Option("", "--desc", "-d", help="Description"),
+):
+    """Create a new knowledge collection."""
+    try:
+        result = client.post("/api/knowledge/collections", json={
+            "name": name,
+            "description": description,
+        })
+        console.print(f"[green]Created collection:[/green] {result['name']} ({result['id'][:8]})")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@knowledge_app.command("add")
+def knowledge_add(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    filename: str = typer.Option(..., "--file", "-f", help="Filename label"),
+    text: str = typer.Option("", "--text", "-t", help="Raw text (or use --stdin)"),
+    stdin: bool = typer.Option(False, "--stdin", help="Read text from stdin"),
+):
+    """Add a document to a collection."""
+    import sys
+    if stdin:
+        text = sys.stdin.read()
+    if not text:
+        console.print("[red]Provide text with --text or --stdin[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[dim]Adding {filename} ({len(text)} chars)...[/dim]")
+    try:
+        result = client.post(f"/api/knowledge/collections/{collection_id}/documents", json={
+            "filename": filename,
+            "raw_text": text,
+        })
+        console.print(f"[green]Added {result.get('filename', filename)}[/green] — "
+                      f"status: {result.get('status', '?')}, chunks: {result.get('chunk_count', 0)}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@knowledge_app.command("search")
+def knowledge_search(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    query: str = typer.Argument(..., help="Search query"),
+    top_k: int = typer.Option(5, "--top-k", "-k", help="Number of results"),
+):
+    """Search a knowledge collection."""
+    console.print(f"[dim]Searching...[/dim]")
+    try:
+        results = client.post(f"/api/knowledge/collections/{collection_id}/search", json={
+            "query": query,
+            "top_k": top_k,
+        })
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not results:
+        console.print("[dim]No results found.[/dim]")
+        return
+
+    for i, r in enumerate(results, 1):
+        sim = r.get("similarity", 0) * 100
+        content = r.get("content", "")[:200]
+        console.print(f"\n[bold]#{i}[/bold] ({sim:.1f}% match)")
+        console.print(Panel(content, border_style="dim"))
+
+
 if __name__ == "__main__":
     app()
 

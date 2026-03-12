@@ -125,6 +125,19 @@ DETERMINISTIC_NODES: dict[str, NodeType] = {
         },
         output_schema={"approved": {"type": "boolean"}, "feedback": {"type": "string"}},
     ),
+    "knowledge_retrieval": NodeType(
+        key="knowledge_retrieval",
+        display_name="Knowledge Retrieval",
+        category="context",
+        node_class="deterministic",
+        description="Retrieves relevant chunks from a knowledge collection using semantic search.",
+        input_schema={
+            "collection_id": {"type": "string", "required": True},
+            "query": {"type": "string", "required": True},
+            "top_k": {"type": "integer", "default": 5},
+        },
+        output_schema={"chunks": {"type": "array"}, "context": {"type": "string"}},
+    ),
 }
 
 # --- Agent node types ---

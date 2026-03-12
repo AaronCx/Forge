@@ -22,6 +22,7 @@ const navItems = [
   { href: "/dashboard/triggers", label: "Triggers" },
   { href: "/dashboard/traces", label: "Traces" },
   { href: "/dashboard/prompts", label: "Prompts" },
+  { href: "/dashboard/knowledge", label: "Knowledge" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

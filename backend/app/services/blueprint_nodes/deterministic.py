@@ -194,6 +194,36 @@ async def execute_approval_gate(config: dict, inputs: dict[str, Any]) -> dict[st
     raise ValueError("APPROVAL_PENDING: Execution paused awaiting human approval")
 
 
+async def execute_knowledge_retrieval(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Retrieve relevant chunks from a knowledge collection via semantic search."""
+    from app.services.knowledge.knowledge_service import knowledge_service
+
+    collection_id = config.get("collection_id") or inputs.get("collection_id", "")
+    query = config.get("query") or inputs.get("query", "")
+    top_k = config.get("top_k", 5)
+    user_id = config.get("_user_id", "")
+
+    if not collection_id or not query:
+        raise ValueError("knowledge_retrieval: 'collection_id' and 'query' are required")
+
+    results = await knowledge_service.search(
+        user_id=user_id,
+        collection_id=collection_id,
+        query=query,
+        top_k=top_k,
+    )
+
+    # Build context string from chunks
+    context_parts = []
+    for r in results:
+        context_parts.append(r.get("content", ""))
+
+    return {
+        "chunks": results,
+        "context": "\n\n---\n\n".join(context_parts),
+    }
+
+
 DETERMINISTIC_EXECUTORS = {
     "fetch_url": execute_fetch_url,
     "fetch_document": execute_fetch_document,
@@ -204,4 +234,5 @@ DETERMINISTIC_EXECUTORS = {
     "webhook": execute_webhook,
     "output_formatter": execute_output_formatter,
     "approval_gate": execute_approval_gate,
+    "knowledge_retrieval": execute_knowledge_retrieval,
 }

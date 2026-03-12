@@ -20,6 +20,7 @@ from app.routers import (
     costs,
     dashboard,
     evals,
+    knowledge,
     mcp,
     messages,
     orchestration,
@@ -57,7 +58,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="AgentForge API",
     description="AI workflow agent platform backend",
-    version="1.5.0",
+    version="1.6.0",
     lifespan=lifespan,
 )
 
@@ -90,11 +91,12 @@ app.include_router(evals.router, prefix="/api")
 app.include_router(approvals.router, prefix="/api")
 app.include_router(traces.router, prefix="/api")
 app.include_router(prompt_versions.router, prefix="/api")
+app.include_router(knowledge.router, prefix="/api")
 
 
 @app.get("/")
 async def root():
-    return {"name": "AgentForge API", "version": "1.5.0", "status": "running"}
+    return {"name": "AgentForge API", "version": "1.6.0", "status": "running"}
 
 
 @app.get("/health")

@@ -253,6 +253,41 @@ export interface Approval {
   created_at: string;
 }
 
+export interface KnowledgeCollection {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  embedding_model: string;
+  chunk_size: number;
+  chunk_overlap: number;
+  document_count: number;
+  chunk_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  collection_id: string;
+  filename: string;
+  content_type: string;
+  file_size: number;
+  chunk_count: number;
+  status: "pending" | "processing" | "ready" | "error";
+  created_at: string;
+}
+
+export interface SearchResult {
+  chunk_id: string;
+  document_id: string;
+  content: string;
+  chunk_index: number;
+  similarity: number;
+  metadata: Record<string, unknown>;
+  collection_id?: string;
+}
+
 export interface Trace {
   id: string;
   user_id: string;
@@ -396,6 +431,26 @@ export const api = {
       request<Approval>(`/api/approvals/${id}/approve`, { method: "POST", body: JSON.stringify({ feedback }), token }),
     reject: (id: string, feedback: string, token: string) =>
       request<Approval>(`/api/approvals/${id}/reject`, { method: "POST", body: JSON.stringify({ feedback }), token }),
+  },
+  knowledge: {
+    collections: (token: string) =>
+      request<KnowledgeCollection[]>("/api/knowledge/collections", { token }),
+    getCollection: (id: string, token: string) =>
+      request<KnowledgeCollection>(`/api/knowledge/collections/${id}`, { token }),
+    createCollection: (data: { name: string; description?: string; embedding_model?: string; chunk_size?: number; chunk_overlap?: number }, token: string) =>
+      request<KnowledgeCollection>("/api/knowledge/collections", { method: "POST", body: JSON.stringify(data), token }),
+    deleteCollection: (id: string, token: string) =>
+      request<void>(`/api/knowledge/collections/${id}`, { method: "DELETE", token }),
+    documents: (collectionId: string, token: string) =>
+      request<KnowledgeDocument[]>(`/api/knowledge/collections/${collectionId}/documents`, { token }),
+    addDocument: (collectionId: string, data: { filename: string; raw_text: string; content_type?: string }, token: string) =>
+      request<KnowledgeDocument>(`/api/knowledge/collections/${collectionId}/documents`, { method: "POST", body: JSON.stringify(data), token }),
+    deleteDocument: (docId: string, token: string) =>
+      request<void>(`/api/knowledge/documents/${docId}`, { method: "DELETE", token }),
+    search: (collectionId: string, data: { query: string; top_k?: number }, token: string) =>
+      request<SearchResult[]>(`/api/knowledge/collections/${collectionId}/search`, { method: "POST", body: JSON.stringify(data), token }),
+    searchMulti: (data: { collection_ids: string[]; query: string; top_k?: number }, token: string) =>
+      request<SearchResult[]>("/api/knowledge/search", { method: "POST", body: JSON.stringify(data), token }),
   },
   triggers: {
     list: (token: string) => request<Trigger[]>("/api/triggers", { token }),
