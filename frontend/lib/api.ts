@@ -33,6 +33,7 @@ export interface Agent {
   system_prompt: string;
   tools: string[];
   workflow_steps: string[];
+  model: string | null;
   is_template: boolean;
   created_at: string;
   updated_at: string;
@@ -58,6 +59,46 @@ export interface AgentCreate {
   system_prompt: string;
   tools: string[];
   workflow_steps: string[];
+  model?: string | null;
+}
+
+export interface ProviderInfo {
+  providers: string[];
+  default_model: string;
+  default_provider: string | null;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  context_window: number | null;
+  max_output_tokens: number | null;
+  supports_tools: boolean;
+  supports_streaming: boolean;
+}
+
+export interface ProviderHealthInfo {
+  provider: string;
+  status: "healthy" | "degraded" | "unavailable";
+  latency_ms: number | null;
+  error: string | null;
+}
+
+export interface CompareResult {
+  model: string;
+  provider: string;
+  content: string;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  cost: number;
+  error: string | null;
+}
+
+export interface CompareResponse {
+  id: string;
+  results: CompareResult[];
 }
 
 export interface BlueprintNode {
@@ -153,5 +194,17 @@ export const api = {
       `${API_URL}/api/blueprints/${id}/run`,
     getRun: (runId: string, token: string) => request<BlueprintRun>(`/api/blueprints/runs/${runId}`, { token }),
     listRuns: (id: string, token: string) => request<BlueprintRun[]>(`/api/blueprints/${id}/runs`, { token }),
+  },
+  providers: {
+    list: (token: string) => request<ProviderInfo>("/api/providers", { token }),
+    models: (token: string) => request<ModelInfo[]>("/api/providers/models", { token }),
+    providerModels: (provider: string, token: string) =>
+      request<ModelInfo[]>(`/api/providers/models/${provider}`, { token }),
+    health: (token: string) => request<ProviderHealthInfo[]>("/api/providers/health", { token }),
+  },
+  compare: {
+    run: (data: { prompt: string; system_prompt?: string; models: string[]; temperature?: number; max_tokens?: number }, token: string) =>
+      request<CompareResponse>("/api/compare", { method: "POST", body: JSON.stringify(data), token }),
+    get: (id: string, token: string) => request<CompareResponse>(`/api/compare/${id}`, { token }),
   },
 };

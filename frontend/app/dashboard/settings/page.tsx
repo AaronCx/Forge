@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { api } from "@/lib/api";
+import { api, ProviderHealthInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,12 @@ interface ApiKey {
   last_used_at: string | null;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  healthy: "bg-green-500",
+  degraded: "bg-yellow-500",
+  unavailable: "bg-red-500",
+};
+
 export default function SettingsPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
@@ -23,6 +29,9 @@ export default function SettingsPage() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [providerHealth, setProviderHealth] = useState<ProviderHealthInfo[]>([]);
+  const [defaultModel, setDefaultModel] = useState("");
+  const [providers, setProviders] = useState<string[]>([]);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -31,6 +40,11 @@ export default function SettingsPage() {
         { id: "demo-key-2", name: "development", created_at: "2026-03-11T14:00:00Z", last_used_at: null },
       ]);
       setTotalTokens(482_350);
+      setProviderHealth([
+        { provider: "openai", status: "healthy", latency_ms: 120, error: null },
+      ]);
+      setDefaultModel("gpt-4o-mini");
+      setProviders(["openai"]);
       return;
     }
     loadData();
@@ -41,12 +55,17 @@ export default function SettingsPage() {
     if (!data.session) return;
 
     try {
-      const [keyList, stats] = await Promise.all([
+      const [keyList, stats, providerInfo, health] = await Promise.all([
         api.keys.list(data.session.access_token),
         api.stats.get(data.session.access_token),
+        api.providers.list(data.session.access_token),
+        api.providers.health(data.session.access_token).catch(() => [] as ProviderHealthInfo[]),
       ]);
       setKeys(keyList);
       setTotalTokens(stats.total_tokens);
+      setDefaultModel(providerInfo.default_model);
+      setProviders(providerInfo.providers);
+      setProviderHealth(health);
     } catch {
       // API may not be running
     }
@@ -87,7 +106,7 @@ export default function SettingsPage() {
     <div>
       <h1 className="text-3xl font-bold">Settings</h1>
       <p className="mt-1 text-muted-foreground">
-        Manage API keys and view usage
+        Manage API keys, providers, and view usage
       </p>
 
       {error && (
@@ -95,6 +114,45 @@ export default function SettingsPage() {
           {error}
         </div>
       )}
+
+      {/* Provider Health */}
+      <div className="mt-6">
+        <h2 className="mb-3 text-lg font-semibold">Providers</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {providers.map((name) => {
+            const health = providerHealth.find((h) => h.provider === name);
+            const status = health?.status || "unavailable";
+            return (
+              <div
+                key={name}
+                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+              >
+                <div
+                  className={`h-2.5 w-2.5 rounded-full ${STATUS_COLORS[status] || STATUS_COLORS.unavailable}`}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium capitalize">{name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {status === "healthy" && health?.latency_ms
+                      ? `${Math.round(health.latency_ms)}ms`
+                      : status}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          {providers.length === 0 && (
+            <p className="text-sm text-muted-foreground col-span-full">
+              No providers configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.
+            </p>
+          )}
+        </div>
+        {defaultModel && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Default model: <span className="font-mono">{defaultModel}</span>
+          </p>
+        )}
+      </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <Card>

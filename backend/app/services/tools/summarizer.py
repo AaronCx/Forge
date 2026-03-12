@@ -1,18 +1,12 @@
-import os
-
 from langchain.tools import tool
-from openai import AsyncOpenAI
 
-from app.config import DEFAULT_MODEL
+from app.providers.registry import provider_registry
 
 
 @tool
 async def summarizer(text: str) -> str:
     """Summarize long text into a concise, well-structured summary. Preserves key information and action items."""
-    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
-
-    response = await client.chat.completions.create(
-        model=DEFAULT_MODEL,
+    response = await provider_registry.complete(
         messages=[
             {
                 "role": "system",
@@ -26,5 +20,4 @@ async def summarizer(text: str) -> str:
         ],
         temperature=0,
     )
-
-    return response.choices[0].message.content or "Unable to generate summary."
+    return response.content or "Unable to generate summary."

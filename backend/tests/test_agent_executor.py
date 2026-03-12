@@ -1,25 +1,28 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.providers.base import LLMResponse
 from app.services.agent_executor import AgentRunner
 
 
 @pytest.mark.asyncio
 async def test_execute_single_step():
-    runner = AgentRunner()
+    mock_response = LLMResponse(
+        content="Test output",
+        model="gpt-4o-mini",
+        input_tokens=20,
+        output_tokens=30,
+        finish_reason="stop",
+        latency_ms=100,
+        provider="openai",
+    )
 
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "Test output"
-    mock_response.usage = MagicMock()
-    mock_response.usage.total_tokens = 50
+    with patch("app.services.agent_executor.provider_registry") as mock_registry:
+        mock_registry.complete = AsyncMock(return_value=mock_response)
+        mock_registry.default_model = "gpt-4o-mini"
 
-    with patch("openai.AsyncOpenAI") as mock_cls:
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_cls.return_value = mock_client
-
+        runner = AgentRunner()
         config = {
             "name": "Test Agent",
             "system_prompt": "You are a test agent.",
@@ -39,19 +42,21 @@ async def test_execute_single_step():
 
 @pytest.mark.asyncio
 async def test_execute_multi_step():
-    runner = AgentRunner()
+    mock_response = LLMResponse(
+        content="Step result",
+        model="gpt-4o-mini",
+        input_tokens=10,
+        output_tokens=20,
+        finish_reason="stop",
+        latency_ms=50,
+        provider="openai",
+    )
 
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "Step result"
-    mock_response.usage = MagicMock()
-    mock_response.usage.total_tokens = 30
+    with patch("app.services.agent_executor.provider_registry") as mock_registry:
+        mock_registry.complete = AsyncMock(return_value=mock_response)
+        mock_registry.default_model = "gpt-4o-mini"
 
-    with patch("openai.AsyncOpenAI") as mock_cls:
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_cls.return_value = mock_client
-
+        runner = AgentRunner()
         config = {
             "name": "Multi-Step Agent",
             "system_prompt": "You are a test agent.",
@@ -71,7 +76,9 @@ async def test_execute_multi_step():
 
 
 def test_resolve_tools():
-    runner = AgentRunner()
+    with patch("app.services.agent_executor.provider_registry") as mock_registry:
+        mock_registry.default_model = "gpt-4o-mini"
+        runner = AgentRunner()
 
     tools = runner._resolve_tools(["web_search", "summarizer"])
     assert len(tools) == 2

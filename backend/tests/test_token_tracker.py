@@ -20,9 +20,9 @@ class TestCalculateCost:
         assert cost == 12.50  # 2.50 + 10.00
 
     def test_unknown_model_uses_default(self):
-        """Unknown model falls back to gpt-4o-mini pricing."""
+        """Unknown model falls back to default pricing ($1.00/$3.00 per 1M)."""
         cost = calculate_cost("unknown-model", 1_000_000, 1_000_000)
-        assert cost == 0.75
+        assert cost == 4.0  # 1.00 + 3.00
 
     def test_zero_tokens(self):
         """Zero tokens costs nothing."""

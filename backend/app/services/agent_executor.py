@@ -6,7 +6,7 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
-from app.config import DEFAULT_MODEL
+from app.providers.registry import provider_registry
 from app.services.tools.code_executor import code_executor
 from app.services.tools.data_extractor import data_extractor
 from app.services.tools.document_reader import document_reader
@@ -27,9 +27,12 @@ TOOL_REGISTRY = {
 class AgentRunner:
     """Executes agent workflows step-by-step using LangChain with tool integration."""
 
-    def __init__(self):
+    def __init__(self, model: str | None = None):
+        self.model = model or provider_registry.default_model
+        # LangChain agent still needs ChatOpenAI for tool-calling agents
+        # We route through provider registry for non-tool steps
         self.llm = ChatOpenAI(  # type: ignore[call-arg]
-            model=DEFAULT_MODEL,
+            model=self.model,
             temperature=0,
             streaming=True,
             api_key=os.getenv("OPENAI_API_KEY", ""),  # type: ignore[arg-type]
@@ -49,6 +52,9 @@ class AgentRunner:
         tool_names = agent_config.get("tools", [])
         workflow_steps = agent_config.get("workflow_steps", [])
         tools = self._resolve_tools(tool_names)
+
+        # Per-agent model override
+        model = agent_config.get("model") or self.model
 
         if not workflow_steps:
             workflow_steps = ["Process the user's input according to your instructions."]
@@ -74,7 +80,7 @@ class AgentRunner:
             if tools:
                 result = await self._execute_with_tools(system_prompt, step, user_input, accumulated_context, tools)
             else:
-                result = await self._execute_step(system_prompt, step, user_input, accumulated_context)
+                result = await self._execute_step(system_prompt, step, user_input, accumulated_context, model=model)
 
             step_tokens = result.get("tokens", 0)
             total_tokens += step_tokens
@@ -117,12 +123,10 @@ class AgentRunner:
             "tokens": 0,
         }
 
-    async def _execute_step(self, system_prompt: str, step: str, user_input: str, context: str) -> dict:
-        """Execute a single workflow step using the OpenAI API directly."""
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
-
+    async def _execute_step(
+        self, system_prompt: str, step: str, user_input: str, context: str, *, model: str | None = None
+    ) -> dict:
+        """Execute a single workflow step via the provider registry."""
         full_input = user_input
         if context:
             full_input = f"{user_input}\n\nPrevious step results:\n{context}"
@@ -132,14 +136,13 @@ class AgentRunner:
             {"role": "user", "content": full_input},
         ]
 
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,  # type: ignore[arg-type]
+        response = await provider_registry.complete(
+            messages=messages,
+            model=model,
             temperature=0,
         )
 
-        choice = response.choices[0]
         return {
-            "content": choice.message.content or "",
-            "tokens": response.usage.total_tokens if response.usage else 0,
+            "content": response.content,
+            "tokens": response.input_tokens + response.output_tokens,
         }
