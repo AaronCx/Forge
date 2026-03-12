@@ -52,12 +52,14 @@ async def run_agent(
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
-    # Get agent config
+    # Get agent config and verify ownership
     agent_result = supabase.table("agents").select("*").eq("id", agent_id).single().execute()
     if not agent_result.data:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     agent_config = agent_result.data
+    if agent_config["user_id"] != user.id and not agent_config.get("is_template", False):
+        raise HTTPException(status_code=403, detail="Not authorized to run this agent")
 
     # Create run record
     run_result = supabase.table("runs").insert({
