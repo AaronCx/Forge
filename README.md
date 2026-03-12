@@ -1,8 +1,8 @@
 # AgentForge
 
-**AI workflow agent platform — build, configure, and run multi-step AI agents with tool use.**
+**Multi-agent AI workflow platform — build, orchestrate, and monitor AI agents with tool use.**
 
-Build custom AI agents that chain LLM calls, search the web, parse documents, extract structured data, execute code, and automate repetitive tasks — all through a clean web interface.
+Build custom AI agents that chain LLM calls, search the web, parse documents, extract structured data, execute code, and automate repetitive tasks. Orchestrate multi-agent objectives with dependency graphs and real-time monitoring.
 
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
@@ -26,6 +26,21 @@ Create custom agents with a name, system prompt, tool selection, and multi-step 
 ### Agent Runner
 Execute agents with text input or file uploads. Real-time SSE streaming shows step-by-step execution with output appearing as it's generated.
 
+### Multi-Agent Orchestration
+Submit high-level objectives and let agents decompose tasks, respect dependency graphs, and execute concurrently. Roles include coordinator, supervisor, worker, scout, and reviewer.
+
+### Live Monitoring Dashboard
+Real-time dashboard with agent heartbeat tracking, SSE-powered updates, stalled agent detection (30s threshold), and event timeline with severity filtering.
+
+### Inter-Agent Messaging
+Agents communicate via typed messages (info, request, response, error, handoff) within task groups. View message feeds with type filtering and bilateral conversation history.
+
+### Cost Analytics
+Track token usage per agent, model, and run. Get daily/weekly/monthly summaries, breakdown reports by agent or model, per-run step-by-step usage, and monthly cost projections.
+
+### CLI
+Full command-line interface with live TUI dashboard, agent management, orchestration, message viewing, and cost analysis.
+
 ### Pre-built Templates
 
 | Agent | Description | Tools Used |
@@ -34,13 +49,6 @@ Execute agents with text input or file uploads. Real-time SSE streaming shows st
 | **Research Agent** | Topic → web search, synthesis, structured report | web_search, summarizer |
 | **Data Extractor** | Unstructured text → clean JSON with entities and relationships | data_extractor |
 | **Code Reviewer** | Code → bug, security, and performance review with severity ratings | code_executor |
-
-### Dashboard
-- Agent management with run counts
-- Run history with expandable execution logs
-- Token usage tracking with cost estimates
-- Rate limit status (10 runs/hour free tier)
-- API key generation for programmatic access
 
 ### Tools Library
 
@@ -67,6 +75,8 @@ graph TB
     subgraph Backend["Backend (FastAPI)"]
         API[REST API]
         Executor[Agent Executor]
+        Orchestrator[Orchestrator]
+        Messaging[Messaging Service]
         Tools[Tool Registry]
         Stream[SSE Streaming]
         RL[Rate Limiter]
@@ -83,6 +93,9 @@ graph TB
     SSE --> Stream
     API --> RL
     API --> Executor
+    API --> Orchestrator
+    Orchestrator --> Executor
+    Orchestrator --> Messaging
     Executor --> Tools
     Executor --> OpenAI
     Tools --> SerpAPI
@@ -99,8 +112,10 @@ graph TB
 |-------|-----------|
 | Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, Bun |
 | Backend | Python 3.12, FastAPI, LangChain, OpenAI API |
+| CLI | Typer, Rich, httpx |
 | Database | PostgreSQL via Supabase |
 | Auth | Supabase Auth (email + GitHub OAuth) |
+| Testing | pytest + pytest-asyncio (backend), vitest + testing-library (frontend) |
 | Deployment | Vercel (frontend) + Render (backend) |
 | CI/CD | GitHub Actions |
 
@@ -111,7 +126,6 @@ graph TB
 ### Prerequisites
 
 - [Bun](https://bun.sh) (frontend package manager and build tool)
-- Node.js 20+ (used in production Docker runner)
 - Python 3.12+
 - Supabase project ([create one](https://supabase.com))
 - OpenAI API key
@@ -132,13 +146,17 @@ supabase/migrations/001_users.sql
 supabase/migrations/002_agents.sql
 supabase/migrations/003_runs.sql
 supabase/migrations/004_api_keys.sql
+supabase/migrations/005_agent_heartbeats.sql
+supabase/migrations/006_token_usage.sql
+supabase/migrations/007_hierarchy.sql
+supabase/migrations/008_agent_messages.sql
 ```
 
 ### 3. Set up the backend
 
 ```bash
 cd backend
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -164,13 +182,32 @@ cp .env.example .env.local
 bun run dev
 ```
 
-### 5. Using Docker
+### 5. Install the CLI (optional)
+
+```bash
+cd cli
+pip install -e .
+agentforge init
+# Edit ~/.agentforge/config.toml with your API URL and key
+```
+
+### 6. Using Docker
 
 ```bash
 cp backend/.env.example .env
 # Edit .env with all required keys
 
 docker-compose up --build
+```
+
+---
+
+## Demo Mode
+
+Visit the app with `?demo=true` to explore the dashboard without authentication:
+
+```
+http://localhost:3000/dashboard?demo=true
 ```
 
 ---
@@ -207,12 +244,6 @@ All API endpoints require a Bearer token from Supabase Auth:
 Authorization: Bearer <supabase-access-token>
 ```
 
-Or use an API key generated from the Settings page:
-
-```
-Authorization: Bearer <af_...>
-```
-
 ### Endpoints
 
 #### Agents
@@ -234,6 +265,42 @@ Authorization: Bearer <af_...>
 | `GET` | `/api/runs/:id` | Get run details |
 | `POST` | `/api/agents/:id/run` | Execute an agent (SSE stream) |
 
+#### Orchestration
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/orchestrate` | Start multi-agent orchestration (SSE stream) |
+| `GET` | `/api/orchestrate/groups` | List orchestration groups |
+| `GET` | `/api/orchestrate/groups/:id` | Get group details with members |
+| `GET` | `/api/orchestrate/groups/:id/result` | Get final orchestration result |
+
+#### Messages
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/messages` | Send inter-agent message |
+| `GET` | `/api/messages/:group_id` | Get messages for a group |
+| `GET` | `/api/messages/:group_id/conversation` | Get bilateral agent conversation |
+
+#### Dashboard
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/dashboard/active` | Active agent heartbeats |
+| `GET` | `/api/dashboard/metrics` | Aggregate metrics |
+| `GET` | `/api/dashboard/timeline` | Event timeline |
+| `GET` | `/api/dashboard/stream` | SSE stream for live updates |
+| `GET` | `/api/dashboard/health` | Health check |
+
+#### Costs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/costs/summary` | Cost summary by period |
+| `GET` | `/api/costs/breakdown` | Cost breakdown by agent/model |
+| `GET` | `/api/costs/run/:id` | Per-run token usage |
+| `GET` | `/api/costs/projection` | Monthly cost projection |
+
 #### API Keys
 
 | Method | Path | Description |
@@ -242,39 +309,53 @@ Authorization: Bearer <af_...>
 | `POST` | `/api/keys` | Generate a new key |
 | `DELETE` | `/api/keys/:id` | Revoke a key |
 
-#### Stats
+---
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/stats` | Get usage statistics |
-
-### Example: Create and Run an Agent
+## CLI Usage
 
 ```bash
-# Create an agent
-curl -X POST http://localhost:8000/api/agents \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "My Summarizer",
-    "system_prompt": "Summarize the following text concisely.",
-    "tools": ["summarizer"],
-    "workflow_steps": ["Read the input", "Generate a concise summary"]
-  }'
+# Initialize CLI
+agentforge init
 
-# Run the agent (SSE stream)
-curl -N "http://localhost:8000/api/agents/<agent-id>/run?token=$TOKEN&input_text=Your+text+here" \
-  -X POST
+# Check server status
+agentforge status
+
+# Live TUI dashboard
+agentforge dashboard
+
+# List agents
+agentforge agents list
+
+# Run an agent
+agentforge agents run <agent-id> --input "Your text here"
+
+# Start orchestration
+agentforge orchestrate "Research AI agent frameworks and compare their approaches"
+
+# View messages
+agentforge messages list <group-id>
+
+# View costs
+agentforge costs --period week --breakdown agent
 ```
 
 ---
 
 ## Running Tests
 
+### Backend
+
 ```bash
 cd backend
-pip install pytest pytest-asyncio
-pytest tests/ -v
+source .venv/bin/activate
+pytest tests/ -v --cov=app
+```
+
+### Frontend
+
+```bash
+cd frontend
+bun run test
 ```
 
 ---
@@ -283,19 +364,30 @@ pytest tests/ -v
 
 ```
 agentforge/
-├── frontend/          # Next.js 14 + TypeScript + Tailwind + shadcn/ui
-│   ├── app/           # App Router pages (auth, dashboard, agents, runs, settings)
-│   ├── components/    # UI components (agents, runner, dashboard)
-│   └── lib/           # Supabase client, API client, utilities
-├── backend/           # FastAPI + LangChain + OpenAI
+├── frontend/               # Next.js 14 + TypeScript + Tailwind + shadcn/ui
+│   ├── app/                # App Router pages
+│   │   ├── dashboard/      # Dashboard, monitor, analytics, orchestrate, agents, runs, settings
+│   │   ├── login/          # Auth pages
+│   │   └── signup/
+│   ├── components/         # UI components
+│   │   ├── agents/         # AgentCard, ToolSelector, WorkflowEditor
+│   │   ├── dashboard/      # MetricsBar, AgentStatusGrid, EventTimeline, MessageFeed
+│   │   ├── runner/         # StepLog
+│   │   └── ui/             # shadcn/ui primitives
+│   ├── lib/                # Supabase client, API client, demo data, utilities
+│   └── tests/              # Vitest component tests
+├── backend/                # FastAPI + LangChain + OpenAI
 │   ├── app/
-│   │   ├── routers/   # API endpoints (agents, runs, auth, api_keys)
-│   │   ├── services/  # Agent executor, tools, rate limiter, templates
-│   │   └── models/    # Pydantic models
-│   └── tests/         # Unit tests
-├── supabase/          # Database migrations
-├── .github/workflows/ # CI/CD pipelines
-└── docker-compose.yml # Docker orchestration
+│   │   ├── routers/        # agents, runs, auth, api_keys, dashboard, costs, orchestration, messages
+│   │   ├── services/       # agent_executor, heartbeat, orchestrator, messaging, token_tracker, tools
+│   │   └── models/         # Pydantic models
+│   └── tests/              # pytest unit tests
+├── cli/                    # Typer + Rich CLI
+│   ├── agentforge/         # main, client, config
+│   └── tests/              # CLI tests
+├── supabase/               # Database migrations (001-008)
+├── .github/workflows/      # CI/CD pipeline
+└── docker-compose.yml      # Docker orchestration
 ```
 
 ---
