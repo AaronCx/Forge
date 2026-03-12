@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { isDemoMode } from "@/lib/demo-data";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -18,34 +17,36 @@ const navItems = [
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [userEmail, setUserEmail] = useState("");
 
-  const demo = isDemoMode();
+  const isDemo = searchParams.has("demo") || (typeof window !== "undefined" && sessionStorage.getItem("agentforge_demo") === "1");
 
   useEffect(() => {
-    if (demo) {
+    if (isDemo) {
+      sessionStorage.setItem("agentforge_demo", "1");
       setUserEmail("demo@agentforge.dev");
       return;
     }
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!data.user) {
+          router.push("/login");
+          return;
+        }
+        setUserEmail(data.user.email || "");
+      })
+      .catch(() => {
         router.push("/login");
-        return;
-      }
-      setUserEmail(data.user.email || "");
-    }).catch(() => {
-      router.push("/login");
-    });
-  }, [demo, router]);
+      });
+  }, [isDemo, router]);
 
   async function handleLogout() {
+    sessionStorage.removeItem("agentforge_demo");
     await supabase.auth.signOut();
     document.cookie = "sb-access-token=; max-age=0; path=/";
     router.push("/login");
@@ -63,20 +64,20 @@ export default function DashboardLayout({
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navItems.map((item) => {
-            const href = isDemoMode() ? `${item.href}?demo=true` : item.href;
+            const href = isDemo ? `${item.href}?demo=true` : item.href;
             return (
-            <Link
-              key={item.href}
-              href={href}
-              className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                pathname === item.href
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              {item.label}
-            </Link>
+              <Link
+                key={item.href}
+                href={href}
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  pathname === item.href
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                {item.label}
+              </Link>
             );
           })}
         </nav>
@@ -98,5 +99,17 @@ export default function DashboardLayout({
         <div className="mx-auto max-w-6xl p-8">{children}</div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense>
+      <DashboardShell>{children}</DashboardShell>
+    </Suspense>
   );
 }
