@@ -762,6 +762,202 @@ def models_test(
         raise typer.Exit(1)
 
 
+# --- MCP commands ---
+
+mcp_app = typer.Typer(help="Manage MCP server connections")
+app.add_typer(mcp_app, name="mcp")
+
+
+@mcp_app.command("connect")
+def mcp_connect(
+    name: str = typer.Option(..., "--name", "-n", help="Connection name"),
+    url: str = typer.Option(..., "--url", "-u", help="MCP server URL"),
+):
+    """Connect to an MCP server."""
+    try:
+        result = client.post("/api/mcp/connect", json={
+            "name": name,
+            "server_url": url,
+        })
+        tools = result.get("tools_discovered", [])
+        console.print(f"[green]Connected to {result['name']}[/green]")
+        console.print(f"  Status: {result['status']}")
+        console.print(f"  Tools discovered: {len(tools)}")
+        for t in tools[:10]:
+            console.print(f"    - {t['name']}: {t.get('description', '')[:60]}")
+        if len(tools) > 10:
+            console.print(f"    ... and {len(tools) - 10} more")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@mcp_app.command("list")
+def mcp_list():
+    """List MCP server connections."""
+    try:
+        connections = client.get("/api/mcp/connections")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not connections:
+        console.print("[dim]No MCP connections.[/dim]")
+        return
+
+    table = Table(title="MCP Connections")
+    table.add_column("Name", style="bold")
+    table.add_column("URL")
+    table.add_column("Status")
+    table.add_column("Tools", justify="right")
+
+    status_colors = {"connected": "green", "disconnected": "yellow", "error": "red"}
+
+    for conn in connections:
+        status = conn.get("status", "unknown")
+        color = status_colors.get(status, "white")
+        tools_count = len(conn.get("tools_discovered", []))
+        table.add_row(
+            conn["name"],
+            conn["server_url"],
+            f"[{color}]{status}[/{color}]",
+            str(tools_count),
+        )
+
+    console.print(table)
+
+
+@mcp_app.command("test")
+def mcp_test(
+    connection_id: str = typer.Argument(..., help="Connection ID to test"),
+):
+    """Test an MCP server connection."""
+    try:
+        result = client.post(f"/api/mcp/connections/{connection_id}/test", json={})
+        status = result.get("status", "unknown")
+        color = {"connected": "green", "disconnected": "yellow", "error": "red"}.get(status, "white")
+        console.print(f"Status: [{color}]{status}[/{color}]")
+        if result.get("latency_ms"):
+            console.print(f"Latency: {result['latency_ms']:.0f}ms")
+        if result.get("error"):
+            console.print(f"[red]Error: {result['error']}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@mcp_app.command("tools")
+def mcp_tools():
+    """List all available tools (built-in + MCP)."""
+    try:
+        tools = client.get("/api/tools")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not tools:
+        console.print("[dim]No tools available.[/dim]")
+        return
+
+    table = Table(title="Available Tools")
+    table.add_column("Name", style="bold")
+    table.add_column("Source")
+    table.add_column("Description")
+
+    for t in tools:
+        source = t.get("source", "built-in")
+        source_style = "blue" if source == "built-in" else "purple"
+        table.add_row(
+            t["name"],
+            f"[{source_style}]{source}[/{source_style}]",
+            t.get("description", "")[:60],
+        )
+
+    console.print(table)
+
+
+# --- Trigger commands ---
+
+triggers_app = typer.Typer(help="Manage event triggers")
+app.add_typer(triggers_app, name="triggers")
+
+
+@triggers_app.command("list")
+def triggers_list():
+    """List all triggers."""
+    try:
+        triggers = client.get("/api/triggers")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not triggers:
+        console.print("[dim]No triggers configured.[/dim]")
+        return
+
+    table = Table(title="Triggers")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Type", style="bold")
+    table.add_column("Target")
+    table.add_column("Enabled")
+    table.add_column("Fired", justify="right")
+
+    for t in triggers:
+        enabled_str = "[green]Yes[/green]" if t.get("enabled") else "[red]No[/red]"
+        target = f"{t['target_type']}:{t['target_id'][:8]}"
+        table.add_row(
+            t["id"][:8],
+            t["type"],
+            target,
+            enabled_str,
+            str(t.get("fire_count", 0)),
+        )
+
+    console.print(table)
+
+
+@triggers_app.command("create")
+def triggers_create(
+    trigger_type: str = typer.Option(..., "--type", "-t", help="Trigger type: webhook, cron, mcp_event"),
+    target_type: str = typer.Option(..., "--target-type", help="Target type: agent or blueprint"),
+    target_id: str = typer.Option(..., "--target-id", help="Target agent/blueprint ID"),
+    cron: str = typer.Option("", "--cron", "-c", help="Cron expression (for cron triggers)"),
+):
+    """Create a new trigger."""
+    config: dict = {}
+    if trigger_type == "cron" and cron:
+        config["cron_expression"] = cron
+
+    try:
+        result = client.post("/api/triggers", json={
+            "type": trigger_type,
+            "config": config,
+            "target_type": target_type,
+            "target_id": target_id,
+        })
+        console.print(f"[green]Created trigger:[/green] {result['id'][:8]} ({trigger_type})")
+        if trigger_type == "webhook":
+            from agentforge.config import get_api_url
+            console.print(f"  Webhook URL: {get_api_url()}/api/webhooks/{result['id']}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@triggers_app.command("toggle")
+def triggers_toggle(
+    trigger_id: str = typer.Argument(..., help="Trigger ID to toggle"),
+):
+    """Toggle a trigger on/off."""
+    try:
+        result = client.put(f"/api/triggers/{trigger_id}/toggle", json={})
+        state = "enabled" if result.get("enabled") else "disabled"
+        console.print(f"[green]Trigger {trigger_id[:8]} is now {state}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
 

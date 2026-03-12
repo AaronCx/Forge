@@ -6,6 +6,7 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
+from app.mcp.tool_registry import tool_registry
 from app.providers.registry import provider_registry
 from app.services.tools.code_executor import code_executor
 from app.services.tools.data_extractor import data_extractor
@@ -39,8 +40,20 @@ class AgentRunner:
         )
 
     def _resolve_tools(self, tool_names: list[str]):
-        """Resolve tool name strings to actual tool instances."""
-        return [TOOL_REGISTRY[name] for name in tool_names if name in TOOL_REGISTRY]
+        """Resolve tool name strings to actual LangChain tool instances.
+
+        Returns a tuple of (langchain_tools, mcp_tool_names) where mcp_tool_names
+        are tools that need to be called via MCP rather than locally.
+        """
+        lc_tools = []
+        mcp_tools = []
+        for name in tool_names:
+            if name in TOOL_REGISTRY:
+                lc_tools.append(TOOL_REGISTRY[name])
+            elif not tool_registry.is_builtin(name):
+                # Could be an MCP tool (format: "server_id:tool_name" or just name)
+                mcp_tools.append(name)
+        return lc_tools, mcp_tools
 
     async def execute(
         self, agent_config: dict, user_input: str, *, heartbeat_id: str | None = None
@@ -51,7 +64,7 @@ class AgentRunner:
         system_prompt = agent_config.get("system_prompt", "")
         tool_names = agent_config.get("tools", [])
         workflow_steps = agent_config.get("workflow_steps", [])
-        tools = self._resolve_tools(tool_names)
+        tools, _mcp_tools = self._resolve_tools(tool_names)
 
         # Per-agent model override
         model = agent_config.get("model") or self.model

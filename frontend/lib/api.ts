@@ -149,6 +149,48 @@ export interface NodeTypeInfo {
   output_schema: Record<string, unknown>;
 }
 
+export interface MCPConnection {
+  id: string;
+  name: string;
+  server_url: string;
+  status: string;
+  tools_discovered: { name: string; description: string; input_schema: Record<string, unknown> }[];
+  created_at: string;
+  last_connected_at: string | null;
+}
+
+export interface MCPTool {
+  name: string;
+  display_name: string;
+  description: string;
+  source: string;
+  source_id: string;
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+}
+
+export interface Trigger {
+  id: string;
+  user_id: string;
+  type: "webhook" | "cron" | "mcp_event";
+  config: Record<string, unknown>;
+  target_type: "agent" | "blueprint";
+  target_id: string;
+  enabled: boolean;
+  last_fired_at: string | null;
+  fire_count: number;
+  created_at: string;
+}
+
+export interface TriggerHistory {
+  id: string;
+  trigger_id: string;
+  payload: Record<string, unknown>;
+  run_id: string | null;
+  status: string;
+  created_at: string;
+}
+
 export const api = {
   agents: {
     list: (token: string) => request<Agent[]>("/api/agents", { token }),
@@ -206,5 +248,30 @@ export const api = {
     run: (data: { prompt: string; system_prompt?: string; models: string[]; temperature?: number; max_tokens?: number }, token: string) =>
       request<CompareResponse>("/api/compare", { method: "POST", body: JSON.stringify(data), token }),
     get: (id: string, token: string) => request<CompareResponse>(`/api/compare/${id}`, { token }),
+  },
+  mcp: {
+    connect: (data: { name: string; server_url: string }, token: string) =>
+      request<MCPConnection>("/api/mcp/connect", { method: "POST", body: JSON.stringify(data), token }),
+    connections: (token: string) => request<MCPConnection[]>("/api/mcp/connections", { token }),
+    deleteConnection: (id: string, token: string) =>
+      request<void>(`/api/mcp/connections/${id}`, { method: "DELETE", token }),
+    connectionTools: (id: string, token: string) =>
+      request<MCPConnection["tools_discovered"]>(`/api/mcp/connections/${id}/tools`, { token }),
+    testConnection: (id: string, token: string) =>
+      request<{ status: string; latency_ms: number | null; error: string | null }>(`/api/mcp/connections/${id}/test`, { method: "POST", token }),
+    tools: (token: string) => request<MCPTool[]>("/api/tools", { token }),
+  },
+  triggers: {
+    list: (token: string) => request<Trigger[]>("/api/triggers", { token }),
+    create: (data: { type: string; config: Record<string, unknown>; target_type: string; target_id: string }, token: string) =>
+      request<Trigger>("/api/triggers", { method: "POST", body: JSON.stringify(data), token }),
+    update: (id: string, data: { config?: Record<string, unknown>; enabled?: boolean }, token: string) =>
+      request<Trigger>(`/api/triggers/${id}`, { method: "PUT", body: JSON.stringify(data), token }),
+    delete: (id: string, token: string) =>
+      request<void>(`/api/triggers/${id}`, { method: "DELETE", token }),
+    toggle: (id: string, token: string) =>
+      request<Trigger>(`/api/triggers/${id}/toggle`, { method: "PUT", token }),
+    history: (id: string, token: string) =>
+      request<TriggerHistory[]>(`/api/triggers/${id}/history`, { token }),
   },
 };

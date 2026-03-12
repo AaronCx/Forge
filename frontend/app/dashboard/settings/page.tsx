@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UsageChart } from "@/components/dashboard/UsageChart";
+import { MCPManager } from "@/components/MCPManager";
 import { isDemoMode } from "@/lib/demo-data";
 
 interface ApiKey {
@@ -152,6 +153,11 @@ export default function SettingsPage() {
             Default model: <span className="font-mono">{defaultModel}</span>
           </p>
         )}
+      </div>
+
+      {/* MCP Connections */}
+      <div className="mt-8">
+        <MCPManager />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">

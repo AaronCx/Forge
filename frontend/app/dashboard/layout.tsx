@@ -17,6 +17,7 @@ const navItems = [
   { href: "/dashboard/blueprints", label: "Blueprints" },
   { href: "/dashboard/compare", label: "Compare" },
   { href: "/dashboard/runs", label: "Runs" },
+  { href: "/dashboard/triggers", label: "Triggers" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

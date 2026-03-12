@@ -80,11 +80,14 @@ def test_resolve_tools():
         mock_registry.default_model = "gpt-4o-mini"
         runner = AgentRunner()
 
-    tools = runner._resolve_tools(["web_search", "summarizer"])
-    assert len(tools) == 2
+    lc_tools, mcp_tools = runner._resolve_tools(["web_search", "summarizer"])
+    assert len(lc_tools) == 2
+    assert len(mcp_tools) == 0
 
-    tools = runner._resolve_tools(["nonexistent_tool"])
-    assert len(tools) == 0
+    lc_tools, mcp_tools = runner._resolve_tools(["nonexistent_tool"])
+    assert len(lc_tools) == 0
+    assert len(mcp_tools) == 1  # treated as potential MCP tool
 
-    tools = runner._resolve_tools([])
-    assert len(tools) == 0
+    lc_tools, mcp_tools = runner._resolve_tools([])
+    assert len(lc_tools) == 0
+    assert len(mcp_tools) == 0

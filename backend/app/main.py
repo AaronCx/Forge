@@ -10,6 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.database import supabase as supabase_client
+from app.mcp.scheduler import cron_scheduler
 from app.routers import (
     agents,
     api_keys,
@@ -17,10 +18,12 @@ from app.routers import (
     compare,
     costs,
     dashboard,
+    mcp,
     messages,
     orchestration,
     providers,
     runs,
+    triggers,
 )
 from app.services.blueprint_templates import seed_blueprint_templates
 from app.services.rate_limiter import limiter
@@ -41,13 +44,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await seed_blueprint_templates(supabase_client)
     except Exception:
         logger.warning("Failed to seed blueprint templates", exc_info=True)
+    # Start cron scheduler for scheduled triggers
+    cron_scheduler.start()
     yield
+    cron_scheduler.stop()
 
 
 app = FastAPI(
     title="AgentForge API",
     description="AI workflow agent platform backend",
-    version="1.2.0",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -74,11 +80,13 @@ app.include_router(messages.router, prefix="/api")
 app.include_router(blueprints.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
+app.include_router(mcp.router, prefix="/api")
+app.include_router(triggers.router, prefix="/api")
 
 
 @app.get("/")
 async def root():
-    return {"name": "AgentForge API", "version": "1.2.0", "status": "running"}
+    return {"name": "AgentForge API", "version": "1.3.0", "status": "running"}
 
 
 @app.get("/health")

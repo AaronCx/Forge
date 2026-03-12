@@ -27,6 +27,14 @@ def post(path: str, json: dict | None = None) -> dict:
     return r.json()
 
 
+def put(path: str, json: dict | None = None) -> dict:
+    """Make a PUT request to the API."""
+    url = f"{get_api_url()}{path}"
+    r = httpx.put(url, headers=_headers(), json=json, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+
 def delete(path: str) -> None:
     """Make a DELETE request to the API."""
     url = f"{get_api_url()}{path}"
