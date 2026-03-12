@@ -551,6 +551,18 @@ export const api = {
     forks: (id: string, token: string) =>
       request<Record<string, unknown>[]>(`/api/marketplace/listings/${id}/forks`, { token }),
   },
+  computerUse: {
+    status: (token: string) =>
+      request<Record<string, unknown>>("/api/computer-use/status", { token }),
+    config: (token: string) =>
+      request<Record<string, unknown>>("/api/computer-use/config", { token }),
+    refresh: (token: string) =>
+      request<Record<string, unknown>>("/api/computer-use/refresh", { method: "POST", token }),
+    testRemote: (token: string) =>
+      request<Record<string, unknown>>("/api/computer-use/remote/test", { method: "POST", token }),
+    auditLog: (token: string, limit?: number) =>
+      request<Record<string, unknown>[]>(`/api/computer-use/audit-log?limit=${limit || 50}`, { token }),
+  },
   organizations: {
     list: (token: string) =>
       request<Organization[]>("/api/organizations", { token }),

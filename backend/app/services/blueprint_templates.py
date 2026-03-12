@@ -311,9 +311,105 @@ BLUEPRINT_TEMPLATES = [
 ]
 
 
+CU_BLUEPRINT_TEMPLATES = [
+    {
+        "name": "Browser Research Pipeline",
+        "description": "Focus Safari, OCR the page, analyze content, navigate to a new URL, read again, and summarize findings.",
+        "is_template": True,
+        "nodes": [
+            {"id": "focus", "type": "steer_focus", "label": "Focus Safari", "config": {"app": "Safari"}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "ocr1", "type": "steer_ocr", "label": "Read Page", "config": {"target": "Safari"}, "dependencies": ["focus"], "position": {"x": 250, "y": 200}},
+            {"id": "analyze", "type": "cu_analyzer", "label": "Analyze Content", "config": {"focus": "Extract key information"}, "dependencies": ["ocr1"], "position": {"x": 450, "y": 200}},
+            {"id": "url_bar", "type": "steer_hotkey", "label": "Focus URL Bar", "config": {"keys": "cmd+l"}, "dependencies": ["analyze"], "position": {"x": 650, "y": 200}},
+            {"id": "type_url", "type": "steer_type", "label": "Type URL", "config": {"text": ""}, "dependencies": ["url_bar"], "position": {"x": 850, "y": 200}},
+            {"id": "enter", "type": "steer_hotkey", "label": "Navigate", "config": {"keys": "enter"}, "dependencies": ["type_url"], "position": {"x": 1050, "y": 200}},
+            {"id": "wait", "type": "steer_wait", "label": "Wait for Load", "config": {"search_text": "Loading", "timeout": 10}, "dependencies": ["enter"], "position": {"x": 1250, "y": 200}},
+            {"id": "ocr2", "type": "steer_ocr", "label": "Read New Page", "config": {"target": "Safari"}, "dependencies": ["wait"], "position": {"x": 1450, "y": 200}},
+            {"id": "summarize", "type": "llm_summarize", "label": "Summarize", "config": {"max_length": "medium"}, "dependencies": ["ocr2"], "position": {"x": 1650, "y": 200}},
+            {"id": "output", "type": "output_formatter", "label": "Format Output", "config": {"format": "markdown"}, "dependencies": ["summarize"], "position": {"x": 1850, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 1},
+        "output_schema": {"type": "markdown"},
+    },
+    {
+        "name": "Terminal Task Runner",
+        "description": "Create a tmux session, pull code, run tests, capture output, and analyze results.",
+        "is_template": True,
+        "nodes": [
+            {"id": "session", "type": "drive_session", "label": "Create Session", "config": {"action": "create", "session": "af-runner"}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "cd", "type": "drive_run", "label": "CD to Project", "config": {"command": "cd ~/project", "session": "af-runner"}, "dependencies": ["session"], "position": {"x": 300, "y": 200}},
+            {"id": "pull", "type": "drive_run", "label": "Git Pull", "config": {"command": "git pull", "session": "af-runner"}, "dependencies": ["cd"], "position": {"x": 550, "y": 200}},
+            {"id": "test", "type": "drive_run", "label": "Run Tests", "config": {"command": "npm test", "session": "af-runner", "timeout": 60}, "dependencies": ["pull"], "position": {"x": 800, "y": 200}},
+            {"id": "logs", "type": "drive_logs", "label": "Capture Output", "config": {"session": "af-runner", "lines": 200}, "dependencies": ["test"], "position": {"x": 1050, "y": 200}},
+            {"id": "analyze", "type": "cu_analyzer", "label": "Analyze Results", "config": {"focus": "test results"}, "dependencies": ["logs"], "position": {"x": 1300, "y": 200}},
+            {"id": "output", "type": "output_formatter", "label": "Format Report", "config": {"format": "markdown"}, "dependencies": ["analyze"], "position": {"x": 1550, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 1},
+        "output_schema": {"type": "markdown"},
+    },
+    {
+        "name": "Cross-App Workflow",
+        "description": "Read a GitHub issue from browser, implement in terminal, verify, get approval, commit and push, open PR.",
+        "is_template": True,
+        "nodes": [
+            {"id": "focus_browser", "type": "steer_focus", "label": "Focus Browser", "config": {"app": "Safari"}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "read_issue", "type": "steer_ocr", "label": "Read GitHub Issue", "config": {"target": "Safari"}, "dependencies": ["focus_browser"], "position": {"x": 250, "y": 200}},
+            {"id": "plan", "type": "cu_planner", "label": "Plan Implementation", "config": {"objective": "Implement the changes described in the issue"}, "dependencies": ["read_issue"], "position": {"x": 450, "y": 200}},
+            {"id": "terminal", "type": "drive_session", "label": "Create Terminal", "config": {"action": "create", "session": "af-impl"}, "dependencies": ["plan"], "position": {"x": 650, "y": 200}},
+            {"id": "implement", "type": "drive_run", "label": "Implement Changes", "config": {"command": "echo 'Implementation here'", "session": "af-impl", "timeout": 120}, "dependencies": ["terminal"], "position": {"x": 850, "y": 200}},
+            {"id": "capture", "type": "drive_logs", "label": "Capture Result", "config": {"session": "af-impl"}, "dependencies": ["implement"], "position": {"x": 1050, "y": 200}},
+            {"id": "verify", "type": "cu_verifier", "label": "Verify Changes", "config": {"objective": "Code changes look correct"}, "dependencies": ["capture"], "position": {"x": 1250, "y": 200}},
+            {"id": "approve", "type": "approval_gate", "label": "Human Review", "config": {"message": "Review implementation before commit"}, "dependencies": ["verify"], "position": {"x": 1450, "y": 200}},
+            {"id": "commit", "type": "drive_run", "label": "Git Commit & Push", "config": {"command": "git add -A && git commit -m 'fix: implement changes' && git push", "session": "af-impl"}, "dependencies": ["approve"], "position": {"x": 1650, "y": 200}},
+            {"id": "screenshot", "type": "steer_see", "label": "Confirmation Screenshot", "config": {"target": "screen"}, "dependencies": ["commit"], "position": {"x": 1850, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 1},
+        "output_schema": {"type": "json"},
+    },
+    {
+        "name": "Self-Healing App Automation",
+        "description": "Focus an app, plan actions, execute, verify, and automatically recover from errors.",
+        "is_template": True,
+        "nodes": [
+            {"id": "focus", "type": "steer_focus", "label": "Focus Target App", "config": {"app": ""}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "ocr", "type": "steer_ocr", "label": "Read State", "config": {}, "dependencies": ["focus"], "position": {"x": 250, "y": 200}},
+            {"id": "plan", "type": "cu_planner", "label": "Plan Actions", "config": {"objective": ""}, "dependencies": ["ocr"], "position": {"x": 450, "y": 200}},
+            {"id": "click", "type": "steer_click", "label": "Execute Click", "config": {}, "dependencies": ["plan"], "position": {"x": 650, "y": 200}},
+            {"id": "wait", "type": "steer_wait", "label": "Wait for Result", "config": {"search_text": "", "timeout": 10}, "dependencies": ["click"], "position": {"x": 850, "y": 200}},
+            {"id": "verify", "type": "cu_verifier", "label": "Verify Result", "config": {"objective": ""}, "dependencies": ["wait"], "position": {"x": 1050, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 3},
+        "output_schema": {"type": "json"},
+    },
+    {
+        "name": "Multi-Terminal Parallel Tasks",
+        "description": "Create a session with multiple panes, run commands in parallel, collect results, and synthesize.",
+        "is_template": True,
+        "nodes": [
+            {"id": "session", "type": "drive_session", "label": "Create Session", "config": {"action": "create", "session": "af-parallel", "layout": "tiled"}, "dependencies": [], "position": {"x": 50, "y": 200}},
+            {"id": "fanout", "type": "drive_fanout", "label": "Run in Parallel", "config": {"commands": ["echo 'task 1'", "echo 'task 2'", "echo 'task 3'", "echo 'task 4'"], "session": "af-parallel"}, "dependencies": ["session"], "position": {"x": 350, "y": 200}},
+            {"id": "synthesize", "type": "llm_generate", "label": "Synthesize Results", "config": {"system_prompt": "Combine and summarize the results from multiple parallel tasks."}, "dependencies": ["fanout"], "position": {"x": 650, "y": 200}},
+            {"id": "output", "type": "output_formatter", "label": "Format Output", "config": {"format": "markdown"}, "dependencies": ["synthesize"], "position": {"x": 950, "y": 200}},
+        ],
+        "context_config": {},
+        "tool_scope": [],
+        "retry_policy": {"max_retries": 1},
+        "output_schema": {"type": "markdown"},
+    },
+]
+
+
 async def seed_blueprint_templates(supabase_client) -> None:
     """Seed pre-built blueprint templates if they don't already exist."""
-    for template in BLUEPRINT_TEMPLATES:
+    for template in BLUEPRINT_TEMPLATES + CU_BLUEPRINT_TEMPLATES:
         try:
             existing = (
                 supabase_client.table("blueprints")

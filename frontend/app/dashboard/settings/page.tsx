@@ -17,6 +17,20 @@ interface ApiKey {
   last_used_at: string | null;
 }
 
+interface CUStatus {
+  steer_available: boolean;
+  steer_version: string;
+  drive_available: boolean;
+  drive_version: string;
+  tmux_available: boolean;
+  tmux_version: string;
+  macos_version: string;
+  is_macos: boolean;
+  computer_use_ready: boolean;
+  missing: string[];
+  install_instructions: Record<string, string>;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   healthy: "bg-green-500",
   degraded: "bg-yellow-500",
@@ -33,6 +47,7 @@ export default function SettingsPage() {
   const [providerHealth, setProviderHealth] = useState<ProviderHealthInfo[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [providers, setProviders] = useState<string[]>([]);
+  const [cuStatus, setCuStatus] = useState<CUStatus | null>(null);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -46,6 +61,12 @@ export default function SettingsPage() {
       ]);
       setDefaultModel("gpt-4o-mini");
       setProviders(["openai"]);
+      setCuStatus({
+        steer_available: false, steer_version: "", drive_available: false, drive_version: "",
+        tmux_available: true, tmux_version: "3.4", macos_version: "15.3", is_macos: true,
+        computer_use_ready: false, missing: ["steer", "drive"],
+        install_instructions: { steer: "brew install disler/tap/steer", drive: "brew install disler/tap/drive" },
+      });
       return;
     }
     loadData();
@@ -67,6 +88,13 @@ export default function SettingsPage() {
       setDefaultModel(providerInfo.default_model);
       setProviders(providerInfo.providers);
       setProviderHealth(health);
+      // Load computer use status
+      try {
+        const cu = await api.computerUse.status(data.session.access_token);
+        setCuStatus(cu as unknown as CUStatus);
+      } catch {
+        // Computer use endpoint may not exist on older backends
+      }
     } catch {
       // API may not be running
     }
@@ -154,6 +182,51 @@ export default function SettingsPage() {
           </p>
         )}
       </div>
+
+      {/* Computer Use */}
+      {cuStatus && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold">Computer Use</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { name: "Steer (GUI)", available: cuStatus.steer_available, version: cuStatus.steer_version },
+              { name: "Drive (Terminal)", available: cuStatus.drive_available, version: cuStatus.drive_version },
+              { name: "tmux", available: cuStatus.tmux_available, version: cuStatus.tmux_version },
+              { name: "macOS", available: cuStatus.is_macos, version: cuStatus.macos_version },
+            ].map((comp) => (
+              <div
+                key={comp.name}
+                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+              >
+                <div
+                  className={`h-2.5 w-2.5 rounded-full ${comp.available ? "bg-green-500" : "bg-red-500"}`}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{comp.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {comp.available ? comp.version || "Installed" : "Missing"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {cuStatus.missing.length > 0 && (
+            <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
+              <p className="text-sm font-medium text-yellow-500">Missing components:</p>
+              {Object.entries(cuStatus.install_instructions).map(([key, instruction]) => (
+                <div key={key} className="mt-1">
+                  <p className="text-xs text-muted-foreground font-mono">{instruction}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            {cuStatus.computer_use_ready
+              ? "All components installed — computer use nodes available in blueprints."
+              : "Install missing components to enable computer use in blueprints."}
+          </p>
+        </div>
+      )}
 
       {/* MCP Connections */}
       <div className="mt-8">

@@ -182,6 +182,261 @@ export function ConfigPanel({
           </div>
         )}
 
+        {/* Steer node config */}
+        {(type === "steer_see" || type === "steer_ocr" || type === "steer_focus") && (
+          <div>
+            <Label className="text-xs">Target App</Label>
+            <Input
+              value={(config.target as string) || (config.app as string) || "screen"}
+              onChange={(e) => updateConfig(type === "steer_focus" ? "app" : "target", e.target.value)}
+              placeholder="App name or 'screen'"
+              className="mt-1"
+            />
+          </div>
+        )}
+
+        {type === "steer_click" && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">X</Label>
+                <Input
+                  type="number"
+                  value={(config.x as number) || 0}
+                  onChange={(e) => updateConfig("x", parseInt(e.target.value))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Y</Label>
+                <Input
+                  type="number"
+                  value={(config.y as number) || 0}
+                  onChange={(e) => updateConfig("y", parseInt(e.target.value))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Or Element Text</Label>
+              <Input
+                value={(config.element_text as string) || ""}
+                onChange={(e) => updateConfig("element_text", e.target.value)}
+                placeholder="Click on this text"
+                className="mt-1"
+              />
+            </div>
+          </>
+        )}
+
+        {type === "steer_type" && (
+          <div>
+            <Label className="text-xs">Text to Type</Label>
+            <Textarea
+              value={(config.text as string) || ""}
+              onChange={(e) => updateConfig("text", e.target.value)}
+              className="mt-1"
+              rows={3}
+            />
+          </div>
+        )}
+
+        {type === "steer_hotkey" && (
+          <div>
+            <Label className="text-xs">Key Combination</Label>
+            <Input
+              value={(config.keys as string) || ""}
+              onChange={(e) => updateConfig("keys", e.target.value)}
+              placeholder="cmd+s, cmd+tab, cmd+shift+p"
+              className="mt-1"
+            />
+          </div>
+        )}
+
+        {type === "steer_scroll" && (
+          <>
+            <div>
+              <Label className="text-xs">Direction</Label>
+              <select
+                value={(config.direction as string) || "down"}
+                onChange={(e) => updateConfig("direction", e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="up">Up</option>
+                <option value="down">Down</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Amount</Label>
+              <Input
+                type="number"
+                value={(config.amount as number) || 3}
+                onChange={(e) => updateConfig("amount", parseInt(e.target.value))}
+                className="mt-1"
+              />
+            </div>
+          </>
+        )}
+
+        {type === "steer_find" && (
+          <div>
+            <Label className="text-xs">Search Text</Label>
+            <Input
+              value={(config.search_text as string) || ""}
+              onChange={(e) => updateConfig("search_text", e.target.value)}
+              placeholder="Text or element to find"
+              className="mt-1"
+            />
+          </div>
+        )}
+
+        {type === "steer_wait" && (
+          <>
+            <div>
+              <Label className="text-xs">Wait For Text</Label>
+              <Input
+                value={(config.search_text as string) || ""}
+                onChange={(e) => updateConfig("search_text", e.target.value)}
+                placeholder="Text to wait for"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Timeout (seconds)</Label>
+              <Input
+                type="number"
+                value={(config.timeout as number) || 10}
+                onChange={(e) => updateConfig("timeout", parseInt(e.target.value))}
+                className="mt-1"
+              />
+            </div>
+          </>
+        )}
+
+        {type === "steer_clipboard" && (
+          <div>
+            <Label className="text-xs">Action</Label>
+            <select
+              value={(config.action as string) || "read"}
+              onChange={(e) => updateConfig("action", e.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="read">Read</option>
+              <option value="write">Write</option>
+            </select>
+          </div>
+        )}
+
+        {/* Drive node config */}
+        {type === "drive_session" && (
+          <>
+            <div>
+              <Label className="text-xs">Action</Label>
+              <select
+                value={(config.action as string) || "create"}
+                onChange={(e) => updateConfig("action", e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="create">Create</option>
+                <option value="list">List</option>
+                <option value="kill">Kill</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Session Name</Label>
+              <Input
+                value={(config.session as string) || ""}
+                onChange={(e) => updateConfig("session", e.target.value)}
+                placeholder="Auto-generated if empty"
+                className="mt-1"
+              />
+            </div>
+          </>
+        )}
+
+        {type === "drive_run" && (
+          <>
+            <div>
+              <Label className="text-xs">Command</Label>
+              <Input
+                value={(config.command as string) || ""}
+                onChange={(e) => updateConfig("command", e.target.value)}
+                placeholder="ls -la, npm test, etc."
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Session</Label>
+              <Input
+                value={(config.session as string) || ""}
+                onChange={(e) => updateConfig("session", e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Timeout (seconds)</Label>
+              <Input
+                type="number"
+                value={(config.timeout as number) || 30}
+                onChange={(e) => updateConfig("timeout", parseInt(e.target.value))}
+                className="mt-1"
+              />
+            </div>
+          </>
+        )}
+
+        {type === "drive_fanout" && (
+          <div>
+            <Label className="text-xs">Commands (one per line)</Label>
+            <Textarea
+              value={Array.isArray(config.commands) ? (config.commands as string[]).join("\n") : ""}
+              onChange={(e) => updateConfig("commands", e.target.value.split("\n").filter(Boolean))}
+              placeholder="npm test&#10;npm run lint&#10;npm run build"
+              className="mt-1 font-mono text-xs"
+              rows={4}
+            />
+          </div>
+        )}
+
+        {(type === "drive_logs" || type === "drive_send" || type === "drive_poll") && (
+          <div>
+            <Label className="text-xs">Session</Label>
+            <Input
+              value={(config.session as string) || ""}
+              onChange={(e) => updateConfig("session", e.target.value)}
+              className="mt-1"
+            />
+          </div>
+        )}
+
+        {/* CU Agent node config */}
+        {(type === "cu_planner" || type === "cu_verifier") && (
+          <div>
+            <Label className="text-xs">Objective</Label>
+            <Textarea
+              value={(config.objective as string) || ""}
+              onChange={(e) => updateConfig("objective", e.target.value)}
+              placeholder="What should the agent accomplish?"
+              className="mt-1"
+              rows={3}
+            />
+          </div>
+        )}
+
+        {type === "cu_analyzer" && (
+          <div>
+            <Label className="text-xs">Focus</Label>
+            <Input
+              value={(config.focus as string) || ""}
+              onChange={(e) => updateConfig("focus", e.target.value)}
+              placeholder="What to focus the analysis on"
+              className="mt-1"
+            />
+          </div>
+        )}
+
         {/* Agent node config */}
         {nodeClass === "agent" && (
           <>

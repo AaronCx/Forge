@@ -168,11 +168,106 @@ def grade_custom(actual: str, expected: str, config: dict[str, Any]) -> dict[str
         return {"passed": False, "score": 0.0, "method": "custom", "error": str(e)}
 
 
+def grade_screenshot_match(actual: str, expected: str, config: dict[str, Any]) -> dict[str, Any]:
+    """Compare a screenshot against a reference image using structural similarity.
+
+    actual: path to the captured screenshot
+    expected: path to the reference screenshot
+    config: optional 'threshold' (default 0.8) for similarity score
+    """
+    threshold = float(config.get("threshold", 0.8))
+
+    try:
+        from PIL import Image
+        import imagehash
+
+        img_actual = Image.open(actual)
+        img_expected = Image.open(expected)
+
+        hash_actual = imagehash.phash(img_actual)
+        hash_expected = imagehash.phash(img_expected)
+
+        # Perceptual hash distance (0 = identical, higher = more different)
+        distance = hash_actual - hash_expected
+        max_distance = 64  # phash returns 64-bit hash
+        similarity = 1.0 - (distance / max_distance)
+
+        return {
+            "passed": similarity >= threshold,
+            "score": round(similarity, 4),
+            "method": "screenshot_match",
+            "distance": distance,
+            "threshold": threshold,
+        }
+    except ImportError:
+        # Fallback: file size comparison as rough heuristic
+        import os
+
+        try:
+            size_actual = os.path.getsize(actual)
+            size_expected = os.path.getsize(expected)
+            ratio = min(size_actual, size_expected) / max(size_actual, size_expected) if max(size_actual, size_expected) > 0 else 0
+            return {
+                "passed": ratio >= threshold,
+                "score": round(ratio, 4),
+                "method": "screenshot_match",
+                "note": "Pillow/imagehash not installed — used file size comparison",
+            }
+        except OSError as e:
+            return {"passed": False, "score": 0.0, "method": "screenshot_match", "error": str(e)}
+    except Exception as e:
+        return {"passed": False, "score": 0.0, "method": "screenshot_match", "error": str(e)}
+
+
+def grade_ocr_contains(actual: str, _expected: str, config: dict[str, Any]) -> dict[str, Any]:
+    """Run OCR on a screenshot and check if specific text is present.
+
+    actual: path to a screenshot file
+    config: 'texts' (array of strings to look for), 'threshold' (fraction required)
+    """
+    texts = config.get("texts", [])
+    if not texts and _expected:
+        texts = [_expected]
+    threshold = float(config.get("threshold", 1.0))
+
+    if not texts:
+        return {"passed": False, "score": 0.0, "method": "ocr_contains", "error": "No texts to check"}
+
+    # Try to extract text from the screenshot via OCR
+    import subprocess
+
+    try:
+        # Use steer ocr if available
+        result = subprocess.run(
+            ["steer", "ocr", "--file", actual],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        ocr_text = result.stdout.lower() if result.returncode == 0 else ""
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # Fallback: treat actual as text content directly
+        ocr_text = actual.lower()
+
+    matches = sum(1 for t in texts if t.lower() in ocr_text)
+    score = matches / len(texts) if texts else 0.0
+
+    return {
+        "passed": score >= threshold,
+        "score": round(score, 4),
+        "method": "ocr_contains",
+        "matched": matches,
+        "total": len(texts),
+    }
+
+
 GRADING_METHODS = {
     "exact_match": grade_exact_match,
     "contains": grade_contains,
     "json_schema": grade_json_schema,
     "llm_judge": grade_llm_judge,
     "custom": grade_custom,
+    "screenshot_match": grade_screenshot_match,
+    "ocr_contains": grade_ocr_contains,
     # "human" is handled separately — it just marks as pending
 }
