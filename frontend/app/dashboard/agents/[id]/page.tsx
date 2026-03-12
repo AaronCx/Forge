@@ -87,7 +87,7 @@ export default function AgentDetailPage() {
       <div className="mt-6 flex flex-wrap gap-2">
         {agent.tools.map((tool) => (
           <Badge key={tool} variant="outline">
-            {tool.replace("_", " ")}
+            {tool.replaceAll("_", " ")}
           </Badge>
         ))}
       </div>

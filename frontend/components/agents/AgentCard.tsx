@@ -31,7 +31,7 @@ export function AgentCard({ agent }: AgentCardProps) {
         <div className="flex flex-wrap gap-1.5">
           {agent.tools.map((tool) => (
             <Badge key={tool} variant="outline" className="text-xs">
-              {tool.replace("_", " ")}
+              {tool.replaceAll("_", " ")}
             </Badge>
           ))}
         </div>
