@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UsageChart } from "@/components/dashboard/UsageChart";
+import { isDemoMode } from "@/lib/demo-data";
 
 interface ApiKey {
   id: string;
@@ -23,6 +24,14 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (isDemoMode()) {
+      setKeys([
+        { id: "demo-key-1", name: "production", created_at: "2026-03-10T10:00:00Z", last_used_at: "2026-03-12T08:00:00Z" },
+        { id: "demo-key-2", name: "development", created_at: "2026-03-11T14:00:00Z", last_used_at: null },
+      ]);
+      setTotalTokens(482_350);
+      return;
+    }
     loadData();
   }, []);
 

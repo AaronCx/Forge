@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { api, Run } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
+import { isDemoMode } from "@/lib/demo-data";
 
 export function RunHistory() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemoMode()) {
+      setLoading(false);
+      return;
+    }
     async function loadRuns() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;

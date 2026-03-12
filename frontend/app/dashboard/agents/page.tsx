@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { api, Agent } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/agents/AgentCard";
+import { isDemoMode, DEMO_AGENTS } from "@/lib/demo-data";
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -13,6 +14,13 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemoMode()) {
+      const demoAgents = DEMO_AGENTS as Agent[];
+      setAgents(demoAgents.filter((a) => !a.is_template));
+      setTemplates(demoAgents.filter((a) => a.is_template));
+      setLoading(false);
+      return;
+    }
     async function load() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;

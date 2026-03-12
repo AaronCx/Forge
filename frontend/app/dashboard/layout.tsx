@@ -27,8 +27,10 @@ export default function DashboardLayout({
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("");
 
+  const demo = isDemoMode();
+
   useEffect(() => {
-    if (isDemoMode()) {
+    if (demo) {
       setUserEmail("demo@agentforge.dev");
       return;
     }
@@ -38,8 +40,10 @@ export default function DashboardLayout({
         return;
       }
       setUserEmail(data.user.email || "");
+    }).catch(() => {
+      router.push("/login");
     });
-  }, [router]);
+  }, [demo, router]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -58,10 +62,12 @@ export default function DashboardLayout({
           <span className="text-lg font-bold">AgentForge</span>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {navItems.map((item) => (
+          {navItems.map((item) => {
+            const href = isDemoMode() ? `${item.href}?demo=true` : item.href;
+            return (
             <Link
               key={item.href}
-              href={item.href}
+              href={href}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 pathname === item.href
@@ -71,7 +77,8 @@ export default function DashboardLayout({
             >
               {item.label}
             </Link>
-          ))}
+            );
+          })}
         </nav>
         <div className="mt-auto border-t border-border p-4">
           <p className="truncate text-xs text-muted-foreground">{userEmail}</p>

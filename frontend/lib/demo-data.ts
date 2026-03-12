@@ -137,5 +137,10 @@ export const DEMO_COST_PROJECTION = {
 
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).has("demo");
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("demo")) {
+    sessionStorage.setItem("agentforge_demo", "1");
+    return true;
+  }
+  return sessionStorage.getItem("agentforge_demo") === "1";
 }

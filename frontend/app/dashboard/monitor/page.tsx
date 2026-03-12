@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { MetricsBar } from "@/components/dashboard/MetricsBar";
 import { AgentStatusGrid, AgentHeartbeat } from "@/components/dashboard/AgentStatusGrid";
 import { EventTimeline, TimelineEvent } from "@/components/dashboard/EventTimeline";
+import { isDemoMode, DEMO_METRICS, DEMO_ACTIVE_AGENTS, DEMO_TIMELINE } from "@/lib/demo-data";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -23,6 +24,15 @@ export default function MonitorPage() {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (isDemoMode()) {
+      setMetrics(DEMO_METRICS);
+      setActiveAgents(DEMO_ACTIVE_AGENTS as AgentHeartbeat[]);
+      setTimeline(DEMO_TIMELINE as TimelineEvent[]);
+      setLoading(false);
+      setConnected(true);
+      return;
+    }
 
     async function connect() {
       const { data } = await supabase.auth.getSession();
