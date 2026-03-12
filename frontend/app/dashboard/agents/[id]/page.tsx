@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { api, Agent } from "@/lib/api";
+import { isDemoMode, DEMO_AGENTS } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,14 @@ export default function AgentDetailPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (isDemoMode()) {
+      const demo = DEMO_AGENTS.find((a) => a.id === params.id) as Agent | undefined;
+      setAgent(demo || null);
+      if (!demo) setError("Agent not found");
+      setLoading(false);
+      return;
+    }
+
     async function load() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
@@ -35,8 +44,10 @@ export default function AgentDetailPage() {
     load();
   }, [params.id]);
 
+  const demo = isDemoMode();
+
   async function handleDelete() {
-    if (!agent) return;
+    if (!agent || demo) return;
     if (!confirm("Are you sure you want to delete this agent?")) return;
 
     const { data } = await supabase.auth.getSession();
@@ -61,14 +72,16 @@ export default function AgentDetailPage() {
           <h1 className="text-3xl font-bold">{agent.name}</h1>
           <p className="mt-1 text-muted-foreground">{agent.description}</p>
         </div>
-        <div className="flex gap-2">
-          <Link href={`/dashboard/agents/${agent.id}/edit`}>
-            <Button variant="outline">Edit</Button>
-          </Link>
-          <Button variant="destructive" onClick={handleDelete}>
-            Delete
-          </Button>
-        </div>
+        {!demo && (
+          <div className="flex gap-2">
+            <Link href={`/dashboard/agents/${agent.id}/edit`}>
+              <Button variant="outline">Edit</Button>
+            </Link>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -96,10 +109,18 @@ export default function AgentDetailPage() {
 
       <Separator className="my-8" />
 
-      <h2 className="text-xl font-semibold">Run Agent</h2>
-      <div className="mt-4">
-        <RunnerPanel agent={agent} />
-      </div>
+      {demo ? (
+        <p className="text-sm text-muted-foreground">
+          Agent execution is disabled in demo mode. Sign up to run agents.
+        </p>
+      ) : (
+        <>
+          <h2 className="text-xl font-semibold">Run Agent</h2>
+          <div className="mt-4">
+            <RunnerPanel agent={agent} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
