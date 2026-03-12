@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { api, Agent } from "@/lib/api";
+import { isDemoMode } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +36,11 @@ export function RunnerPanel({ agent }: RunnerPanelProps) {
   }, []);
 
   const runAgent = useCallback(async () => {
+    if (isDemoMode()) {
+      setError("Agent execution is disabled in demo mode");
+      return;
+    }
+
     setRunning(true);
     setOutput("");
     setLogs([]);

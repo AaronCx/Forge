@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { isDemoMode } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,12 @@ export default function OrchestratePage() {
     setResult("");
     setTaskStates({});
     setGroupId("");
+
+    if (isDemoMode()) {
+      setEvents([{ type: "error", data: "Orchestration is disabled in demo mode. Sign up to use this feature." }]);
+      setRunning(false);
+      return;
+    }
 
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
