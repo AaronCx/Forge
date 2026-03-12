@@ -85,7 +85,7 @@ export default function DashboardLayout({
           })}
         </nav>
         <div className="mt-auto border-t border-border p-4">
-          <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
+          <p className="truncate text-xs text-muted-foreground" title={userEmail}>{userEmail}</p>
           <Button
             variant="ghost"
             size="sm"

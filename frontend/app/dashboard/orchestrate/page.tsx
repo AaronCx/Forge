@@ -103,7 +103,9 @@ export default function OrchestratePage() {
                 setResult(event.data);
                 if (event.group_id) setGroupId(event.group_id);
               }
-            } catch {}
+            } catch {
+              // Skip malformed SSE events
+            }
           }
         }
       }
