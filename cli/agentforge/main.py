@@ -270,6 +270,78 @@ def agents_create(
 
 
 @app.command()
+def orchestrate(
+    objective: str = typer.Argument(..., help="High-level objective to accomplish"),
+    tools: str = typer.Option("", "--tools", "-t", help="Comma-separated tool names"),
+):
+    """Submit an objective for multi-agent orchestration."""
+    tool_list = [t.strip() for t in tools.split(",") if t.strip()] if tools else []
+
+    console.print(f"\n[bold]Objective:[/bold] {objective}")
+    if tool_list:
+        console.print(f"[bold]Tools:[/bold] {', '.join(tool_list)}")
+    console.print()
+
+    try:
+        for data_str in client.stream_sse_post(
+            "/api/orchestrate",
+            json={"objective": objective, "tools": tool_list},
+        ):
+            try:
+                event = json.loads(data_str)
+                event_type = event.get("type", "")
+
+                if event_type == "status":
+                    console.print(f"[dim]{event['data']}[/dim]")
+
+                elif event_type == "plan":
+                    tasks = event["data"]
+                    console.print(f"\n[bold]Task Plan ({len(tasks)} tasks)[/bold]")
+                    for i, task in enumerate(tasks):
+                        role = task.get("role", "worker")
+                        role_color = {
+                            "coordinator": "purple",
+                            "supervisor": "blue",
+                            "worker": "green",
+                            "scout": "cyan",
+                            "reviewer": "yellow",
+                        }.get(role, "white")
+                        deps = task.get("dependencies", [])
+                        dep_str = f" [dim](depends on: {', '.join(str(d+1) for d in deps)})[/dim]" if deps else ""
+                        console.print(
+                            f"  {i+1}. [{role_color}][{role}][/{role_color}] "
+                            f"{task.get('description', '')}{dep_str}"
+                        )
+                    console.print()
+
+                elif event_type == "task_start":
+                    idx = event["data"]["index"]
+                    desc = event["data"].get("description", "")
+                    console.print(f"  [yellow]▶ Task {idx+1}:[/yellow] {desc}")
+
+                elif event_type == "task_done":
+                    idx = event["data"]["index"]
+                    preview = event["data"].get("preview", "")[:100]
+                    console.print(f"  [green]✓ Task {idx+1} done[/green] — {preview}")
+
+                elif event_type == "error":
+                    console.print(f"  [red]✗ Error: {event['data']}[/red]")
+
+                elif event_type == "result":
+                    console.print(f"\n[bold green]Result[/bold green]")
+                    console.print(Panel(event["data"], border_style="green"))
+                    group_id = event.get("group_id", "")
+                    if group_id:
+                        console.print(f"[dim]Group ID: {group_id}[/dim]")
+
+            except json.JSONDecodeError:
+                pass
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def costs(
     breakdown: str = typer.Option("", "--breakdown", "-b", help="Breakdown by 'agent' or 'model'"),
     period: str = typer.Option("today", "--period", "-p", help="Period: today, week, month"),

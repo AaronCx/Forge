@@ -41,3 +41,12 @@ def stream_sse(path: str, params: dict | None = None):
         for line in r.iter_lines():
             if line.startswith("data: "):
                 yield line[6:]
+
+
+def stream_sse_post(path: str, json: dict | None = None):
+    """Stream SSE events from a POST endpoint. Yields parsed data strings."""
+    url = f"{get_api_url()}{path}"
+    with httpx.stream("POST", url, headers={**_headers(), "Content-Type": "application/json"}, json=json, timeout=None) as r:
+        for line in r.iter_lines():
+            if line.startswith("data: "):
+                yield line[6:]
