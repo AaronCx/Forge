@@ -13,8 +13,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Demo mode bypass
+  if (pathname.startsWith("/dashboard") && request.nextUrl.searchParams.has("demo")) {
+    const response = NextResponse.next();
+    response.cookies.set("agentforge_demo", "1", { path: "/" });
+    return response;
+  }
+
   // Protected routes
   if (!token && pathname.startsWith("/dashboard")) {
+    const isDemo = request.cookies.get("agentforge_demo")?.value === "1";
+    if (isDemo) {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isDemoMode } from "@/lib/demo-data";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -17,17 +18,17 @@ const navItems = [
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
-function DashboardShell({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [userEmail, setUserEmail] = useState("");
 
-  const isDemo = searchParams.has("demo") || (typeof window !== "undefined" && sessionStorage.getItem("agentforge_demo") === "1");
-
   useEffect(() => {
-    if (isDemo) {
-      sessionStorage.setItem("agentforge_demo", "1");
+    if (isDemoMode()) {
       setUserEmail("demo@agentforge.dev");
       return;
     }
@@ -43,10 +44,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       .catch(() => {
         router.push("/login");
       });
-  }, [isDemo, router]);
+  }, [router]);
+
+  const demo = isDemoMode();
 
   async function handleLogout() {
-    sessionStorage.removeItem("agentforge_demo");
+    document.cookie = "agentforge_demo=; max-age=0; path=/";
     await supabase.auth.signOut();
     document.cookie = "sb-access-token=; max-age=0; path=/";
     router.push("/login");
@@ -64,7 +67,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navItems.map((item) => {
-            const href = isDemo ? `${item.href}?demo=true` : item.href;
+            const href = demo ? `${item.href}?demo=true` : item.href;
             return (
               <Link
                 key={item.href}
@@ -99,17 +102,5 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-6xl p-8">{children}</div>
       </main>
     </div>
-  );
-}
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <Suspense>
-      <DashboardShell>{children}</DashboardShell>
-    </Suspense>
   );
 }
