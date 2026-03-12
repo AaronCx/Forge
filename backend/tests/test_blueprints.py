@@ -302,7 +302,7 @@ def test_create_blueprint(auth_client, mock_user):
             },
             headers={"Authorization": "Bearer test-token"},
         )
-        assert response.status_code == 201, response.json()
+        assert response.status_code == 201
         assert response.json()["name"] == "Test Blueprint"
 
 

@@ -1,7 +1,5 @@
 """Blueprint API routes — CRUD and execution endpoints."""
 
-from __future__ import annotations
-
 import json
 import logging
 
