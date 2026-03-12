@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 from app.database import supabase
 from app.services.agent_executor import AgentRunner
 from app.services.heartbeat import heartbeat_service
+from app.services.messaging import messaging_service
 
 AGENT_ROLES = {
     "coordinator": "Decomposes high-level objectives into sub-tasks",
@@ -140,11 +141,27 @@ class Orchestrator:
                     {"status": "running"}
                 ).eq("id", member["id"]).execute()
 
-                # Build context from dependencies
+                # Send start message
+                messaging_service.broadcast(
+                    group_id=group_id,
+                    sender_index=idx,
+                    content=f"Starting: {task.get('description', '')}",
+                    message_type="info",
+                )
+
+                # Build context from dependencies and their messages
                 dep_context = ""
                 for dep_idx in task.get("dependencies", []):
                     if dep_idx in results:
                         dep_context += f"\n--- Result from task {dep_idx + 1} ---\n{results[dep_idx]}\n"
+                        # Send handoff message from dependency to this task
+                        messaging_service.send(
+                            group_id=group_id,
+                            sender_index=dep_idx,
+                            receiver_index=idx,
+                            message_type="handoff",
+                            content=results[dep_idx][:500],
+                        )
 
                 # Build agent config
                 config = {
@@ -162,6 +179,14 @@ class Orchestrator:
                 async for event in self.runner.execute(config, dep_context or "Begin task."):
                     if event.get("type") == "token":
                         full_output += event.get("content", "")
+
+                # Send completion message
+                messaging_service.broadcast(
+                    group_id=group_id,
+                    sender_index=idx,
+                    content=f"Completed: {full_output[:200]}",
+                    message_type="response",
+                )
 
                 # Update member
                 supabase.table("task_group_members").update({
