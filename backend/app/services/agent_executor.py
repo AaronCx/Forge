@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import AsyncIterator
 
@@ -13,6 +14,8 @@ from app.services.tools.data_extractor import data_extractor
 from app.services.tools.document_reader import document_reader
 from app.services.tools.summarizer import summarizer
 from app.services.tools.web_search import web_search
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -56,15 +59,23 @@ class AgentRunner:
         return lc_tools, mcp_tools
 
     async def execute(
-        self, agent_config: dict, user_input: str, *, heartbeat_id: str | None = None
+        self,
+        agent_config: dict,
+        user_input: str,
+        *,
+        heartbeat_id: str | None = None,
+        run_id: str | None = None,
+        user_id: str | None = None,
     ) -> AsyncIterator[dict]:
         """Execute an agent's workflow and yield streaming events."""
         from app.services.heartbeat import heartbeat_service
+        from app.services.observability.trace_service import trace_service
 
         system_prompt = agent_config.get("system_prompt", "")
         tool_names = agent_config.get("tools", [])
         workflow_steps = agent_config.get("workflow_steps", [])
         tools, _mcp_tools = self._resolve_tools(tool_names)
+        agent_id = agent_config.get("id")
 
         # Per-agent model override
         model = agent_config.get("model") or self.model
@@ -97,6 +108,26 @@ class AgentRunner:
 
             step_tokens = result.get("tokens", 0)
             total_tokens += step_tokens
+
+            # Record trace span for this step
+            if user_id:
+                try:
+                    await trace_service.record_span(
+                        user_id=user_id,
+                        span_type="agent_step",
+                        span_name=f"Step {i}: {step[:100]}",
+                        run_id=run_id,
+                        agent_id=agent_id,
+                        model=result.get("model") or model,
+                        provider=result.get("provider"),
+                        input_tokens=result.get("input_tokens", 0),
+                        output_tokens=result.get("output_tokens", 0),
+                        latency_ms=result.get("latency_ms", 0),
+                        input_preview=user_input[:500],
+                        output_preview=result["content"][:500],
+                    )
+                except Exception:
+                    logger.warning("Failed to record trace span", exc_info=True)
 
             if heartbeat_id:
                 heartbeat_service.update(
@@ -158,4 +189,9 @@ class AgentRunner:
         return {
             "content": response.content,
             "tokens": response.input_tokens + response.output_tokens,
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+            "latency_ms": response.latency_ms,
+            "model": response.model,
+            "provider": response.provider,
         }

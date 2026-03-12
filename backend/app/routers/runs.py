@@ -90,7 +90,8 @@ async def run_agent(
         try:
             step_num = 0
             async for event in agent_runner.execute(
-                agent_config, input_text, heartbeat_id=heartbeat_id
+                agent_config, input_text, heartbeat_id=heartbeat_id,
+                run_id=run_id, user_id=user.id,
             ):
                 step_num += 1
                 step_start = time.time()

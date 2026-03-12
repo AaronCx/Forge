@@ -1129,6 +1129,250 @@ def approvals_reject(
         raise typer.Exit(1)
 
 
+# --- Trace commands ---
+
+traces_app = typer.Typer(help="View execution traces")
+app.add_typer(traces_app, name="traces")
+
+
+@traces_app.command("list")
+def traces_list(
+    run_id: str = typer.Option("", "--run", "-r", help="Filter by run ID"),
+    agent_id: str = typer.Option("", "--agent", "-a", help="Filter by agent ID"),
+    span_type: str = typer.Option("", "--type", "-t", help="Filter by span type"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Max traces to show"),
+):
+    """List recent execution traces."""
+    try:
+        params: dict = {"limit": str(limit)}
+        if run_id:
+            params["run_id"] = run_id
+        if agent_id:
+            params["agent_id"] = agent_id
+        if span_type:
+            params["span_type"] = span_type
+        traces = client.get("/api/traces", params=params)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not traces:
+        console.print("[dim]No traces found.[/dim]")
+        return
+
+    table = Table(title="Traces")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Type", style="bold")
+    table.add_column("Name")
+    table.add_column("Model", style="dim")
+    table.add_column("Status")
+    table.add_column("Tokens", justify="right")
+    table.add_column("Latency", justify="right")
+    table.add_column("Time", style="dim", max_width=10)
+
+    status_colors = {"ok": "green", "running": "yellow", "error": "red", "timeout": "red"}
+
+    for t in traces:
+        status = t.get("status", "ok")
+        color = status_colors.get(status, "white")
+        tokens = t.get("input_tokens", 0) + t.get("output_tokens", 0)
+        latency = t.get("latency_ms", 0)
+        ts = t.get("created_at", "")[-8:] if t.get("created_at") else ""
+        table.add_row(
+            t["id"][:8],
+            t.get("span_type", ""),
+            (t.get("span_name", "") or "")[:40],
+            t.get("model", "") or "",
+            f"[{color}]{status}[/{color}]",
+            f"{tokens:,}" if tokens else "",
+            f"{latency:.0f}ms" if latency else "",
+            ts,
+        )
+
+    console.print(table)
+
+
+@traces_app.command("stats")
+def traces_stats():
+    """Show trace statistics for today."""
+    try:
+        stats = client.get("/api/traces/stats")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print()
+    console.print("[bold]Trace Stats (today)[/bold]")
+    console.print(f"  Total spans:  {stats['total_spans']}")
+    console.print(f"  Errors:       [red]{stats['error_count']}[/red] ({stats['error_rate'] * 100:.1f}%)")
+    console.print(f"  Total tokens: {stats['total_tokens']:,}")
+    console.print(f"  Avg latency:  {stats['avg_latency_ms']:.0f}ms")
+
+    by_type = stats.get("by_type", {})
+    if by_type:
+        console.print(f"\n[bold]By type:[/bold]")
+        for span_type, count in sorted(by_type.items(), key=lambda x: x[1], reverse=True):
+            console.print(f"  {span_type}: {count}")
+    console.print()
+
+
+@traces_app.command("get")
+def traces_get(
+    trace_id: str = typer.Argument(..., help="Trace ID to inspect"),
+):
+    """Inspect a trace and its child spans."""
+    try:
+        tree = client.get(f"/api/traces/{trace_id}/tree")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not tree:
+        console.print("[red]Trace not found.[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold]{tree.get('span_name', 'Unnamed')}[/bold]")
+    console.print(f"  Type:    {tree.get('span_type', '')}")
+    console.print(f"  Status:  {tree.get('status', '')}")
+    console.print(f"  Model:   {tree.get('model', '') or '—'}")
+    tokens = tree.get("input_tokens", 0) + tree.get("output_tokens", 0)
+    console.print(f"  Tokens:  {tokens:,}")
+    console.print(f"  Latency: {tree.get('latency_ms', 0):.0f}ms")
+
+    if tree.get("input_preview"):
+        console.print(f"\n[bold]Input:[/bold]")
+        console.print(Panel(tree["input_preview"][:500], border_style="dim"))
+
+    if tree.get("output_preview"):
+        console.print(f"\n[bold]Output:[/bold]")
+        console.print(Panel(tree["output_preview"][:500], border_style="green"))
+
+    if tree.get("error_message"):
+        console.print(f"\n[bold red]Error:[/bold red]")
+        console.print(Panel(tree["error_message"], border_style="red"))
+
+    children = tree.get("children", [])
+    if children:
+        console.print(f"\n[bold]Child Spans ({len(children)})[/bold]")
+        for child in children:
+            status = child.get("status", "ok")
+            color = {"ok": "green", "error": "red"}.get(status, "white")
+            ctokens = child.get("input_tokens", 0) + child.get("output_tokens", 0)
+            console.print(
+                f"  [{color}]{status}[/{color}] {child.get('span_type', '')} — "
+                f"{child.get('span_name', '')[:50]} "
+                f"[dim]({ctokens:,} tok, {child.get('latency_ms', 0):.0f}ms)[/dim]"
+            )
+
+    console.print()
+
+
+# --- Prompt version commands ---
+
+prompts_app = typer.Typer(help="Manage prompt versions")
+app.add_typer(prompts_app, name="prompts")
+
+
+@prompts_app.command("list")
+def prompts_list(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+):
+    """List prompt versions for an agent."""
+    try:
+        versions = client.get(f"/api/agents/{agent_id}/prompts")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not versions:
+        console.print("[dim]No prompt versions for this agent.[/dim]")
+        return
+
+    table = Table(title="Prompt Versions")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Version", style="bold", justify="right")
+    table.add_column("Summary")
+    table.add_column("Active")
+    table.add_column("Created", style="dim")
+
+    for v in versions:
+        active = "[green]Yes[/green]" if v.get("is_active") else ""
+        table.add_row(
+            v["id"][:8],
+            f"v{v['version_number']}",
+            v.get("change_summary", "")[:50],
+            active,
+            v.get("created_at", "")[:10],
+        )
+
+    console.print(table)
+
+
+@prompts_app.command("snapshot")
+def prompts_snapshot(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    summary: str = typer.Option("Manual snapshot", "--summary", "-s", help="Change summary"),
+):
+    """Snapshot the current prompt as a new version."""
+    try:
+        # Get agent's current prompt
+        agent = client.get(f"/api/agents/{agent_id}")
+        result = client.post(f"/api/agents/{agent_id}/prompts", json={
+            "system_prompt": agent["system_prompt"],
+            "change_summary": summary,
+        })
+        console.print(f"[green]Created v{result['version_number']}[/green]: {result.get('change_summary', '')}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@prompts_app.command("rollback")
+def prompts_rollback(
+    version_id: str = typer.Argument(..., help="Version ID to rollback to"),
+):
+    """Rollback to a specific prompt version."""
+    try:
+        result = client.post(f"/api/prompts/{version_id}/rollback", json={})
+        console.print(f"[green]Rolled back — created v{result['version_number']}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@prompts_app.command("diff")
+def prompts_diff(
+    version_a: str = typer.Argument(..., help="First version ID"),
+    version_b: str = typer.Argument(..., help="Second version ID"),
+):
+    """Compare two prompt versions."""
+    try:
+        result = client.get(f"/api/prompts/{version_a}/diff/{version_b}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    a = result.get("version_a", {})
+    b = result.get("version_b", {})
+    console.print(f"\n[bold]v{a.get('version_number', '?')} → v{b.get('version_number', '?')}[/bold]\n")
+
+    diff_text = result.get("diff", "")
+    if not diff_text:
+        console.print("[dim]No differences.[/dim]")
+    else:
+        for line in diff_text.split("\n"):
+            if line.startswith("+"):
+                console.print(f"[green]{line}[/green]")
+            elif line.startswith("-"):
+                console.print(f"[red]{line}[/red]")
+            elif line.startswith("@@"):
+                console.print(f"[blue]{line}[/blue]")
+            else:
+                console.print(line)
+
+    console.print()
+
+
 if __name__ == "__main__":
     app()
 
