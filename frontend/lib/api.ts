@@ -191,6 +191,68 @@ export interface TriggerHistory {
   created_at: string;
 }
 
+export interface EvalSuite {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  target_type: "agent" | "blueprint";
+  target_id: string;
+  created_at: string;
+  cases?: EvalCase[];
+}
+
+export interface EvalCase {
+  id: string;
+  suite_id: string;
+  name: string;
+  input: Record<string, unknown>;
+  expected_output: Record<string, unknown> | null;
+  grading_method: string;
+  grading_config: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface EvalRun {
+  id: string;
+  suite_id: string;
+  triggered_by: string;
+  model_used: string | null;
+  status: string;
+  pass_rate: number | null;
+  avg_score: number | null;
+  total_cases: number;
+  passed_cases: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  results?: EvalResult[];
+}
+
+export interface EvalResult {
+  id: string;
+  run_id: string;
+  case_id: string;
+  actual_output: Record<string, unknown> | null;
+  score: number | null;
+  passed: boolean | null;
+  grading_details: Record<string, unknown>;
+  latency_ms: number | null;
+  tokens_used: number;
+}
+
+export interface Approval {
+  id: string;
+  user_id: string;
+  blueprint_run_id: string;
+  node_id: string;
+  status: "pending" | "approved" | "rejected";
+  context: Record<string, unknown>;
+  feedback: string | null;
+  decided_at: string | null;
+  created_at: string;
+}
+
 export const api = {
   agents: {
     list: (token: string) => request<Agent[]>("/api/agents", { token }),
@@ -260,6 +322,35 @@ export const api = {
     testConnection: (id: string, token: string) =>
       request<{ status: string; latency_ms: number | null; error: string | null }>(`/api/mcp/connections/${id}/test`, { method: "POST", token }),
     tools: (token: string) => request<MCPTool[]>("/api/tools", { token }),
+  },
+  evals: {
+    suites: (token: string) => request<EvalSuite[]>("/api/evals/suites", { token }),
+    getSuite: (id: string, token: string) => request<EvalSuite>(`/api/evals/suites/${id}`, { token }),
+    createSuite: (data: { name: string; description: string; target_type: string; target_id: string }, token: string) =>
+      request<EvalSuite>("/api/evals/suites", { method: "POST", body: JSON.stringify(data), token }),
+    deleteSuite: (id: string, token: string) =>
+      request<void>(`/api/evals/suites/${id}`, { method: "DELETE", token }),
+    createCase: (suiteId: string, data: { name: string; input: Record<string, unknown>; expected_output?: Record<string, unknown>; grading_method: string; grading_config?: Record<string, unknown> }, token: string) =>
+      request<EvalCase>(`/api/evals/suites/${suiteId}/cases`, { method: "POST", body: JSON.stringify(data), token }),
+    deleteCase: (caseId: string, token: string) =>
+      request<void>(`/api/evals/cases/${caseId}`, { method: "DELETE", token }),
+    runSuite: (suiteId: string, data: { model?: string } | undefined, token: string) =>
+      request<EvalRun>(`/api/evals/suites/${suiteId}/run`, { method: "POST", body: JSON.stringify(data || {}), token }),
+    listRuns: (suiteId: string, token: string) =>
+      request<EvalRun[]>(`/api/evals/suites/${suiteId}/runs`, { token }),
+    getRun: (runId: string, token: string) =>
+      request<EvalRun>(`/api/evals/runs/${runId}`, { token }),
+    compareRuns: (runId: string, otherRunId: string, token: string) =>
+      request<Record<string, unknown>>(`/api/evals/runs/${runId}/compare/${otherRunId}`, { token }),
+  },
+  approvals: {
+    list: (status: string, token: string) =>
+      request<Approval[]>(`/api/approvals?status=${status}`, { token }),
+    get: (id: string, token: string) => request<Approval>(`/api/approvals/${id}`, { token }),
+    approve: (id: string, feedback: string, token: string) =>
+      request<Approval>(`/api/approvals/${id}/approve`, { method: "POST", body: JSON.stringify({ feedback }), token }),
+    reject: (id: string, feedback: string, token: string) =>
+      request<Approval>(`/api/approvals/${id}/reject`, { method: "POST", body: JSON.stringify({ feedback }), token }),
   },
   triggers: {
     list: (token: string) => request<Trigger[]>("/api/triggers", { token }),

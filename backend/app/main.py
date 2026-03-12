@@ -14,10 +14,12 @@ from app.mcp.scheduler import cron_scheduler
 from app.routers import (
     agents,
     api_keys,
+    approvals,
     blueprints,
     compare,
     costs,
     dashboard,
+    evals,
     mcp,
     messages,
     orchestration,
@@ -53,7 +55,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="AgentForge API",
     description="AI workflow agent platform backend",
-    version="1.3.0",
+    version="1.4.0",
     lifespan=lifespan,
 )
 
@@ -82,11 +84,13 @@ app.include_router(providers.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
 app.include_router(triggers.router, prefix="/api")
+app.include_router(evals.router, prefix="/api")
+app.include_router(approvals.router, prefix="/api")
 
 
 @app.get("/")
 async def root():
-    return {"name": "AgentForge API", "version": "1.3.0", "status": "running"}
+    return {"name": "AgentForge API", "version": "1.4.0", "status": "running"}
 
 
 @app.get("/health")

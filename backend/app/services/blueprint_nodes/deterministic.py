@@ -154,6 +154,46 @@ async def execute_output_formatter(config: dict, inputs: dict[str, Any]) -> dict
 
 
 # Executor dispatch table
+async def execute_approval_gate(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Pause execution for human approval.
+
+    Creates an approval request and raises an exception to pause the run.
+    The blueprint engine handles this by pausing the run until approved.
+    """
+    from app.services.evals.approvals import approval_service
+
+    message = config.get("message", "Please review and approve to continue.")
+    run_id = inputs.get("_run_id", "")
+    node_id = inputs.get("_node_id", "")
+    user_id = inputs.get("_user_id", "")
+
+    if run_id and user_id:
+        # Check if already approved
+        existing = await approval_service.get_approval_for_run(run_id, node_id)
+        if existing and existing["status"] == "approved":
+            return {
+                "approved": True,
+                "feedback": existing.get("feedback", ""),
+                "text": f"Approved: {existing.get('feedback', '')}",
+            }
+        if existing and existing["status"] == "rejected":
+            raise ValueError(f"Approval rejected: {existing.get('feedback', '')}")
+
+        # Create new approval request
+        context = {
+            "message": message,
+            "upstream_data": {k: v for k, v in inputs.items() if not k.startswith("_")},
+        }
+        await approval_service.create_approval(
+            user_id=user_id,
+            blueprint_run_id=run_id,
+            node_id=node_id,
+            context=context,
+        )
+
+    raise ValueError("APPROVAL_PENDING: Execution paused awaiting human approval")
+
+
 DETERMINISTIC_EXECUTORS = {
     "fetch_url": execute_fetch_url,
     "fetch_document": execute_fetch_document,
@@ -163,4 +203,5 @@ DETERMINISTIC_EXECUTORS = {
     "template_renderer": execute_template_renderer,
     "webhook": execute_webhook,
     "output_formatter": execute_output_formatter,
+    "approval_gate": execute_approval_gate,
 }

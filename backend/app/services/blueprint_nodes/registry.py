@@ -113,6 +113,18 @@ DETERMINISTIC_NODES: dict[str, NodeType] = {
         },
         output_schema={"formatted": {"type": "string"}},
     ),
+    "approval_gate": NodeType(
+        key="approval_gate",
+        display_name="Approval Gate",
+        category="validate",
+        node_class="deterministic",
+        description="Pauses execution for human review. Requires approval before continuing.",
+        input_schema={
+            "message": {"type": "string", "default": "Please review and approve to continue."},
+            "notify": {"type": "string", "default": "dashboard", "enum": ["dashboard", "pushover", "webhook"]},
+        },
+        output_schema={"approved": {"type": "boolean"}, "feedback": {"type": "string"}},
+    ),
 }
 
 # --- Agent node types ---

@@ -958,6 +958,177 @@ def triggers_toggle(
         raise typer.Exit(1)
 
 
+# --- Eval commands ---
+
+evals_app = typer.Typer(help="Manage eval suites and runs")
+app.add_typer(evals_app, name="evals")
+
+
+@evals_app.command("list")
+def evals_list():
+    """List eval suites."""
+    try:
+        suites = client.get("/api/evals/suites")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not suites:
+        console.print("[dim]No eval suites.[/dim]")
+        return
+
+    table = Table(title="Eval Suites")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Name", style="bold")
+    table.add_column("Target")
+    table.add_column("Cases", justify="right")
+
+    for s in suites:
+        table.add_row(
+            s["id"][:8],
+            s["name"],
+            f"{s['target_type']}:{s['target_id'][:8]}",
+            str(len(s.get("cases", []))),
+        )
+
+    console.print(table)
+
+
+@evals_app.command("run")
+def evals_run(
+    suite_id: str = typer.Argument(..., help="Eval suite ID"),
+    model: str = typer.Option("", "--model", "-m", help="Override model for this run"),
+):
+    """Run an eval suite."""
+    console.print(f"[bold]Running eval suite {suite_id[:8]}...[/bold]")
+    try:
+        body: dict = {}
+        if model:
+            body["model"] = model
+        result = client.post(f"/api/evals/suites/{suite_id}/run", json=body)
+        console.print(f"[green]Eval complete![/green]")
+        console.print(f"  Pass rate: {result.get('pass_rate', 0) * 100:.0f}%")
+        console.print(f"  Avg score: {result.get('avg_score', 0):.2f}")
+        console.print(f"  Passed: {result.get('passed_cases', 0)}/{result.get('total_cases', 0)}")
+        console.print(f"  Run ID: {result.get('run_id', '')[:8]}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@evals_app.command("compare")
+def evals_compare(
+    run_a: str = typer.Argument(..., help="First run ID"),
+    run_b: str = typer.Argument(..., help="Second run ID"),
+):
+    """Compare two eval runs to see regressions."""
+    try:
+        result = client.get(f"/api/evals/runs/{run_a}/compare/{run_b}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    a_info = result.get("run_a", {})
+    b_info = result.get("run_b", {})
+    console.print(f"\n[bold]Run A[/bold] ({a_info.get('id', '')[:8]}): "
+                  f"pass_rate={a_info.get('pass_rate', 0) * 100:.0f}%")
+    console.print(f"[bold]Run B[/bold] ({b_info.get('id', '')[:8]}): "
+                  f"pass_rate={b_info.get('pass_rate', 0) * 100:.0f}%")
+    console.print(f"\n  Regressions: [red]{result.get('regressions', 0)}[/red]")
+    console.print(f"  Improvements: [green]{result.get('improvements', 0)}[/green]")
+
+    comparisons = result.get("comparisons", [])
+    if comparisons:
+        table = Table(title="Case Comparison")
+        table.add_column("Case", style="dim", max_width=8)
+        table.add_column("Status")
+        table.add_column("Score A", justify="right")
+        table.add_column("Score B", justify="right")
+        table.add_column("Diff", justify="right")
+
+        for c in comparisons:
+            status = c.get("status", "")
+            color = {"regression": "red", "improvement": "green", "unchanged": "dim"}.get(status, "white")
+            score_a = f"{c.get('run_a_score', 0):.2f}" if c.get("run_a_score") is not None else "—"
+            score_b = f"{c.get('run_b_score', 0):.2f}" if c.get("run_b_score") is not None else "—"
+            diff = f"{c.get('score_diff', 0):+.2f}" if c.get("score_diff") else "—"
+            table.add_row(c["case_id"][:8], f"[{color}]{status}[/{color}]", score_a, score_b, diff)
+
+        console.print(table)
+
+
+# --- Approval commands ---
+
+approvals_app = typer.Typer(help="Manage human-in-the-loop approvals")
+app.add_typer(approvals_app, name="approvals")
+
+
+@approvals_app.command("list")
+def approvals_list(
+    show_all: bool = typer.Option(False, "--all", "-a", help="Show all approvals, not just pending"),
+):
+    """List pending approvals."""
+    try:
+        status = "all" if show_all else "pending"
+        approvals = client.get(f"/api/approvals?status={status}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not approvals:
+        console.print("[dim]No pending approvals.[/dim]")
+        return
+
+    table = Table(title="Approvals")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Status")
+    table.add_column("Node")
+    table.add_column("Run", style="dim", max_width=8)
+    table.add_column("Created")
+
+    status_colors = {"pending": "yellow", "approved": "green", "rejected": "red"}
+
+    for a in approvals:
+        color = status_colors.get(a["status"], "white")
+        table.add_row(
+            a["id"][:8],
+            f"[{color}]{a['status']}[/{color}]",
+            a.get("node_id", ""),
+            a["blueprint_run_id"][:8],
+            a.get("created_at", "")[:10],
+        )
+
+    console.print(table)
+
+
+@approvals_app.command("approve")
+def approvals_approve(
+    approval_id: str = typer.Argument(..., help="Approval ID"),
+    feedback: str = typer.Option("", "--feedback", "-f", help="Optional feedback"),
+):
+    """Approve a pending checkpoint."""
+    try:
+        client.post(f"/api/approvals/{approval_id}/approve", json={"feedback": feedback})
+        console.print(f"[green]Approved {approval_id[:8]}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@approvals_app.command("reject")
+def approvals_reject(
+    approval_id: str = typer.Argument(..., help="Approval ID"),
+    feedback: str = typer.Option("", "--feedback", "-f", help="Rejection reason"),
+):
+    """Reject a pending checkpoint."""
+    try:
+        client.post(f"/api/approvals/{approval_id}/reject", json={"feedback": feedback})
+        console.print(f"[red]Rejected {approval_id[:8]}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
 
