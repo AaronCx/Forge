@@ -18,7 +18,7 @@ export function StreamingOutput({ content }: StreamingOutputProps) {
   return (
     <div
       ref={containerRef}
-      className="max-h-96 overflow-auto rounded-lg bg-muted/50 p-4 font-mono text-sm"
+      className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-4 font-mono text-sm"
     >
       {content || (
         <span className="text-muted-foreground">
