@@ -6,15 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import MessageFeed from "@/components/dashboard/MessageFeed";
-import { API_URL } from "@/lib/constants";
-
-const TOOL_OPTIONS = [
-  "web_search",
-  "document_reader",
-  "code_executor",
-  "data_extractor",
-  "summarizer",
-];
+import { API_URL, AVAILABLE_TOOLS } from "@/lib/constants";
 
 const roleColors: Record<string, string> = {
   coordinator: "bg-purple-500",
@@ -156,18 +148,18 @@ export default function OrchestratePage() {
             <div>
               <label className="text-sm font-medium">Tools</label>
               <div className="mt-1 flex flex-wrap gap-2">
-                {TOOL_OPTIONS.map((tool) => (
+                {AVAILABLE_TOOLS.map((tool) => (
                   <button
-                    key={tool}
+                    key={tool.id}
                     type="button"
-                    onClick={() => toggleTool(tool)}
+                    onClick={() => toggleTool(tool.id)}
                     className={`rounded-md border px-3 py-1 text-xs transition-colors ${
-                      selectedTools.includes(tool)
+                      selectedTools.includes(tool.id)
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border text-muted-foreground hover:border-primary"
                     }`}
                   >
-                    {tool.replace("_", " ")}
+                    {tool.name}
                   </button>
                 ))}
               </div>
