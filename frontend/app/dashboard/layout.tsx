@@ -15,6 +15,7 @@ const navItems = [
   { href: "/dashboard/orchestrate", label: "Orchestrate" },
   { href: "/dashboard/agents", label: "Agents" },
   { href: "/dashboard/blueprints", label: "Blueprints" },
+  { href: "/dashboard/compare", label: "Compare" },
   { href: "/dashboard/runs", label: "Runs" },
   { href: "/dashboard/settings", label: "Settings" },
 ];

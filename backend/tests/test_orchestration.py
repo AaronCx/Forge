@@ -81,40 +81,60 @@ class TestOrchestratorDecompose:
     @pytest.mark.asyncio
     async def test_decompose_returns_tasks(self):
         """Decompose should return a list of task dicts."""
+        from unittest.mock import patch
+
+        from app.providers.base import LLMResponse
         from app.services.orchestrator import Orchestrator
 
-        orch = Orchestrator()
-        mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(message=MagicMock(content=json.dumps({
+        mock_response = LLMResponse(
+            content=json.dumps({
                 "tasks": [
                     {"description": "Research topic", "role": "scout", "dependencies": [], "tools": ["web_search"]},
                     {"description": "Write summary", "role": "worker", "dependencies": [0], "tools": []},
                 ]
-            })))
-        ]
-        orch.llm = AsyncMock()
-        orch.llm.chat.completions.create = AsyncMock(return_value=mock_response)
+            }),
+            model="gpt-4o-mini",
+            input_tokens=50,
+            output_tokens=100,
+            finish_reason="stop",
+            latency_ms=200,
+            provider="openai",
+        )
 
-        tasks = await orch.decompose("Summarize AI trends", ["web_search"])
-        assert len(tasks) == 2
-        assert tasks[0]["role"] == "scout"
-        assert tasks[1]["dependencies"] == [0]
+        with patch("app.services.orchestrator.provider_registry") as mock_registry:
+            mock_registry.complete = AsyncMock(return_value=mock_response)
+            mock_registry.default_model = "gpt-4o-mini"
+
+            orch = Orchestrator()
+            tasks = await orch.decompose("Summarize AI trends", ["web_search"])
+            assert len(tasks) == 2
+            assert tasks[0]["role"] == "scout"
+            assert tasks[1]["dependencies"] == [0]
 
     @pytest.mark.asyncio
     async def test_decompose_fallback_on_invalid_json(self):
         """Decompose should return a single fallback task on parse error."""
+        from unittest.mock import patch
+
+        from app.providers.base import LLMResponse
         from app.services.orchestrator import Orchestrator
 
-        orch = Orchestrator()
-        mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(message=MagicMock(content="not valid json {{{"))
-        ]
-        orch.llm = AsyncMock()
-        orch.llm.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_response = LLMResponse(
+            content="not valid json {{{",
+            model="gpt-4o-mini",
+            input_tokens=30,
+            output_tokens=10,
+            finish_reason="stop",
+            latency_ms=100,
+            provider="openai",
+        )
 
-        tasks = await orch.decompose("Do something", [])
-        assert len(tasks) == 1
-        assert tasks[0]["description"] == "Do something"
-        assert tasks[0]["role"] == "worker"
+        with patch("app.services.orchestrator.provider_registry") as mock_registry:
+            mock_registry.complete = AsyncMock(return_value=mock_response)
+            mock_registry.default_model = "gpt-4o-mini"
+
+            orch = Orchestrator()
+            tasks = await orch.decompose("Do something", [])
+            assert len(tasks) == 1
+            assert tasks[0]["description"] == "Do something"
+            assert tasks[0]["role"] == "worker"

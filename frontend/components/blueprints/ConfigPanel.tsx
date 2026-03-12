@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ModelSelector } from "@/components/ModelSelector";
 import { Textarea } from "@/components/ui/textarea";
 
 
@@ -193,6 +194,11 @@ export function ConfigPanel({
                 rows={4}
               />
             </div>
+            <ModelSelector
+              value={(config.model as string) || null}
+              onChange={(m) => updateConfig("model", m)}
+              label="Model Override"
+            />
             {type === "llm_summarize" && (
               <div>
                 <Label className="text-xs">Summary Length</Label>

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ModelSelector } from "@/components/ModelSelector";
 import { ToolSelector } from "./ToolSelector";
 import { WorkflowEditor } from "./WorkflowEditor";
 
@@ -25,6 +26,7 @@ export function AgentBuilder({ initialData, mode }: AgentBuilderProps) {
   const [systemPrompt, setSystemPrompt] = useState(initialData?.system_prompt || "");
   const [tools, setTools] = useState<string[]>(initialData?.tools || []);
   const [workflowSteps, setWorkflowSteps] = useState<string[]>(initialData?.workflow_steps || []);
+  const [model, setModel] = useState<string | null>(initialData?.model || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -52,6 +54,7 @@ export function AgentBuilder({ initialData, mode }: AgentBuilderProps) {
       system_prompt: systemPrompt,
       tools,
       workflow_steps: workflowSteps.filter((s) => s.trim()),
+      model,
     };
 
     try {
@@ -105,6 +108,7 @@ export function AgentBuilder({ initialData, mode }: AgentBuilderProps) {
               required
             />
           </div>
+          <ModelSelector value={model} onChange={setModel} />
         </CardContent>
       </Card>
 

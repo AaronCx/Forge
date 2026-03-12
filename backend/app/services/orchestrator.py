@@ -2,13 +2,10 @@
 
 import asyncio
 import json
-import os
 from collections.abc import AsyncIterator
 
-from openai import AsyncOpenAI
-
-from app.config import DEFAULT_MODEL
 from app.database import supabase
+from app.providers.registry import provider_registry
 from app.services.agent_executor import AgentRunner
 from app.services.messaging import messaging_service
 
@@ -25,15 +22,13 @@ class Orchestrator:
     """Decomposes objectives into sub-tasks and coordinates worker agents."""
 
     def __init__(self):
-        self.llm = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
         self.runner = AgentRunner()
 
     async def decompose(self, objective: str, available_tools: list[str]) -> list[dict]:
         """Use LLM to decompose an objective into sub-tasks with dependencies."""
         tools_str = ", ".join(available_tools) if available_tools else "none"
 
-        response = await self.llm.chat.completions.create(
-            model=DEFAULT_MODEL,
+        response = await provider_registry.complete(
             messages=[
                 {
                     "role": "system",
@@ -52,10 +47,9 @@ class Orchestrator:
                 {"role": "user", "content": objective},
             ],
             temperature=0,
-            response_format={"type": "json_object"},
         )
 
-        content = response.choices[0].message.content or "[]"
+        content = response.content or "[]"
         try:
             parsed = json.loads(content)
             tasks = parsed.get("tasks", parsed) if isinstance(parsed, dict) else parsed
@@ -72,7 +66,7 @@ class Orchestrator:
         user_id: str,
         tools: list[str] | None = None,
     ) -> AsyncIterator[dict]:
-        """Orchestrate a full objective: decompose → dispatch → aggregate."""
+        """Orchestrate a full objective: decompose -> dispatch -> aggregate."""
         available_tools = tools or []
 
         # Create task group
@@ -234,8 +228,7 @@ class Orchestrator:
         )
 
         try:
-            synthesis = await self.llm.chat.completions.create(
-                model=DEFAULT_MODEL,
+            synthesis = await provider_registry.complete(
                 messages=[
                     {
                         "role": "system",
@@ -248,7 +241,7 @@ class Orchestrator:
                 ],
                 temperature=0,
             )
-            final = synthesis.choices[0].message.content or ""
+            final = synthesis.content or ""
         except Exception as e:
             final = f"Synthesis failed: {e}\n\nRaw results:\n{all_results}"
 

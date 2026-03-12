@@ -653,5 +653,115 @@ def costs(
         console.print(table)
 
 
+models_app = typer.Typer(help="Manage models and providers")
+app.add_typer(models_app, name="models")
+
+
+@models_app.command("list")
+def models_list(
+    provider: str = typer.Option("", "--provider", "-p", help="Filter by provider"),
+):
+    """List available models across all providers."""
+    try:
+        if provider:
+            models = client.get(f"/api/providers/models/{provider}")
+        else:
+            models = client.get("/api/providers/models")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not models:
+        console.print("[dim]No models available.[/dim]")
+        return
+
+    table = Table(title="Available Models")
+    table.add_column("Model ID", style="bold")
+    table.add_column("Provider")
+    table.add_column("Context", justify="right")
+    table.add_column("Max Output", justify="right")
+    table.add_column("Tools")
+    table.add_column("Stream")
+
+    for m in models:
+        ctx = f"{m['context_window']:,}" if m.get("context_window") else "—"
+        out = f"{m['max_output_tokens']:,}" if m.get("max_output_tokens") else "—"
+        table.add_row(
+            m["id"],
+            m["provider"],
+            ctx,
+            out,
+            "Yes" if m.get("supports_tools", True) else "No",
+            "Yes" if m.get("supports_streaming", True) else "No",
+        )
+
+    console.print(table)
+
+
+@models_app.command("health")
+def models_health():
+    """Check health of all configured providers."""
+    try:
+        health = client.get("/api/providers/health")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    table = Table(title="Provider Health")
+    table.add_column("Provider", style="bold")
+    table.add_column("Status")
+    table.add_column("Latency", justify="right")
+    table.add_column("Error")
+
+    status_colors = {
+        "healthy": "green",
+        "degraded": "yellow",
+        "unavailable": "red",
+    }
+
+    for h in health:
+        color = status_colors.get(h["status"], "white")
+        latency = f"{h['latency_ms']:.0f}ms" if h.get("latency_ms") else "—"
+        table.add_row(
+            h["provider"],
+            f"[{color}]{h['status']}[/{color}]",
+            latency,
+            h.get("error", "") or "",
+        )
+
+    console.print(table)
+
+
+@models_app.command("test")
+def models_test(
+    model: str = typer.Argument(..., help="Model ID to test"),
+    prompt: str = typer.Option("Say hello in one sentence.", "--prompt", "-p", help="Test prompt"),
+):
+    """Send a test prompt to a specific model."""
+    console.print(f"[dim]Testing {model}...[/dim]")
+    try:
+        result = client.post("/api/compare", json={
+            "prompt": prompt,
+            "models": [model],
+        })
+        results = result.get("results", [])
+        if results:
+            r = results[0]
+            if r.get("error"):
+                console.print(f"[red]Error: {r['error']}[/red]")
+            else:
+                console.print(f"\n[bold]{r['model']}[/bold] ({r['provider']})")
+                console.print(r["content"])
+                console.print(f"\n[dim]Tokens: {r['input_tokens']+r['output_tokens']} | "
+                              f"Latency: {r['latency_ms']/1000:.1f}s | "
+                              f"Cost: ${r['cost']:.4f}[/dim]")
+        else:
+            console.print("[red]No results returned.[/red]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
+

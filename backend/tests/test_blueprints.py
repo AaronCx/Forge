@@ -1,7 +1,7 @@
 """Tests for the Blueprint system — node executors, engine, and API endpoints."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

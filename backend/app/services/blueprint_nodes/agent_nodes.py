@@ -1,23 +1,9 @@
 """Agent node executors — LLM-powered steps that require judgment."""
 
-from __future__ import annotations
-
 import json
-import os
 from typing import Any
 
-from openai import AsyncOpenAI
-
-from app.config import DEFAULT_MODEL
-
-_client: AsyncOpenAI | None = None
-
-
-def _get_client() -> AsyncOpenAI:
-    global _client
-    if _client is None:
-        _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
-    return _client
+from app.providers.registry import provider_registry
 
 
 async def _llm_call(
@@ -28,30 +14,28 @@ async def _llm_call(
     json_mode: bool = False,
     temperature: float = 0,
 ) -> dict[str, Any]:
-    """Make an LLM call and return content + token usage."""
-    client = _get_client()
-    kwargs: dict[str, Any] = {
-        "model": model or DEFAULT_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": temperature,
-    }
-    if json_mode:
-        kwargs["response_format"] = {"type": "json_object"}
+    """Make an LLM call via the provider registry and return content + token usage."""
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
-    response = await client.chat.completions.create(**kwargs)
-    content = response.choices[0].message.content or ""
-    usage = response.usage
-    input_tokens = usage.prompt_tokens if usage else 0
-    output_tokens = usage.completion_tokens if usage else 0
+    resolved_model = model or None  # None → registry default
+
+    response = await provider_registry.complete(
+        messages=messages,
+        model=resolved_model,
+        temperature=temperature,
+        max_tokens=4096,
+    )
 
     return {
-        "content": content,
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_tokens": input_tokens + output_tokens,
+        "content": response.content,
+        "input_tokens": response.input_tokens,
+        "output_tokens": response.output_tokens,
+        "total_tokens": response.input_tokens + response.output_tokens,
+        "model": response.model,
+        "provider": response.provider,
     }
 
 
@@ -77,7 +61,8 @@ async def execute_llm_generate(config: dict, inputs: dict[str, Any]) -> dict[str
 
     result = await _llm_call(system_prompt, full_prompt, model=config.get("model", ""))
     return {"text": result["content"], "tokens": result["total_tokens"],
-            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"]}
+            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"],
+            "model": result["model"], "provider": result["provider"]}
 
 
 async def execute_llm_summarize(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -101,10 +86,11 @@ async def execute_llm_summarize(config: dict, inputs: dict[str, Any]) -> dict[st
     if isinstance(text, list):
         text = "\n\n".join(str(c) for c in text)
 
-    result = await _llm_call(system_prompt, text[:8000])
+    result = await _llm_call(system_prompt, text[:8000], model=config.get("model", ""))
     return {"summary": result["content"], "text": result["content"],
             "tokens": result["total_tokens"],
-            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"]}
+            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"],
+            "model": result["model"], "provider": result["provider"]}
 
 
 async def execute_llm_extract(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -126,7 +112,7 @@ async def execute_llm_extract(config: dict, inputs: dict[str, Any]) -> dict[str,
         f"{schema_desc}"
     )
 
-    result = await _llm_call(system_prompt, text[:8000], json_mode=True)
+    result = await _llm_call(system_prompt, text[:8000], json_mode=True, model=config.get("model", ""))
 
     try:
         extracted = json.loads(result["content"])
@@ -135,7 +121,8 @@ async def execute_llm_extract(config: dict, inputs: dict[str, Any]) -> dict[str,
 
     return {"extracted": extracted, "text": json.dumps(extracted),
             "tokens": result["total_tokens"],
-            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"]}
+            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"],
+            "model": result["model"], "provider": result["provider"]}
 
 
 async def execute_llm_review(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -164,7 +151,7 @@ async def execute_llm_review(config: dict, inputs: dict[str, Any]) -> dict[str, 
     }
 
     system_prompt = prompts.get(review_type, prompts["code"])
-    result = await _llm_call(system_prompt, content[:8000], json_mode=True)
+    result = await _llm_call(system_prompt, content[:8000], json_mode=True, model=config.get("model", ""))
 
     try:
         parsed = json.loads(result["content"])
@@ -174,7 +161,8 @@ async def execute_llm_review(config: dict, inputs: dict[str, Any]) -> dict[str, 
 
     return {"feedback": feedback, "text": json.dumps(feedback),
             "tokens": result["total_tokens"],
-            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"]}
+            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"],
+            "model": result["model"], "provider": result["provider"]}
 
 
 async def execute_llm_implement(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -193,10 +181,11 @@ async def execute_llm_implement(config: dict, inputs: dict[str, Any]) -> dict[st
     if context:
         user_prompt = f"Context:\n{context}\n\nTask:\n{task}"
 
-    result = await _llm_call(system_prompt, user_prompt)
+    result = await _llm_call(system_prompt, user_prompt, model=config.get("model", ""))
     return {"code": result["content"], "text": result["content"],
             "tokens": result["total_tokens"],
-            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"]}
+            "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"],
+            "model": result["model"], "provider": result["provider"]}
 
 
 # Executor dispatch table

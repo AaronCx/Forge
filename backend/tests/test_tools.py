@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -40,14 +40,20 @@ async def test_web_search_no_api_key():
 
 @pytest.mark.asyncio
 async def test_data_extractor():
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = '{"entities": ["John"], "dates": ["2024-01-01"]}'
+    from app.providers.base import LLMResponse
 
-    with patch("app.services.tools.data_extractor.AsyncOpenAI") as mock_client_cls:
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_client_cls.return_value = mock_client
+    mock_response = LLMResponse(
+        content='{"entities": ["John"], "dates": ["2024-01-01"]}',
+        model="gpt-4o-mini",
+        input_tokens=10,
+        output_tokens=20,
+        finish_reason="stop",
+        latency_ms=50,
+        provider="openai",
+    )
+
+    with patch("app.services.tools.data_extractor.provider_registry") as mock_registry:
+        mock_registry.complete = AsyncMock(return_value=mock_response)
 
         from app.services.tools.data_extractor import data_extractor
         result = await data_extractor.ainvoke("John was born on January 1, 2024")
@@ -56,14 +62,20 @@ async def test_data_extractor():
 
 @pytest.mark.asyncio
 async def test_summarizer():
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "This is a summary of the text."
+    from app.providers.base import LLMResponse
 
-    with patch("app.services.tools.summarizer.AsyncOpenAI") as mock_client_cls:
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_client_cls.return_value = mock_client
+    mock_response = LLMResponse(
+        content="This is a summary of the text.",
+        model="gpt-4o-mini",
+        input_tokens=10,
+        output_tokens=15,
+        finish_reason="stop",
+        latency_ms=50,
+        provider="openai",
+    )
+
+    with patch("app.services.tools.summarizer.provider_registry") as mock_registry:
+        mock_registry.complete = AsyncMock(return_value=mock_response)
 
         from app.services.tools.summarizer import summarizer
         result = await summarizer.ainvoke("A very long text that needs summarizing...")
