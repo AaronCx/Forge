@@ -56,9 +56,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - run: pip install -r requirements.txt
-      - run: pip install pytest pytest-asyncio pytest-cov ruff mypy
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
       - run: ruff check app/ --config ../ruff.toml
       - run: mypy app/ --config-file mypy.ini
       - run: pytest tests/ -v --cov=app
