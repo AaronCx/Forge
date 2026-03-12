@@ -35,10 +35,10 @@ describe("StatsCards", () => {
       runs_this_hour: 0,
     };
 
-    render(<StatsCards stats={stats} loading={true} />);
+    const { container } = render(<StatsCards stats={stats} loading={true} />);
 
-    const dots = screen.getAllByText("...");
-    expect(dots.length).toBe(4);
+    const skeletons = container.querySelectorAll(".animate-pulse");
+    expect(skeletons.length).toBe(4);
   });
 
   it("renders all card titles", async () => {
