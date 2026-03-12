@@ -240,7 +240,7 @@ def test_create_key(auth_client):
             json={"name": "Test Key"},
             headers={"Authorization": "Bearer test-token"},
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["key"].startswith("af_")
 
