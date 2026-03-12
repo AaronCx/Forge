@@ -20,6 +20,8 @@ export default function MonitorPage() {
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +69,10 @@ export default function MonitorPage() {
         `${API_URL}/api/dashboard/stream?token=${encodeURIComponent(token)}`
       );
 
-      es.onopen = () => setConnected(true);
+      es.onopen = () => {
+        setConnected(true);
+        retryCountRef.current = 0;
+      };
 
       es.onmessage = (event) => {
         try {
@@ -75,16 +80,17 @@ export default function MonitorPage() {
           if (data.metrics) setMetrics(data.metrics);
           if (data.active_agents) setActiveAgents(data.active_agents);
         } catch {
-          // Ignore parse errors
+          // Ignore parse errors from malformed SSE data
         }
       };
 
       es.onerror = () => {
         setConnected(false);
         es.close();
-        // Reconnect after 5s
         if (!cancelled) {
-          setTimeout(connect, 5000);
+          const delay = Math.min(5000 * 2 ** retryCountRef.current, 30000);
+          retryCountRef.current++;
+          reconnectTimerRef.current = setTimeout(connect, delay);
         }
       };
 
@@ -96,6 +102,7 @@ export default function MonitorPage() {
     return () => {
       cancelled = true;
       eventSourceRef.current?.close();
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     };
   }, []);
 
