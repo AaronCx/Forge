@@ -30,9 +30,11 @@ export function StatsCards({ stats, loading }: StatsCardsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {loading ? "..." : card.value}
-            </p>
+            {loading ? (
+              <div className="h-8 w-20 animate-pulse rounded bg-muted" />
+            ) : (
+              <p className="text-2xl font-bold">{card.value}</p>
+            )}
           </CardContent>
         </Card>
       ))}
