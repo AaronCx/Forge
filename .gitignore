@@ -10,6 +10,12 @@ __pycache__/
 dist/
 build/
 .DS_Store
+Thumbs.db
 *.log
 .coverage
+htmlcov/
+.pytest_cache/
 supabase/.temp/
+*.swp
+*.swo
+*~
