@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import supabase
 from app.routers.auth import get_current_user
@@ -14,8 +14,8 @@ router = APIRouter(tags=["orchestration"])
 
 
 class OrchestrationRequest(BaseModel):
-    objective: str
-    tools: list[str] = []
+    objective: str = Field(..., min_length=1, max_length=5000)
+    tools: list[str] = Field(default_factory=list, max_length=20)
 
 
 @router.post("/orchestrate")
