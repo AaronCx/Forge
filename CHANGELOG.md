@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-12
+
+### Added
+
+- Token usage table for per-step cost tracking
+- Token tracking service with model pricing (GPT-4o-mini/4o/4-turbo/3.5-turbo)
+- Cost API endpoints: summary by period, breakdown by agent/model, per-run usage, monthly projection
+- Analytics page with cost summaries, token breakdown bars, agent/model cost tables, projection
+- CLI `costs` command with summary, breakdown, and projection display
+- 8 new cost endpoint and calculation tests
+
 ## [0.3.0] - 2026-03-12
 
 ### Added
