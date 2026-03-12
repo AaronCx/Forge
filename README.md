@@ -1,79 +1,120 @@
 # AgentForge
 
-**Multi-agent AI workflow platform — build, orchestrate, and monitor AI agents with tool use.**
+**Multi-agent AI workflow platform with computer use, cross-platform automation, and visual blueprint orchestration.**
 
-Build custom AI agents that chain LLM calls, search the web, parse documents, extract structured data, execute code, and automate repetitive tasks. Orchestrate multi-agent objectives with dependency graphs and real-time monitoring.
+Build custom AI agents that chain LLM calls, automate GUIs, orchestrate terminals, and coordinate across machines. Visual DAG editor with 44 node types, multi-model provider support, and real-time SSE streaming.
 
+![Version](https://img.shields.io/badge/version-1.9.0-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3-green)
 ![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o--mini-412991?logo=openai)
+![Anthropic](https://img.shields.io/badge/Anthropic-Claude-orange)
 ![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-3ECF8E?logo=supabase)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
-![Bun](https://img.shields.io/badge/Bun-1.2-000000?logo=bun)
-![Backend Tests](https://img.shields.io/badge/backend_tests-104_passing-brightgreen)
+![Backend Tests](https://img.shields.io/badge/backend_tests-515_passing-brightgreen)
 ![Frontend Tests](https://img.shields.io/badge/frontend_tests-21_passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-66%25-yellow)
 
 ---
 
 ## Features
 
-### Agent Builder
-Create custom agents with a name, system prompt, tool selection, and multi-step workflow definitions. Agents can chain together multiple LLM calls with accumulated context.
+### Blueprint System
+Visual DAG workflow builder with 44 node types across 9 categories. Drag-and-drop React Flow editor, topological execution engine with concurrent layer resolution, context assembly with token budgets, retry policies, and SSE-streamed execution traces.
 
-### Agent Runner
-Execute agents with text input or file uploads. Real-time SSE streaming shows step-by-step execution with output appearing as it's generated.
+### Computer Use (GUI + Terminal Automation)
+Agents operate machines through GUI automation and terminal orchestration across macOS, Linux, and Windows:
+
+- **GUI Control (Steer)** — 12 nodes: screenshot, OCR, click, type, hotkey, scroll, drag, focus, find, wait, clipboard, app listing
+- **Terminal Control (Drive)** — 6 nodes: session management, command execution, key sending, log capture, polling, parallel fanout
+- **CU Agent Nodes** — 4 LLM-powered nodes: Planner, Analyzer, Verifier, Error Handler
+- **Safety** — app blocklist, command blocklist, rate limiting (30 actions/min), approval gates, audit logging
+
+### Agent-on-Agent Orchestration
+Spawn and control external coding agents (Claude Code, Codex CLI, Gemini CLI, Aider) as workers in tmux sessions. Full lifecycle management: spawn, prompt, monitor, wait, capture, stop. 6 agent control blueprint nodes with 4 pre-configured backends + custom support.
+
+### Multi-Machine Dispatch
+Route blueprint nodes to different execution targets. Dispatch routing: explicit target → blueprint default → capability-based → local fallback. REST API for target management with health checks.
+
+### Screen Recording
+Capture video of computer use sessions via ffmpeg. Quality presets (720p/1080p/native), recording control blueprint node, CLI management.
+
+### Cross-Platform Support
+| Platform | GUI Automation | Terminal | Method |
+|----------|---------------|----------|--------|
+| macOS | Steer CLI | Drive CLI / tmux | Native CLIs |
+| Linux | xdotool, scrot, tesseract, wmctrl, xclip | tmux | System tools + Xvfb |
+| Windows | pyautogui, pytesseract, pygetwindow | PowerShell + WSL/tmux | Python packages |
+
+### Multi-Model Providers
+Provider registry supporting OpenAI, Anthropic, and Google. Per-node model selection, health monitoring, and model comparison tools.
 
 ### Multi-Agent Orchestration
-Submit high-level objectives and let agents decompose tasks, respect dependency graphs, and execute concurrently. Roles include coordinator, supervisor, worker, scout, and reviewer.
+Submit objectives and let agents decompose tasks, respect dependency graphs, and execute concurrently. Roles: coordinator, supervisor, worker, scout, reviewer.
 
-### Live Monitoring Dashboard
-Real-time dashboard with agent heartbeat tracking, SSE-powered updates, stalled agent detection (30s threshold), and event timeline with severity filtering.
+### Knowledge Base + RAG
+Document collections with chunked upload, semantic search via cosine similarity, and a `knowledge_retrieval` blueprint node for RAG-augmented workflows.
 
-### Inter-Agent Messaging
-Agents communicate via typed messages (info, request, response, error, handoff) within task groups. View message feeds with type filtering and bilateral conversation history.
+### Eval Framework
+Eval suites with grading methods: exact_match, contains, json_schema, screenshot_match, ocr_contains. Multi-model comparison and per-prompt-version evaluation.
 
-### Cost Analytics
-Track token usage per agent, model, and run. Get daily/weekly/monthly summaries, breakdown reports by agent or model, per-run step-by-step usage, and monthly cost projections.
+### Human-in-the-Loop
+`approval_gate` blueprint node pauses execution for human review. Approve/reject with inbox UI and CLI.
 
-### Blueprint System (v1.1.0)
-Visual DAG workflow builder combining deterministic code nodes with LLM-powered agent nodes. Drag-and-drop React Flow editor, topological execution engine with concurrent layer resolution, context assembly pipeline, retry policies, and SSE-streamed execution traces.
+### MCP Integration
+Model Context Protocol connection management with unified tool registry. MCP tools available in agents and blueprints.
+
+### Observability
+Distributed trace recording for all executions with timeline visualization, trace viewer, and stats API.
+
+### Prompt Versioning
+Version management with diff, rollback, and eval integration. Track prompt evolution across blueprint iterations.
+
+### Workflow Marketplace
+Publish, browse, fork, and rate blueprints. Organization support with member RBAC (owner/admin/member).
+
+### Live Dashboard
+Real-time monitoring with heartbeat tracking, SSE-powered updates, stalled agent detection, event timeline, and cost analytics.
 
 ### CLI
-Full command-line interface with live TUI dashboard, agent management, blueprint management, orchestration, message viewing, and cost analysis.
+Full command-line interface with 20+ command groups: agents, blueprints, orchestrate, costs, cu (computer use), backends, targets, recordings, evals, approvals, traces, prompts, knowledge, marketplace, teams, messages, triggers, mcp, models, and more.
 
-### Pre-built Templates
+---
 
-#### Agent Templates
+## Node Types (44)
 
-| Agent | Description | Tools Used |
-|-------|-------------|------------|
-| **Document Analyzer** | Upload a PDF/DOCX → structured summary, entities, action items | document_reader, data_extractor, summarizer |
-| **Research Agent** | Topic → web search, synthesis, structured report | web_search, summarizer |
-| **Data Extractor** | Unstructured text → clean JSON with entities and relationships | data_extractor |
-| **Code Reviewer** | Code → bug, security, and performance review with severity ratings | code_executor |
+| Category | Count | Nodes |
+|----------|-------|-------|
+| Context | 3 | fetch_url, fetch_document, knowledge_retrieval |
+| Transform | 2 | text_splitter, template_renderer |
+| Validate | 3 | json_validator, run_linter, approval_gate |
+| Output | 2 | output_formatter, chunker |
+| Agent (LLM) | 5 | llm_summarize, llm_extract, llm_generate, llm_review, llm_classify |
+| GUI (Steer) | 13 | steer_see, steer_ocr, steer_click, steer_type, steer_hotkey, steer_scroll, steer_drag, steer_focus, steer_find, steer_wait, steer_clipboard, steer_apps, recording_control |
+| Terminal (Drive) | 6 | drive_session, drive_run, drive_send, drive_logs, drive_poll, drive_fanout |
+| CU Agent | 4 | cu_planner, cu_analyzer, cu_verifier, cu_error_handler |
+| Agent Control | 6 | agent_spawn, agent_prompt, agent_monitor, agent_wait, agent_stop, agent_result |
 
-#### Blueprint Templates
+---
 
-| Blueprint | Nodes | Description |
-|-----------|-------|-------------|
-| **Document Analyzer** | 5 | fetch_document → text_splitter → llm_extract → json_validator → output_formatter |
-| **Research Report** | 7 | 3× fetch_url (parallel) → text_splitter → llm_summarize → llm_generate → output_formatter |
-| **Code Review** | 4 | template_renderer → llm_review → json_validator → output_formatter |
-| **Data Extraction Pipeline** | 5 | fetch_document → text_splitter → llm_extract → json_validator → output_formatter |
-| **Content Generator** | 5 | template_renderer → llm_generate → run_linter → llm_generate → output_formatter |
+## Blueprint Templates (13)
 
-### Tools Library
-
-| Tool | Description |
-|------|-------------|
-| `web_search` | Search the web via SerpAPI |
-| `document_reader` | Extract text from PDF/DOCX files |
-| `code_executor` | Run Python in a sandboxed environment |
-| `data_extractor` | Extract structured JSON from text |
-| `summarizer` | Condense long documents |
+| Template | Category | Key Nodes |
+|----------|----------|-----------|
+| Document Analyzer | Core | fetch_document → text_splitter → llm_extract → json_validator → output_formatter |
+| Research Report | Core | 3× fetch_url → text_splitter → llm_summarize → llm_generate → output_formatter |
+| Code Review | Core | template_renderer → llm_review → json_validator → output_formatter |
+| Data Extraction | Core | fetch_document → text_splitter → llm_extract → json_validator → output_formatter |
+| Content Generator | Core | template_renderer → llm_generate → run_linter → llm_generate → output_formatter |
+| Browser Research | CU | steer_see → steer_ocr → cu_planner → steer_click → steer_type → steer_ocr |
+| Terminal Task Runner | CU | drive_session → drive_run → drive_poll → drive_logs → cu_analyzer |
+| Cross-App Workflow | CU | steer_apps → steer_focus → steer_see → cu_planner → steer_click → steer_type |
+| Self-Healing Automation | CU | cu_planner → steer_click → cu_verifier → cu_error_handler |
+| Multi-Terminal Parallel | CU | drive_session × 3 → drive_fanout → drive_logs → cu_analyzer |
+| Agent Inception | Agent | agent_spawn → agent_prompt → agent_monitor → agent_wait → agent_result |
+| Parallel Multi-Agent Code Review | Agent | agent_spawn × 3 → agent_prompt → agent_wait → agent_result |
+| Universal Browser Automation | Cross-Platform | Platform detection → steer_see → steer_ocr → cu_planner → steer_click |
 
 ---
 
@@ -81,45 +122,60 @@ Full command-line interface with live TUI dashboard, agent management, blueprint
 
 ```mermaid
 graph TB
-    subgraph Frontend["Frontend (Next.js)"]
+    subgraph Frontend["Frontend (Next.js 14)"]
         UI[React UI + shadcn/ui]
         Auth[Supabase Auth]
         SSE[SSE Client]
+        Editor[Blueprint Editor]
     end
 
     subgraph Backend["Backend (FastAPI)"]
         API[REST API]
-        Executor[Agent Executor]
+        Engine[Blueprint Engine]
         Orchestrator[Orchestrator]
-        BlueprintEngine[Blueprint Engine]
         Messaging[Messaging Service]
-        Tools[Tool Registry]
+        Providers[Provider Registry]
+        CU[Computer Use]
+        Dispatch[Multi-Machine Dispatch]
+        Agents[Agent-on-Agent]
         Stream[SSE Streaming]
-        RL[Rate Limiter]
     end
 
-    subgraph Services["External Services"]
+    subgraph ComputerUse["Computer Use Layer"]
+        Steer[GUI - Steer/xdotool/pyautogui]
+        Drive[Terminal - Drive/tmux/PowerShell]
+        Recorder[Screen Recorder]
+        Safety[Safety + Audit]
+    end
+
+    subgraph External["External Services"]
         OpenAI[OpenAI API]
-        SerpAPI[SerpAPI]
+        Anthropic[Anthropic API]
+        Google[Google AI]
         Supabase[(Supabase DB)]
+        MCP[MCP Servers]
     end
 
     UI --> API
     UI --> Auth
     SSE --> Stream
-    API --> RL
-    API --> Executor
+    Editor --> Engine
+    API --> Engine
     API --> Orchestrator
-    API --> BlueprintEngine
-    BlueprintEngine --> Executor
-    Orchestrator --> Executor
+    Engine --> Providers
+    Engine --> CU
+    CU --> Steer
+    CU --> Drive
+    CU --> Recorder
+    CU --> Safety
+    Dispatch --> CU
+    Agents --> Drive
     Orchestrator --> Messaging
-    Executor --> Tools
-    Executor --> OpenAI
-    Tools --> SerpAPI
-    Tools --> OpenAI
+    Providers --> OpenAI
+    Providers --> Anthropic
+    Providers --> Google
     API --> Supabase
-    Auth --> Supabase
+    API --> MCP
 ```
 
 ---
@@ -128,14 +184,15 @@ graph TB
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, Bun |
-| Backend | Python 3.12, FastAPI, LangChain, OpenAI API |
+| Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, React Flow, Bun |
+| Backend | Python 3.12, FastAPI, LangChain, OpenAI/Anthropic/Google APIs |
+| Computer Use | Steer, Drive, xdotool, pyautogui, ffmpeg, tmux |
 | CLI | Typer, Rich, httpx |
-| Database | PostgreSQL via Supabase |
+| Database | PostgreSQL via Supabase (17 migrations) |
 | Auth | Supabase Auth (email + GitHub OAuth) |
-| Testing | pytest + pytest-asyncio (backend), vitest + testing-library (frontend) |
+| Testing | pytest (515 tests), vitest + testing-library (21 tests) |
 | Deployment | Vercel (frontend) + Render (backend) |
-| CI/CD | GitHub Actions |
+| CI/CD | GitHub Actions (ruff, mypy, pytest, ESLint, tsc, vitest) |
 
 ---
 
@@ -143,19 +200,19 @@ graph TB
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (frontend package manager and build tool)
+- [Bun](https://bun.sh) (frontend)
 - Python 3.12+
 - Supabase project ([create one](https://supabase.com))
-- OpenAI API key
+- OpenAI API key (and optionally Anthropic / Google API keys)
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/AaronCx/AgentForge.git
 cd AgentForge
 ```
 
-### 2. Set up the database
+### 2. Database
 
 Run the SQL migrations in your Supabase dashboard (SQL Editor), in order:
 
@@ -169,9 +226,17 @@ supabase/migrations/006_token_usage.sql
 supabase/migrations/007_hierarchy.sql
 supabase/migrations/008_agent_messages.sql
 supabase/migrations/20260312_blueprints.sql
+supabase/migrations/20260312_multi_model.sql
+supabase/migrations/20260312_mcp_triggers.sql
+supabase/migrations/20260312_eval_hitl.sql
+supabase/migrations/20260312_observability_prompts.sql
+supabase/migrations/20260312_knowledge_rag.sql
+supabase/migrations/20260312_marketplace_teams.sql
+supabase/migrations/20260312_computer_use.sql
+supabase/migrations/20260312_execution_targets.sql
 ```
 
-### 3. Set up the backend
+### 3. Backend
 
 ```bash
 cd backend
@@ -187,7 +252,7 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-### 4. Set up the frontend
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -201,29 +266,37 @@ cp .env.example .env.local
 bun run dev
 ```
 
-### 5. Install the CLI (optional)
+### 5. CLI (optional)
 
 ```bash
 cd cli
 pip install -e .
 agentforge init
-# Edit ~/.agentforge/config.toml with your API URL and key
 ```
 
-### 6. Using Docker
+### 6. Computer Use (optional)
+
+```bash
+# macOS
+brew install disler/tap/steer disler/tap/drive tmux
+
+# Linux
+sudo apt install xdotool scrot tesseract-ocr wmctrl xclip tmux xvfb
+
+# Windows
+pip install pyautogui pytesseract pygetwindow pyperclip
+```
+
+### 7. Docker
 
 ```bash
 cp backend/.env.example .env
-# Edit .env with all required keys
-
 docker-compose up --build
 ```
 
 ---
 
 ## Demo Mode
-
-Visit the app with `?demo=true` to explore the dashboard without authentication:
 
 ```
 http://localhost:3000/dashboard?demo=true
@@ -237,11 +310,15 @@ http://localhost:3000/dashboard?demo=true
 
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key for gpt-4o-mini |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
+| `GOOGLE_API_KEY` | Google AI API key (optional) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key |
-| `SERPAPI_KEY` | SerpAPI key for web search tool |
+| `SERPAPI_KEY` | SerpAPI key for web search |
 | `FRONTEND_URL` | Frontend URL for CORS |
+| `CU_DRY_RUN` | Set `true` for computer use dry-run mode |
+| `LISTEN_SERVER_URL` | Remote Listen server URL (optional) |
 
 ### Frontend (`frontend/.env.local`)
 
@@ -253,155 +330,109 @@ http://localhost:3000/dashboard?demo=true
 
 ---
 
-## API Documentation
+## API
 
 ### Authentication
-
-All API endpoints require a Bearer token from Supabase Auth:
 
 ```
 Authorization: Bearer <supabase-access-token>
 ```
 
-### Endpoints
-
-#### Agents
+### Core Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/agents` | List your agents |
-| `GET` | `/api/agents/templates` | List pre-built templates |
-| `GET` | `/api/agents/:id` | Get agent details |
-| `POST` | `/api/agents` | Create an agent |
-| `PUT` | `/api/agents/:id` | Update an agent |
-| `DELETE` | `/api/agents/:id` | Delete an agent |
+| `GET` | `/api/agents` | List agents |
+| `POST` | `/api/agents` | Create agent |
+| `POST` | `/api/agents/:id/run` | Run agent (SSE) |
+| `GET` | `/api/blueprints` | List blueprints |
+| `POST` | `/api/blueprints` | Create blueprint |
+| `POST` | `/api/blueprints/:id/run` | Run blueprint (SSE) |
+| `GET` | `/api/blueprints/node-types` | List all 44 node types |
+| `GET` | `/api/blueprints/templates` | List blueprint templates |
+| `POST` | `/api/orchestrate` | Start orchestration (SSE) |
 
-#### Runs
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/runs` | List your runs |
-| `GET` | `/api/runs/:id` | Get run details |
-| `POST` | `/api/agents/:id/run` | Execute an agent (SSE stream) |
-
-#### Orchestration
+### Computer Use
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/orchestrate` | Start multi-agent orchestration (SSE stream) |
-| `GET` | `/api/orchestrate/groups` | List orchestration groups |
-| `GET` | `/api/orchestrate/groups/:id` | Get group details with members |
-| `GET` | `/api/orchestrate/groups/:id/result` | Get final orchestration result |
+| `GET` | `/api/computer-use/status` | Capability report |
+| `GET` | `/api/computer-use/config` | CU configuration |
+| `POST` | `/api/computer-use/refresh` | Refresh capability cache |
+| `POST` | `/api/computer-use/remote/test` | Test remote connection |
+| `GET` | `/api/computer-use/audit-log` | Audit log entries |
 
-#### Messages
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/messages` | Send inter-agent message |
-| `GET` | `/api/messages/:group_id` | Get messages for a group |
-| `GET` | `/api/messages/:group_id/conversation` | Get bilateral agent conversation |
-
-#### Dashboard
+### Multi-Machine Dispatch
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/dashboard/active` | Active agent heartbeats |
-| `GET` | `/api/dashboard/metrics` | Aggregate metrics |
-| `GET` | `/api/dashboard/timeline` | Event timeline |
-| `GET` | `/api/dashboard/stream` | SSE stream for live updates |
-| `GET` | `/api/dashboard/health` | Health check |
+| `GET` | `/api/targets` | List execution targets |
+| `POST` | `/api/targets` | Register target |
+| `DELETE` | `/api/targets/:id` | Remove target |
+| `POST` | `/api/targets/:id/health` | Health check target |
+| `GET` | `/api/targets/capabilities` | Aggregated capabilities |
 
-#### Costs
+### Other APIs
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/costs/summary` | Cost summary by period |
-| `GET` | `/api/costs/breakdown` | Cost breakdown by agent/model |
-| `GET` | `/api/costs/run/:id` | Per-run token usage |
-| `GET` | `/api/costs/projection` | Monthly cost projection |
-
-#### Blueprints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/blueprints` | List your blueprints |
-| `GET` | `/api/blueprints/templates` | List pre-built blueprint templates |
-| `GET` | `/api/blueprints/node-types` | List available node types |
-| `GET` | `/api/blueprints/:id` | Get blueprint details |
-| `POST` | `/api/blueprints` | Create a blueprint |
-| `PUT` | `/api/blueprints/:id` | Update a blueprint |
-| `DELETE` | `/api/blueprints/:id` | Delete a blueprint |
-| `POST` | `/api/blueprints/:id/run` | Execute a blueprint (SSE stream) |
-| `GET` | `/api/blueprints/runs/:run_id` | Get execution trace |
-| `GET` | `/api/blueprints/:id/runs` | List runs for a blueprint |
-
-#### API Keys
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/keys` | List your API keys |
-| `POST` | `/api/keys` | Generate a new key |
-| `DELETE` | `/api/keys/:id` | Revoke a key |
+| Group | Endpoints |
+|-------|-----------|
+| Runs | `GET /api/runs`, `GET /api/runs/:id` |
+| Costs | `GET /api/costs/summary`, `/breakdown`, `/projection` |
+| Dashboard | `GET /api/dashboard/active`, `/metrics`, `/timeline`, `/stream` |
+| Messages | `POST /api/messages`, `GET /api/messages/:group_id` |
+| Orchestration | `GET /api/orchestrate/groups`, `GET /api/orchestrate/groups/:id` |
+| Providers | `GET /api/providers/models`, `GET /api/providers/health` |
+| Evals | `POST /api/evals`, `GET /api/evals`, `POST /api/evals/:id/run` |
+| Approvals | `GET /api/approvals`, `POST /api/approvals/:id/approve` |
+| Traces | `GET /api/traces`, `GET /api/traces/:id` |
+| Prompts | `GET /api/prompts/:id/versions`, `POST /api/prompts/:id/rollback` |
+| Knowledge | `GET /api/knowledge/collections`, `POST /api/knowledge/search` |
+| Marketplace | `GET /api/marketplace/listings`, `POST /api/marketplace/listings` |
+| Organizations | `GET /api/organizations`, `POST /api/organizations` |
+| MCP | `GET /api/mcp/connections` |
+| Triggers | `GET /api/triggers`, `POST /api/triggers` |
+| API Keys | `GET /api/keys`, `POST /api/keys`, `DELETE /api/keys/:id` |
 
 ---
 
-## CLI Usage
+## CLI
 
 ```bash
-# Initialize CLI
-agentforge init
-
-# Check server status
-agentforge status
-
-# Live TUI dashboard
-agentforge dashboard
-
-# List agents
-agentforge agents list
-
-# Run an agent
-agentforge agents run <agent-id> --input "Your text here"
-
-# List blueprints
-agentforge blueprints list
-
-# View blueprint templates
-agentforge blueprints templates
-
-# Inspect a blueprint's node graph
-agentforge blueprints inspect <blueprint-id>
-
-# Run a blueprint
-agentforge blueprints run <blueprint-id> --input "Your text here"
-
-# Start orchestration
-agentforge orchestrate "Research AI agent frameworks and compare their approaches"
-
-# View messages
-agentforge messages list <group-id>
-
-# View costs
-agentforge costs --period week --breakdown agent
+agentforge status                           # Server health
+agentforge dashboard                        # Live TUI dashboard
+agentforge agents list                      # List agents
+agentforge agents run <id> --input "..."    # Run agent
+agentforge blueprints list                  # List blueprints
+agentforge blueprints run <id> --input "..."# Run blueprint
+agentforge orchestrate "objective"          # Multi-agent orchestration
+agentforge costs --period week              # Cost analytics
+agentforge cu status                        # Computer use capabilities
+agentforge cu see                           # Take screenshot
+agentforge cu ocr                           # OCR screen text
+agentforge cu click 500 300                 # Click coordinates
+agentforge cu type "hello"                  # Type text
+agentforge cu backends list                 # List agent backends
+agentforge cu backends test claude-code     # Test backend
+agentforge targets list                     # List execution targets
+agentforge targets add "server" --url ...   # Add target
+agentforge recordings list                  # List recordings
+agentforge evals list                       # List eval suites
+agentforge traces list                      # List traces
+agentforge knowledge list                   # List collections
+agentforge marketplace browse               # Browse marketplace
 ```
 
 ---
 
-## Running Tests
-
-### Backend
+## Testing
 
 ```bash
-cd backend
-source .venv/bin/activate
+# Backend (515 tests)
+cd backend && source .venv/bin/activate
 pytest tests/ -v --cov=app
-```
 
-### Frontend
-
-```bash
-cd frontend
-bun run test
+# Frontend (21 tests)
+cd frontend && bun run test
 ```
 
 ---
@@ -409,32 +440,38 @@ bun run test
 ## Project Structure
 
 ```
-agentforge/
-├── frontend/               # Next.js 14 + TypeScript + Tailwind + shadcn/ui
-│   ├── app/                # App Router pages
-│   │   ├── dashboard/      # Dashboard, monitor, analytics, orchestrate, agents, blueprints, runs, settings
-│   │   ├── login/          # Auth pages
-│   │   └── signup/
-│   ├── components/         # UI components
-│   │   ├── agents/         # AgentCard, ToolSelector, WorkflowEditor
-│   │   ├── blueprints/     # NodePalette, BlueprintNode, ConfigPanel
-│   │   ├── dashboard/      # MetricsBar, AgentStatusGrid, EventTimeline, MessageFeed
-│   │   ├── runner/         # StepLog
-│   │   └── ui/             # shadcn/ui primitives
-│   ├── lib/                # Supabase client, API client, demo data, utilities
-│   └── tests/              # Vitest component tests
-├── backend/                # FastAPI + LangChain + OpenAI
+AgentForge/
+├── frontend/                    # Next.js 14 + TypeScript + Tailwind + shadcn/ui
+│   ├── app/                     # App Router pages
+│   │   ├── dashboard/           # All dashboard pages (15+ routes)
+│   │   ├── demo/                # Demo mode redirect
+│   │   └── docs/                # Documentation page
+│   ├── components/              # UI components
+│   │   ├── blueprints/          # NodePalette, BlueprintNode, ConfigPanel
+│   │   ├── dashboard/           # MetricsBar, AgentStatusGrid, EventTimeline
+│   │   └── ui/                  # shadcn/ui primitives
+│   └── lib/                     # API client, Supabase, demo data
+├── backend/                     # FastAPI + LangChain
 │   ├── app/
-│   │   ├── routers/        # agents, runs, auth, api_keys, dashboard, costs, orchestration, messages, blueprints
-│   │   ├── services/       # agent_executor, heartbeat, orchestrator, messaging, token_tracker, tools, blueprint_engine, blueprint_nodes
-│   │   └── models/         # Pydantic models
-│   └── tests/              # pytest unit tests
-├── cli/                    # Typer + Rich CLI
-│   ├── agentforge/         # main, client, config
-│   └── tests/              # CLI tests
-├── supabase/               # Database migrations (001-008 + blueprints)
-├── .github/workflows/      # CI/CD pipeline
-└── docker-compose.yml      # Docker orchestration
+│   │   ├── config/              # Computer use, agent backends config
+│   │   ├── routers/             # 20+ API route modules
+│   │   ├── providers/           # Multi-model provider registry
+│   │   ├── services/
+│   │   │   ├── blueprint_nodes/ # Node executors + registry (44 types)
+│   │   │   ├── computer_use/    # Steer, Drive, agents, dispatch, recorder, platform
+│   │   │   │   ├── agents/      # Agent-on-agent runner + nodes
+│   │   │   │   ├── linux/       # Linux steer + virtual display
+│   │   │   │   ├── steer/       # macOS GUI node executors
+│   │   │   │   ├── drive/       # Terminal node executors
+│   │   │   │   └── windows/     # Windows steer + drive
+│   │   │   └── evals/           # Grading methods
+│   │   └── mcp/                 # MCP tool registry + scheduler
+│   └── tests/                   # 515 tests (unit, integration, E2E)
+├── cli/                         # Typer + Rich CLI (20+ command groups)
+├── supabase/migrations/         # 17 SQL migrations with RLS
+├── docs/                        # Test reports
+├── .github/workflows/           # CI/CD pipeline
+└── docker-compose.yml
 ```
 
 ---
