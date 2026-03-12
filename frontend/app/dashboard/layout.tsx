@@ -14,6 +14,7 @@ const navItems = [
   { href: "/dashboard/analytics", label: "Analytics" },
   { href: "/dashboard/orchestrate", label: "Orchestrate" },
   { href: "/dashboard/agents", label: "Agents" },
+  { href: "/dashboard/blueprints", label: "Blueprints" },
   { href: "/dashboard/runs", label: "Runs" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
@@ -74,7 +75,9 @@ export default function DashboardLayout({
                 href={href}
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  pathname === item.href
+                  (item.href === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname.startsWith(item.href))
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
