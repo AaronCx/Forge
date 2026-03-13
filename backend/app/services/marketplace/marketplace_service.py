@@ -47,6 +47,11 @@ class MarketplaceService:
         listing: dict[str, Any] = data[0] if isinstance(data, list) else data
         return listing
 
+    # Allowed sort columns to prevent order-by injection
+    _ALLOWED_SORT_COLUMNS = frozenset({
+        "rating_avg", "install_count", "fork_count", "created_at", "title",
+    })
+
     async def list_listings(
         self,
         *,
@@ -64,9 +69,17 @@ class MarketplaceService:
         if category:
             query = query.eq("category", category)
         if search:
-            query = query.ilike("title", f"%{search}%")
+            # Escape ILIKE special characters to prevent pattern injection
+            import re
+            escaped_search = re.sub(r"([%_\\])", r"\\\1", search)
+            query = query.ilike("title", f"%{escaped_search}%")
+
+        # Validate sort column against allowlist
+        if sort_by not in self._ALLOWED_SORT_COLUMNS:
+            sort_by = "rating_avg"
 
         desc = sort_by in ("rating_avg", "install_count", "fork_count")
+        limit = min(max(limit, 1), 100)  # Clamp limit
         query = query.order(sort_by, desc=desc).limit(limit)
 
         result = query.execute()

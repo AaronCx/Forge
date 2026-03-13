@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.mcp.scheduler import CronScheduler
 from app.mcp.triggers import trigger_service
 from app.routers.auth import get_current_user
+from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["triggers"])
 
@@ -130,11 +132,13 @@ async def trigger_history(
 
 
 @router.post("/webhooks/{trigger_id}")
+@limiter.limit("60/hour")
 async def webhook_receiver(trigger_id: str, request: Request) -> dict[str, Any]:
     """Webhook endpoint that external services hit to fire a trigger.
 
     No authentication required — the trigger ID acts as the secret URL.
-    Optionally verify webhook_secret from query params or headers.
+    Verifies webhook_secret from query params or headers using constant-time
+    comparison to prevent timing attacks.
     """
     trigger = await trigger_service.get_trigger(trigger_id)
     if not trigger:
@@ -144,21 +148,25 @@ async def webhook_receiver(trigger_id: str, request: Request) -> dict[str, Any]:
     if not trigger.get("enabled", True):
         raise HTTPException(status_code=403, detail="Webhook is disabled")
 
-    # Optional secret verification
+    # Webhook secret verification (constant-time comparison)
     config = trigger.get("config", {})
-    expected_secret = config.get("webhook_secret")
+    expected_secret = config.get("webhook_secret", "")
     if expected_secret:
         provided_secret = request.query_params.get(
             "secret", request.headers.get("x-webhook-secret", "")
         )
-        if provided_secret != expected_secret:
+        if not hmac.compare_digest(provided_secret, expected_secret):
             raise HTTPException(status_code=403, detail="Invalid webhook secret")
 
-    # Parse request body
+    # Parse request body with size limit (1MB)
+    body = await request.body()
+    if len(body) > 1_048_576:
+        raise HTTPException(status_code=413, detail="Request body too large (max 1MB)")
+
     try:
-        payload = await request.json()
+        payload = __import__("json").loads(body)
     except Exception:
-        payload = {"raw": (await request.body()).decode("utf-8", errors="replace")}
+        payload = {"raw": body.decode("utf-8", errors="replace")}
 
     result = await trigger_service.fire_trigger(trigger_id, payload)
     return result

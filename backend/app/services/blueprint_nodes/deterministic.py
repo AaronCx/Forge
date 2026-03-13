@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 
+from app.services.security.url_validator import validate_url
 from app.services.tools.document_reader import document_reader
 
 
@@ -17,6 +18,8 @@ async def execute_fetch_url(config: dict, inputs: dict[str, Any]) -> dict[str, A
     url = config.get("url") or inputs.get("url", "")
     if not url:
         raise ValueError("fetch_url: 'url' is required")
+
+    validate_url(url)
 
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(url, follow_redirects=True)
@@ -31,6 +34,8 @@ async def execute_fetch_document(config: dict, inputs: dict[str, Any]) -> dict[s
     file_url = config.get("file_url") or inputs.get("file_url", "")
     if not file_url:
         raise ValueError("fetch_document: 'file_url' is required")
+
+    validate_url(file_url)
 
     # Reuse the existing document_reader tool
     result = await document_reader.ainvoke(file_url)
@@ -124,6 +129,8 @@ async def execute_webhook(config: dict, inputs: dict[str, Any]) -> dict[str, Any
     url = config.get("url", "")
     if not url:
         raise ValueError("webhook: 'url' is required")
+
+    validate_url(url)
 
     payload = {**inputs, **config.get("payload", {})}
 

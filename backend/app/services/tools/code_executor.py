@@ -16,10 +16,21 @@ def code_executor(code: str) -> str:
         "open(", "pathlib", "socket", "http.", "urllib",
         "requests", "ctypes", "multiprocessing", "threading",
         "signal", "sys.exit", "quit(", "exit(",
+        # Additional bypass prevention
+        "breakpoint", "pdb", "pickle", "marshal", "shelve",
+        "webbrowser", "ftplib", "smtplib", "telnetlib",
+        "\\x", "\\u", "chr(", "ord(", "bytes(",
+        "base64", "codecs", "decode(",
     ]
-    code_lower = code.lower()
+    # Normalize: strip null bytes, collapse whitespace in key patterns
+    import re
+    code_normalized = code.replace("\x00", "").replace("\r", "")
+    code_lower = code_normalized.lower()
+    # Also check with whitespace collapsed for bypass attempts
+    code_collapsed = re.sub(r"\s+", "", code_lower)
     for b in blocked:
-        if b.lower() in code_lower:
+        b_lower = b.lower()
+        if b_lower in code_lower or b_lower.replace(".", "") in code_collapsed:
             return f"Blocked: code contains disallowed pattern '{b}'"
 
     # Reject code that's too long (limit to 10KB)

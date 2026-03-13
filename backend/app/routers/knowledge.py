@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.routers.auth import get_current_user
 from app.services.knowledge.knowledge_service import knowledge_service
+from app.services.security.sanitizer import sanitize_path
 
 router = APIRouter(tags=["knowledge"])
 
@@ -22,8 +23,8 @@ class CreateCollectionRequest(BaseModel):
 
 
 class AddDocumentRequest(BaseModel):
-    filename: str
-    raw_text: str
+    filename: str = Field(..., min_length=1, max_length=500)
+    raw_text: str = Field(..., min_length=1, max_length=5_000_000)  # 5MB max
     content_type: str = "text/plain"
 
 
@@ -97,6 +98,7 @@ async def add_document(
     user: Any = Depends(get_current_user),  # noqa: B008
 ) -> dict[str, Any]:
     """Add a document to a collection (chunking + embedding happens automatically)."""
+    sanitize_path(body.filename)
     return await knowledge_service.add_document(
         user_id=user.id,
         collection_id=collection_id,

@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from app.services.security.url_validator import validate_url
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,6 +56,7 @@ class MCPClient:
 
     async def health_check(self, server_url: str) -> MCPServerStatus:
         """Check if an MCP server is reachable and responsive."""
+        validate_url(server_url)
         start = time.time()
         try:
             resp = await self._http.get(f"{server_url.rstrip('/')}/health")
@@ -84,6 +87,7 @@ class MCPClient:
 
     async def discover_tools(self, server_url: str, server_id: str = "", server_name: str = "") -> list[MCPTool]:
         """List available tools from an MCP server."""
+        validate_url(server_url)
         try:
             resp = await self._http.get(f"{server_url.rstrip('/')}/tools")
             resp.raise_for_status()
@@ -111,6 +115,7 @@ class MCPClient:
         self, server_url: str, tool_name: str, arguments: dict[str, Any]
     ) -> dict[str, Any]:
         """Invoke a tool on an MCP server."""
+        validate_url(server_url)
         url = f"{server_url.rstrip('/')}/tools/{tool_name}"
         resp = await self._http.post(url, json=arguments)
         resp.raise_for_status()

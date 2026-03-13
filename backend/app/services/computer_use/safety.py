@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections import deque
 from typing import Any
@@ -55,10 +56,18 @@ def check_app_blocklist(app_name: str) -> None:
 
 
 def check_command_blocklist(command: str) -> None:
-    """Raise ValueError if the command matches a blocklist pattern."""
-    cmd_lower = command.lower().strip()
+    """Raise ValueError if the command matches a blocklist pattern.
+
+    Uses whitespace-normalized matching to prevent bypass via extra spaces
+    or special characters between tokens.
+    """
+    # Normalize: collapse whitespace, strip null bytes and control chars
+    cmd_normalized = re.sub(r"[\x00-\x1f]+", " ", command)
+    cmd_normalized = re.sub(r"\s+", " ", cmd_normalized).strip().lower()
+
     for blocked in cu_config.command_blocklist:
-        if blocked.lower() in cmd_lower:
+        blocked_normalized = re.sub(r"\s+", " ", blocked).strip().lower()
+        if blocked_normalized in cmd_normalized:
             raise ValueError(
                 f"Computer use blocked: command matches blocklist pattern '{blocked}'. "
                 f"Blocked commands: {', '.join(cu_config.command_blocklist)}"
