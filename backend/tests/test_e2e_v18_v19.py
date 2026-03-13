@@ -8,7 +8,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -31,7 +31,10 @@ class TestCapabilityDetection:
 
     def test_1_1_detector_service_exists(self):
         """1.1 — Detector service exists and checks platform."""
-        from app.services.computer_use.detector import CapabilityDetector, CapabilityReport
+        from app.services.computer_use.detector import (
+            CapabilityDetector,
+            CapabilityReport,
+        )
 
         detector = CapabilityDetector()
         report = detector.detect(force_refresh=True)
@@ -345,7 +348,10 @@ class TestRemoteExecution:
 
     def test_5_2_remote_service_exists(self):
         """5.2 — Remote execution functions exist."""
-        from app.services.computer_use.executor import run_remote, test_remote_connection
+        from app.services.computer_use.executor import (
+            run_remote,
+            test_remote_connection,
+        )
         assert callable(run_remote)
         assert callable(test_remote_connection)
 
@@ -455,8 +461,8 @@ class TestBlueprintTemplates:
 
     def test_7_2_templates_valid_structure(self):
         """7.2 — Templates have valid DAG structure (no orphans, no cycles)."""
-        from app.services.blueprint_templates import CU_BLUEPRINT_TEMPLATES
         from app.services.blueprint_engine import _topological_sort
+        from app.services.blueprint_templates import CU_BLUEPRINT_TEMPLATES
 
         for template in CU_BLUEPRINT_TEMPLATES:
             nodes = template["nodes"]
@@ -464,15 +470,15 @@ class TestBlueprintTemplates:
             # Verify no cycles
             try:
                 layers = _topological_sort(nodes)
-                total = sum(len(l) for l in layers)
+                total = sum(len(layer) for layer in layers)
                 assert total == len(nodes), f"Template '{template['name']}' has orphaned nodes"
             except ValueError:
                 pytest.fail(f"Template '{template['name']}' has a cycle")
 
     def test_7_3_templates_use_cu_nodes(self):
         """7.3 — Templates use computer use node types."""
-        from app.services.blueprint_templates import CU_BLUEPRINT_TEMPLATES
         from app.services.blueprint_nodes.registry import NODE_REGISTRY
+        from app.services.blueprint_templates import CU_BLUEPRINT_TEMPLATES
 
         for template in CU_BLUEPRINT_TEMPLATES:
             for node in template["nodes"]:
@@ -555,6 +561,7 @@ class TestObservability:
         """9.2 — Trace entries have expected CU fields."""
         # Verify the execute_node closure creates trace entries with required fields
         import inspect
+
         from app.services.blueprint_engine import BlueprintEngine
         source = inspect.getsource(BlueprintEngine.execute)
         assert "node_type" in source
@@ -654,7 +661,7 @@ class TestE2EWorkflows:
 
     def test_13_4_cost_tracking_infrastructure(self):
         """13.4 — Token tracker exists for cost tracking."""
-        from app.services.token_tracker import token_tracker, calculate_cost
+        from app.services.token_tracker import calculate_cost, token_tracker
         assert callable(calculate_cost)
         assert hasattr(token_tracker, "record")
 
@@ -944,7 +951,7 @@ class TestLinuxComputerUse:
 
     def test_17_3_platform_dispatch(self):
         """17.3 — Platform dispatch returns correct executor."""
-        from app.services.computer_use.platform import get_steer_executor, get_platform
+        from app.services.computer_use.platform import get_platform, get_steer_executor
         # On macOS, returns None (use default Steer CLI path)
         # On Linux, returns Linux implementation
         executor = get_steer_executor("steer_click")
@@ -992,7 +999,9 @@ class TestWindowsComputerUse:
 
     def test_18_3_wsl_detection_function(self):
         """18.3 — WSL detection function exists."""
-        from app.services.computer_use.windows.windows_drive import get_windows_drive_info
+        from app.services.computer_use.windows.windows_drive import (
+            get_windows_drive_info,
+        )
         info = get_windows_drive_info()
         assert "wsl_available" in info
         assert "powershell" in info
@@ -1018,8 +1027,11 @@ class TestCrossPlatformUnification:
     def test_19_1_platform_abstraction(self):
         """19.1 — Platform abstraction layer complete."""
         from app.services.computer_use.platform import (
-            get_platform, get_capabilities, get_steer_executor, get_drive_executor,
             PLATFORM_INSTALL_INSTRUCTIONS,
+            get_capabilities,
+            get_drive_executor,
+            get_platform,
+            get_steer_executor,
         )
         assert callable(get_platform)
         assert callable(get_capabilities)
@@ -1081,7 +1093,7 @@ class TestCrossFeatureIntegration:
 
     def test_20_3_dispatch_tables_complete(self):
         """20.3 — All dispatch tables are complete."""
-        from app.services.blueprint_engine import _ALL_DETERMINISTIC, _ALL_AGENT
+        from app.services.blueprint_engine import _ALL_AGENT, _ALL_DETERMINISTIC
 
         # Deterministic: 10 original + 12 steer + 6 drive + 6 agent_control + 1 recording = 35
         assert len(_ALL_DETERMINISTIC) >= 35
@@ -1091,9 +1103,9 @@ class TestCrossFeatureIntegration:
 
     def test_20_4_agent_inception_template_valid(self):
         """20.4 — Agent Inception template is valid."""
-        from app.services.blueprint_templates import V19_BLUEPRINT_TEMPLATES
         from app.services.blueprint_engine import _topological_sort
         from app.services.blueprint_nodes.registry import NODE_REGISTRY
+        from app.services.blueprint_templates import V19_BLUEPRINT_TEMPLATES
 
         template = next(t for t in V19_BLUEPRINT_TEMPLATES if "Inception" in t["name"])
         nodes = template["nodes"]
@@ -1104,12 +1116,12 @@ class TestCrossFeatureIntegration:
 
         # Valid DAG
         layers = _topological_sort(nodes)
-        assert sum(len(l) for l in layers) == len(nodes)
+        assert sum(len(layer) for layer in layers) == len(nodes)
 
     def test_20_5_parallel_review_template_valid(self):
         """20.5 — Parallel Multi-Agent Review template is valid."""
-        from app.services.blueprint_templates import V19_BLUEPRINT_TEMPLATES
         from app.services.blueprint_engine import _topological_sort
+        from app.services.blueprint_templates import V19_BLUEPRINT_TEMPLATES
 
         template = next(t for t in V19_BLUEPRINT_TEMPLATES if "Parallel" in t["name"])
         nodes = template["nodes"]
@@ -1120,7 +1132,7 @@ class TestCrossFeatureIntegration:
 
         # Valid DAG
         layers = _topological_sort(nodes)
-        assert sum(len(l) for l in layers) == len(nodes)
+        assert sum(len(layer) for layer in layers) == len(nodes)
 
     def test_20_full_api_node_types(self, auth_client):
         """20 — Full API returns all 44 node types with all categories."""

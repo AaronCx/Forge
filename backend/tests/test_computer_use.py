@@ -1,10 +1,9 @@
 """Tests for computer use features — capability detection, node types, safety, and API."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-
 
 # ============================================================
 # Capability Detection
@@ -259,7 +258,7 @@ def test_cu_agent_executors_match_nodes():
 
 def test_blueprint_engine_knows_cu_nodes():
     """Blueprint engine's merged dispatch tables include CU executors."""
-    from app.services.blueprint_engine import _ALL_DETERMINISTIC, _ALL_AGENT
+    from app.services.blueprint_engine import _ALL_AGENT, _ALL_DETERMINISTIC
 
     assert "steer_see" in _ALL_DETERMINISTIC
     assert "drive_run" in _ALL_DETERMINISTIC
@@ -418,8 +417,8 @@ def test_cli_cu_commands():
     if not os.path.exists(str(__import__("pathlib").Path(__file__).parent.parent / ".venv" / "bin" / "agentforge")):
         pytest.skip("agentforge CLI not installed")
 
-    import subprocess
     import pathlib
+    import subprocess
 
     agentforge = str(pathlib.Path(__file__).parent.parent / ".venv" / "bin" / "agentforge")
     cli_dir = str(pathlib.Path(__file__).parent.parent.parent / "cli")

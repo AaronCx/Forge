@@ -14,7 +14,6 @@ Tests the full FastAPI request pipeline with mocked Supabase, covering:
 import os
 import pathlib
 import subprocess
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
