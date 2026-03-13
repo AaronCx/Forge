@@ -1,0 +1,30 @@
+# LastGate Configuration
+# https://lastgate.dev/docs/config
+
+checks:
+  secrets:
+    enabled: true
+    severity: fail
+
+  lint:
+    enabled: true
+    severity: fail
+
+  commit-message:
+    enabled: true
+    severity: warn
+    format: conventional
+
+  file-size:
+    enabled: true
+    severity: warn
+    maxSizeKb: 500
+
+  sensitive-files:
+    enabled: true
+    severity: fail
+    patterns:
+      - ".env"
+      - "*.pem"
+      - "*.key"
+      - "credentials.*"
