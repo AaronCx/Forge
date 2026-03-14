@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css";
 
 import { supabase } from "@/lib/supabase";
 import { api, Blueprint, BlueprintNode as ApiBlueprintNode, NodeTypeInfo } from "@/lib/api";
+import { isDemoMode } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { NodePalette } from "@/components/blueprints/NodePalette";
 import { BlueprintNodeComponent_Memo } from "@/components/blueprints/BlueprintNode";
@@ -95,6 +96,7 @@ export default function BlueprintEditorPage() {
     }
 
     async function load() {
+      if (isDemoMode()) return;
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         router.push("/login");

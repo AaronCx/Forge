@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { api, ModelInfo, CompareResult } from "@/lib/api";
+import { isDemoMode } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 
 export default function ComparePage() {
@@ -20,6 +21,7 @@ export default function ComparePage() {
   const [results, setResults] = useState<CompareResult[]>([]);
 
   useEffect(() => {
+    if (isDemoMode()) return;
     async function load() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
