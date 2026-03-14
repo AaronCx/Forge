@@ -21,14 +21,24 @@ AGENT_ROLES = {
 class Orchestrator:
     """Decomposes objectives into sub-tasks and coordinates worker agents."""
 
-    def __init__(self):
-        self.runner = AgentRunner()
+    def __init__(self, user_id: str | None = None):
+        self.user_id = user_id
+        self.runner = AgentRunner(user_id=user_id)
+
+    async def _get_registry(self):
+        """Get the appropriate provider registry for this orchestrator."""
+        if self.user_id:
+            from app.providers.registry import create_user_registry
+
+            return await create_user_registry(self.user_id)
+        return provider_registry
 
     async def decompose(self, objective: str, available_tools: list[str]) -> list[dict]:
         """Use LLM to decompose an objective into sub-tasks with dependencies."""
         tools_str = ", ".join(available_tools) if available_tools else "none"
 
-        response = await provider_registry.complete(
+        registry = await self._get_registry()
+        response = await registry.complete(
             messages=[
                 {
                     "role": "system",
@@ -228,7 +238,8 @@ class Orchestrator:
         )
 
         try:
-            synthesis = await provider_registry.complete(
+            registry = await self._get_registry()
+            synthesis = await registry.complete(
                 messages=[
                     {
                         "role": "system",

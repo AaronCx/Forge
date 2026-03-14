@@ -76,6 +76,24 @@ class KnowledgeService:
 
     # === Document management ===
 
+    def _get_user_openai_key(self, user_id: str) -> str | None:
+        """Fetch user's OpenAI API key from provider_configs."""
+        try:
+            result = (
+                supabase.table("provider_configs")
+                .select("api_key_encrypted")
+                .eq("user_id", user_id)
+                .eq("provider", "openai")
+                .eq("is_enabled", True)
+                .single()
+                .execute()
+            )
+            if result.data and result.data.get("api_key_encrypted"):
+                return result.data["api_key_encrypted"]
+        except Exception:
+            pass
+        return None
+
     async def add_document(
         self,
         *,
@@ -117,11 +135,12 @@ class KnowledgeService:
                 chunks = [raw_text[:c_size]] if raw_text else [""]
 
             # Generate embeddings in batches
+            user_key = self._get_user_openai_key(user_id)
             batch_size = 100
             all_embeddings: list[list[float]] = []
             for i in range(0, len(chunks), batch_size):
                 batch = chunks[i : i + batch_size]
-                embeddings = await generate_embeddings(batch, model=embed_model)
+                embeddings = await generate_embeddings(batch, model=embed_model, api_key=user_key)
                 all_embeddings.extend(embeddings)
 
             # Store chunks
@@ -246,7 +265,8 @@ class KnowledgeService:
         embed_model = collection.get("embedding_model", "text-embedding-3-small")
 
         # Generate query embedding
-        query_embeddings = await generate_embeddings([query], model=embed_model)
+        user_key = self._get_user_openai_key(user_id)
+        query_embeddings = await generate_embeddings([query], model=embed_model, api_key=user_key)
         query_embedding = query_embeddings[0]
 
         # Fetch all chunks for this collection (for small collections)

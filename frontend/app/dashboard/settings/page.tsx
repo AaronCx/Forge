@@ -17,6 +17,16 @@ interface ApiKey {
   last_used_at: string | null;
 }
 
+interface ProviderConfig {
+  id: string;
+  provider: string;
+  api_key_masked: string;
+  base_url: string;
+  is_default: boolean;
+  is_enabled: boolean;
+  created_at: string;
+}
+
 interface CUStatus {
   steer_available: boolean;
   steer_version: string;
@@ -47,6 +57,12 @@ const STATUS_COLORS: Record<string, string> = {
   unavailable: "bg-red-500",
 };
 
+const SUPPORTED_PROVIDERS = [
+  { value: "openai", label: "OpenAI", placeholder: "sk-..." },
+  { value: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
+  { value: "ollama", label: "Ollama (local)", placeholder: "No key needed" },
+];
+
 export default function SettingsPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
@@ -56,8 +72,16 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [providerHealth, setProviderHealth] = useState<ProviderHealthInfo[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
-  const [providers, setProviders] = useState<string[]>([]);
+  const [, setProviders] = useState<string[]>([]);
   const [cuStatus, setCuStatus] = useState<CUStatus | null>(null);
+
+  // Provider config state
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
+  const [addingProvider, setAddingProvider] = useState(false);
+  const [newProvider, setNewProvider] = useState("openai");
+  const [newProviderKey, setNewProviderKey] = useState("");
+  const [newProviderBaseUrl, setNewProviderBaseUrl] = useState("");
+  const [savingProvider, setSavingProvider] = useState(false);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -71,6 +95,9 @@ export default function SettingsPage() {
       ]);
       setDefaultModel("gpt-4o-mini");
       setProviders(["openai"]);
+      setProviderConfigs([
+        { id: "demo-pc-1", provider: "openai", api_key_masked: "sk-proj...A4xB", base_url: "", is_default: true, is_enabled: true, created_at: "2026-03-10T10:00:00Z" },
+      ]);
       setCuStatus({
         steer_available: false, steer_version: "", drive_available: false, drive_version: "",
         tmux_available: true, tmux_version: "3.4", macos_version: "15.3", is_macos: true,
@@ -99,6 +126,15 @@ export default function SettingsPage() {
       setDefaultModel(providerInfo.default_model);
       setProviders(providerInfo.providers);
       setProviderHealth(health);
+
+      // Load provider configs
+      try {
+        const configs = await api.providers.configs(data.session.access_token);
+        setProviderConfigs(configs);
+      } catch {
+        // endpoint may not exist on older backends
+      }
+
       // Load computer use status
       try {
         const cu = await api.computerUse.status(data.session.access_token);
@@ -142,11 +178,50 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveProviderConfig() {
+    setSavingProvider(true);
+    setError("");
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+
+    try {
+      await api.providers.saveConfig(
+        {
+          provider: newProvider,
+          api_key: newProviderKey || undefined,
+          base_url: newProviderBaseUrl || undefined,
+          is_default: providerConfigs.length === 0,
+        },
+        data.session.access_token,
+      );
+      setAddingProvider(false);
+      setNewProviderKey("");
+      setNewProviderBaseUrl("");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save provider");
+    } finally {
+      setSavingProvider(false);
+    }
+  }
+
+  async function removeProvider(provider: string) {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+
+    try {
+      await api.providers.deleteConfig(provider, data.session.access_token);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove provider");
+    }
+  }
+
   return (
     <div>
       <h1 className="text-3xl font-bold">Settings</h1>
       <p className="mt-1 text-muted-foreground">
-        Manage API keys, providers, and view usage
+        Manage providers, API keys, and view usage
       </p>
 
       {error && (
@@ -155,40 +230,113 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Provider Health */}
+      {/* Provider Configuration */}
       <div className="mt-6">
-        <h2 className="mb-3 text-lg font-semibold">Providers</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {providers.map((name) => {
-            const health = providerHealth.find((h) => h.provider === name);
-            const status = health?.status || "unavailable";
-            return (
-              <div
-                key={name}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
-              >
+        <h2 className="mb-3 text-lg font-semibold">Model Providers</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Add your own API keys to use AI models. Your keys are stored securely and never shared.
+        </p>
+
+        {/* Existing provider configs */}
+        {providerConfigs.length > 0 ? (
+          <div className="space-y-2 mb-4">
+            {providerConfigs.map((config) => {
+              const health = providerHealth.find((h) => h.provider === config.provider);
+              const status = health?.status || "unknown";
+              return (
                 <div
-                  className={`h-2.5 w-2.5 rounded-full ${STATUS_COLORS[status] || STATUS_COLORS.unavailable}`}
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium capitalize">{name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {status === "healthy" && health?.latency_ms
-                      ? `${Math.round(health.latency_ms)}ms`
-                      : status}
-                  </p>
+                  key={config.provider}
+                  className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`h-2.5 w-2.5 rounded-full ${STATUS_COLORS[status] || "bg-gray-500"}`}
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium capitalize">{config.provider}</p>
+                        {config.is_default && (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            default
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {config.api_key_masked}
+                        {config.base_url && ` · ${config.base_url}`}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => removeProvider(config.provider)}
+                  >
+                    Remove
+                  </Button>
                 </div>
-              </div>
-            );
-          })}
-          {providers.length === 0 && (
-            <p className="text-sm text-muted-foreground col-span-full">
-              No providers configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
+            <p className="text-sm text-yellow-400">
+              No providers configured yet. Add an API key below to start using AI models.
             </p>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Add provider form */}
+        {addingProvider ? (
+          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+            <div className="flex gap-2">
+              <select
+                value={newProvider}
+                onChange={(e) => setNewProvider(e.target.value)}
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              >
+                {SUPPORTED_PROVIDERS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+                <option value="groq">Groq</option>
+                <option value="together">Together AI</option>
+                <option value="fireworks">Fireworks AI</option>
+              </select>
+              <Input
+                placeholder={SUPPORTED_PROVIDERS.find((p) => p.value === newProvider)?.placeholder || "API key"}
+                type="password"
+                value={newProviderKey}
+                onChange={(e) => setNewProviderKey(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+            {(newProvider === "ollama" || !SUPPORTED_PROVIDERS.find((p) => p.value === newProvider)) && (
+              <Input
+                placeholder="Base URL (e.g., http://localhost:11434)"
+                value={newProviderBaseUrl}
+                onChange={(e) => setNewProviderBaseUrl(e.target.value)}
+              />
+            )}
+            <div className="flex gap-2">
+              <Button onClick={saveProviderConfig} disabled={savingProvider || (!newProviderKey && newProvider !== "ollama")}>
+                {savingProvider ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" onClick={() => { setAddingProvider(false); setNewProviderKey(""); setNewProviderBaseUrl(""); }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => setAddingProvider(true)}>
+            + Add Provider
+          </Button>
+        )}
+
         {defaultModel && (
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-3 text-xs text-muted-foreground">
             Default model: <span className="font-mono">{defaultModel}</span>
           </p>
         )}

@@ -5,7 +5,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.providers.registry import provider_registry
+from app.database import supabase
+from app.providers.registry import create_user_registry, provider_registry
 from app.routers.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -36,15 +37,64 @@ class ModelResponse(BaseModel):
     supports_streaming: bool = True
 
 
+# --- Provider config CRUD ---
+
+
+@router.post("/providers/configs")
+async def save_provider_config(config: ProviderConfigCreate, user=Depends(get_current_user)):
+    """Save or update a user's provider configuration."""
+    data = {
+        "user_id": user.id,
+        "provider": config.provider,
+        "api_key_encrypted": config.api_key or "",  # stored plaintext for now (app-layer encryption later)
+        "base_url": config.base_url or "",
+        "is_default": config.is_default,
+        "is_enabled": True,
+    }
+
+    # Upsert — update if exists for this user+provider
+    result = supabase.table("provider_configs").upsert(
+        data, on_conflict="user_id,provider"
+    ).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to save config")
+
+    return {"ok": True, "provider": config.provider}
+
+
+@router.get("/providers/configs")
+async def list_provider_configs(user=Depends(get_current_user)):
+    """List user's provider configs (keys masked)."""
+    result = supabase.table("provider_configs").select("*").eq("user_id", user.id).execute()
+    configs = result.data or []
+
+    # Mask API keys
+    for c in configs:
+        key = c.get("api_key_encrypted", "")
+        c["api_key_masked"] = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+        del c["api_key_encrypted"]
+
+    return configs
+
+
+@router.delete("/providers/configs/{provider}")
+async def delete_provider_config(provider: str, user=Depends(get_current_user)):
+    """Delete a user's provider configuration."""
+    supabase.table("provider_configs").delete().eq("user_id", user.id).eq("provider", provider).execute()
+    return {"ok": True}
+
+
 # --- Model listing ---
 
 
 @router.get("/providers/models", response_model=list[ModelResponse])
 async def list_all_models(
-    _user=Depends(get_current_user),  # noqa: B008
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """List all available models across all configured providers."""
-    models = await provider_registry.list_all_models()
+    user_registry = await create_user_registry(user.id)
+    models = await user_registry.list_all_models()
     return [
         ModelResponse(
             id=m.id,
@@ -62,10 +112,11 @@ async def list_all_models(
 @router.get("/providers/models/{provider}", response_model=list[ModelResponse])
 async def list_provider_models(
     provider: str,
-    _user=Depends(get_current_user),  # noqa: B008
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """List models for a specific provider."""
-    p = provider_registry.get_provider(provider)
+    user_registry = await create_user_registry(user.id)
+    p = user_registry.get_provider(provider)
     if not p:
         raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
     models = await p.list_models()
@@ -88,10 +139,11 @@ async def list_provider_models(
 
 @router.get("/providers/health", response_model=list[ProviderHealthResponse])
 async def provider_health(
-    _user=Depends(get_current_user),  # noqa: B008
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """Check health of all configured providers."""
-    results = await provider_registry.health_check_all()
+    user_registry = await create_user_registry(user.id)
+    results = await user_registry.health_check_all()
     return [
         ProviderHealthResponse(
             provider=h.provider,
@@ -108,11 +160,12 @@ async def provider_health(
 
 @router.get("/providers")
 async def list_providers(
-    _user=Depends(get_current_user),  # noqa: B008
+    user=Depends(get_current_user),  # noqa: B008
 ):
     """List configured providers and the default model."""
+    user_registry = await create_user_registry(user.id)
     return {
-        "providers": provider_registry.provider_names,
-        "default_model": provider_registry.default_model,
-        "default_provider": provider_registry.default_provider,
+        "providers": user_registry.provider_names,
+        "default_model": user_registry.default_model,
+        "default_provider": user_registry.default_provider,
     }

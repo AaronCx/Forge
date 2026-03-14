@@ -31,16 +31,47 @@ TOOL_REGISTRY = {
 class AgentRunner:
     """Executes agent workflows step-by-step using LangChain with tool integration."""
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, user_id: str | None = None):
         self.model = model or provider_registry.default_model
-        # LangChain agent still needs ChatOpenAI for tool-calling agents
-        # We route through provider registry for non-tool steps
-        self.llm = ChatOpenAI(  # type: ignore[call-arg]
+        self.user_id = user_id
+        self._llm = None  # Created lazily
+
+    async def _get_llm(self):
+        """Get LLM instance, using user's provider config if available."""
+        if self._llm:
+            return self._llm
+
+        api_key = os.getenv("OPENAI_API_KEY", "")
+
+        # Try to get user's OpenAI key from provider_configs
+        if self.user_id:
+            try:
+                from app.database import supabase
+
+                result = (
+                    supabase.table("provider_configs")
+                    .select("api_key_encrypted")
+                    .eq("user_id", self.user_id)
+                    .eq("provider", "openai")
+                    .eq("is_enabled", True)
+                    .single()
+                    .execute()
+                )
+                if result.data and result.data.get("api_key_encrypted"):
+                    api_key = result.data["api_key_encrypted"]
+            except Exception:
+                pass
+
+        if not api_key:
+            return None
+
+        self._llm = ChatOpenAI(  # type: ignore[call-arg]
             model=self.model,
             temperature=0,
             streaming=True,
-            api_key=os.getenv("OPENAI_API_KEY", ""),  # type: ignore[arg-type]
+            api_key=api_key,  # type: ignore[arg-type]
         )
+        return self._llm
 
     def _resolve_tools(self, tool_names: list[str]):
         """Resolve tool name strings to actual LangChain tool instances.
@@ -147,13 +178,18 @@ class AgentRunner:
         self, system_prompt: str, step: str, user_input: str, context: str, tools: list
     ) -> dict:
         """Execute a step using LangChain agent with tools."""
+        llm = await self._get_llm()
+        if not llm:
+            # No OpenAI key — fall back to non-tool step via provider registry
+            return await self._execute_step(system_prompt, step, user_input, context, model=self.model)
+
         prompt = ChatPromptTemplate.from_messages([
             ("system", f"{system_prompt}\n\nCurrent task: {step}"),
             ("human", "{input}"),
             MessagesPlaceholder("agent_scratchpad"),
         ])
 
-        agent = create_openai_tools_agent(self.llm, tools, prompt)
+        agent = create_openai_tools_agent(llm, tools, prompt)
         executor = AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=5)
 
         full_input = user_input
@@ -180,7 +216,15 @@ class AgentRunner:
             {"role": "user", "content": full_input},
         ]
 
-        response = await provider_registry.complete(
+        # Use user's provider registry if available
+        if self.user_id:
+            from app.providers.registry import create_user_registry
+
+            registry = await create_user_registry(self.user_id)
+        else:
+            registry = provider_registry
+
+        response = await registry.complete(
             messages=messages,
             model=model,
             temperature=0,

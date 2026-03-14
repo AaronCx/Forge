@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.database import supabase
 from app.routers.auth import get_current_user
-from app.services.orchestrator import orchestrator
+from app.services.orchestrator import Orchestrator
 from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["orchestration"])
@@ -28,8 +28,11 @@ async def start_orchestration(
 ):
     """Start an orchestration run. Returns SSE stream of progress."""
 
+    # Create per-request orchestrator with user's provider configs
+    user_orchestrator = Orchestrator(user_id=user.id)
+
     async def event_stream():
-        async for event in orchestrator.run(
+        async for event in user_orchestrator.run(
             objective=body.objective,
             user_id=user.id,
             tools=body.tools,

@@ -20,17 +20,18 @@ async def generate_embeddings(
     texts: list[str],
     *,
     model: str = "text-embedding-3-small",
+    api_key: str | None = None,
 ) -> list[list[float]]:
     """Generate embeddings for a batch of texts via OpenAI API."""
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY not set — required for embeddings")
+    key = api_key or os.getenv("OPENAI_API_KEY", "")
+    if not key:
+        raise ValueError("No API key available for embeddings — configure an OpenAI provider in Settings")
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             "https://api.openai.com/v1/embeddings",
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
             },
             json={

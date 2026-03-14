@@ -421,6 +421,12 @@ export const api = {
     providerModels: (provider: string, token: string) =>
       request<ModelInfo[]>(`/api/providers/models/${provider}`, { token }),
     health: (token: string) => request<ProviderHealthInfo[]>("/api/providers/health", { token }),
+    configs: (token: string) =>
+      request<{ id: string; provider: string; api_key_masked: string; base_url: string; is_default: boolean; is_enabled: boolean; created_at: string }[]>("/api/providers/configs", { token }),
+    saveConfig: (data: { provider: string; api_key?: string; base_url?: string; is_default?: boolean }, token: string) =>
+      request<{ ok: boolean }>("/api/providers/configs", { method: "POST", body: JSON.stringify(data), token }),
+    deleteConfig: (provider: string, token: string) =>
+      request<{ ok: boolean }>(`/api/providers/configs/${provider}`, { method: "DELETE", token }),
   },
   compare: {
     run: (data: { prompt: string; system_prompt?: string; models: string[]; temperature?: number; max_tokens?: number }, token: string) =>

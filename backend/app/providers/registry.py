@@ -197,5 +197,60 @@ def create_registry() -> ProviderRegistry:
     return registry
 
 
+async def create_user_registry(user_id: str) -> ProviderRegistry:
+    """Create a provider registry from a user's stored provider_configs.
+
+    Falls back to the global env-var-based registry if the user has no configs.
+    """
+    from app.database import supabase
+
+    result = (
+        supabase.table("provider_configs")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("is_enabled", True)
+        .execute()
+    )
+    configs = result.data or []
+
+    registry = ProviderRegistry()
+
+    for config in configs:
+        provider_name = config["provider"]
+        api_key = config.get("api_key_encrypted", "")
+        base_url = config.get("base_url", "") or None
+        is_default = config.get("is_default", False)
+
+        try:
+            if provider_name == "openai":
+                from app.providers.openai_provider import OpenAIProvider
+
+                registry.register("openai", OpenAIProvider(api_key=api_key, base_url=base_url), default=is_default)
+            elif provider_name == "anthropic":
+                from app.providers.anthropic_provider import AnthropicProvider
+
+                registry.register("anthropic", AnthropicProvider(api_key=api_key), default=is_default)
+            elif provider_name == "ollama":
+                from app.providers.ollama_provider import OllamaProvider
+
+                registry.register("ollama", OllamaProvider(base_url=base_url or "http://localhost:11434"), default=is_default)
+            else:
+                # Generic OpenAI-compatible provider
+                from app.providers.generic_provider import GenericOpenAIProvider
+
+                registry.register(provider_name, GenericOpenAIProvider(
+                    api_key=api_key, base_url=base_url or "", provider_name=provider_name,
+                ), default=is_default)
+        except Exception:
+            logger.warning("Failed to create provider %s for user %s", provider_name, user_id)
+            continue
+
+    # Fall back to global registry if user has no configs
+    if not registry.provider_names:
+        return provider_registry
+
+    return registry
+
+
 # Global singleton
 provider_registry = create_registry()

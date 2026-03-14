@@ -13,7 +13,6 @@ from app.services.agent_executor import AgentRunner
 from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["runs"])
-agent_runner = AgentRunner()
 
 
 @router.get("/runs", response_model=list[RunResponse])
@@ -80,6 +79,9 @@ async def run_agent(
         heartbeat_id = heartbeat_service.start(agent_id, run_id, total_steps)
     except Exception:
         heartbeat_id = None
+
+    # Create a per-request runner with the user's provider configs
+    agent_runner = AgentRunner(user_id=user.id)
 
     async def event_stream():
         step_logs = []
