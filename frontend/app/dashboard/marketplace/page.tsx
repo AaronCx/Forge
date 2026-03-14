@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+import { isDemoMode } from "@/lib/demo-data";
 
 interface Listing {
   id: string;
@@ -40,6 +41,10 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemoMode()) {
+      setLoading(false);
+      return;
+    }
     loadListings();
   }, [selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
