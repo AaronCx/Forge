@@ -90,6 +90,8 @@ async def seed_templates(supabase_client):
 
     for template in TEMPLATES:
         if template["name"] not in existing_names:
-            # Templates don't belong to any user
-            template["user_id"] = "00000000-0000-0000-0000-000000000000"
+            # Use a system-level user_id; look up the first existing user to satisfy FK
+            first_user = supabase_client.table("agents").select("user_id").limit(1).execute()
+            system_uid = first_user.data[0]["user_id"] if first_user.data else "00000000-0000-0000-0000-000000000000"
+            template["user_id"] = system_uid
             supabase_client.table("agents").insert(template).execute()

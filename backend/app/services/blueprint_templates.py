@@ -485,9 +485,15 @@ async def seed_blueprint_templates(supabase_client) -> None:
             if existing.data:
                 continue
 
+            # Look up a real user to satisfy FK constraint
+            first_user = supabase_client.table("agents").select("user_id").limit(1).execute()
+            system_uid = first_user.data[0]["user_id"] if first_user.data else None
+            if not system_uid:
+                logger.warning("No users found — skipping blueprint template seeding")
+                return
             supabase_client.table("blueprints").insert({
                 **template,
-                "user_id": "00000000-0000-0000-0000-000000000000",  # System user for templates
+                "user_id": system_uid,
             }).execute()
             logger.info("Seeded blueprint template: %s", template["name"])
         except Exception:
