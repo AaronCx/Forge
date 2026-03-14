@@ -64,6 +64,7 @@ export default function BlueprintsPage() {
 
   useEffect(() => {
     if (isDemoMode()) {
+      api.blueprints.templates().then(setTemplates).catch(() => {});
       setLoading(false);
       return;
     }

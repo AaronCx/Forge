@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { isDemoMode } from "@/lib/demo-data";
+import { API_URL } from "@/lib/constants";
 
 const DEMO_TRIGGERS: Trigger[] = [
   {
@@ -150,7 +151,7 @@ export default function TriggersPage() {
     }
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const apiUrl = API_URL;
   const targetOptions = newTargetType === "agent" ? agents : blueprints;
 
   return (
