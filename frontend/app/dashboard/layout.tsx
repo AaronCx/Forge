@@ -127,7 +127,15 @@ export default function DashboardLayout({
   async function handleLogout() {
     document.cookie = "agentforge_demo=; max-age=0; path=/";
     document.cookie = "sb-access-token=; max-age=0; path=/";
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Continue with redirect even if signOut fails
+    }
+    // Clear any Supabase session data from localStorage
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("sb-")) localStorage.removeItem(key);
+    }
     window.location.href = "/login";
   }
 
