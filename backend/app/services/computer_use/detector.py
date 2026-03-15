@@ -235,8 +235,8 @@ class CapabilityDetector:
 
             # Check screen recording by attempting a screenshot
             try:
-                import tempfile
                 import os
+                import tempfile
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
                     tmp = f.name
                 result = subprocess.run(
