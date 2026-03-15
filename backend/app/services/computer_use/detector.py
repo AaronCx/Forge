@@ -254,11 +254,11 @@ class CapabilityDetector:
 
             # Check accessibility (simplified — avoid hanging osascript)
             try:
-                result = subprocess.run(
+                acc_result = subprocess.run(
                     ["osascript", "-e", 'tell application "System Events" to count of (every process)'],
                     capture_output=True, text=True, timeout=3,
                 )
-                report.accessibility_permission = result.returncode == 0
+                report.accessibility_permission = acc_result.returncode == 0
             except (subprocess.TimeoutExpired, Exception):
                 report.accessibility_permission = False
 
