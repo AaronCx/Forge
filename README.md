@@ -296,6 +296,15 @@ docker-compose up --build
 
 ---
 
+## Computer Use Setup (macOS)
+
+```bash
+./scripts/bootstrap-macos.sh    # Full setup: installs deps, builds CLIs, checks permissions
+./scripts/bootstrap-verify.sh   # Quick verification: smoke tests all Steer & Drive commands
+```
+
+---
+
 ## Demo Mode
 
 ```
