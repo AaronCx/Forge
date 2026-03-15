@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-03-15
+
+### Added
+
+- **Native macOS Steer CLI** — 13-command Python CLI for GUI automation using CoreGraphics, cliclick, osascript, and Apple Vision OCR. Replaces external brew tap dependency.
+- **Native macOS Drive CLI** — 6-command Python CLI wrapping tmux for terminal session management with sentinel-based completion detection.
+- **CoreGraphics Screenshot Capture** — Screenshots via CoreGraphics API instead of screencapture. Works over SSH without console session.
+- **Screen Recording over SSH** — Record screen via CoreGraphics frame capture piped to ffmpeg. Configurable FPS, quality, and duration. Works fully headless.
+- **Swift OCR Helper** — Compiled binary using Apple Vision framework for accurate text extraction with bounding box coordinates.
+- **Bootstrap Scripts** — `scripts/bootstrap-macos.sh` for one-command setup, `scripts/bootstrap-verify.sh` for 20-point smoke test across all Steer and Drive commands.
+- **Capability Detection** — Extended detector with macOS permission checks (accessibility, screen recording) and system command detection (screencapture, cliclick, osascript, ffmpeg).
+- **LastGate Integration** — `.lastgate.yml` configuration for pre-commit security checks.
+
+### Fixed
+
+- OAuth PKCE code exchange in callback and hardened logout flow
+- Demo mode checks on Marketplace, Team, Compare, Blueprint Edit, and Trigger pages
+- Template seeding FK constraint with auth.users
+- Provider system updated to per-user API key pattern
+- Type annotation errors in agent executor and knowledge service
+- Lint errors in provider config endpoints
+- Frontend mobile-responsive dashboard navigation
+
+### Security
+
+- Patched 12 vulnerabilities from comprehensive security audit (105 security tests added)
+- Removed accidentally committed Vercel OIDC token and Supabase keys
+- Hardened `.gitignore` with `.env.*` pattern
+
 ## [1.9.0] - 2026-03-12
 
 ### Added
