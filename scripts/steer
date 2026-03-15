@@ -1,0 +1,502 @@
+#!/usr/bin/env python3
+"""steer — macOS GUI automation CLI for AgentForge.
+
+Implements all 12 Steer commands using native macOS tools:
+  screencapture, cliclick, osascript, pbcopy/pbpaste, and Vision OCR.
+
+Usage:
+  steer see [--app APP] [--output PATH] [--region REGION]
+  steer ocr [--app APP] [--store]
+  steer click X Y | steer click --text TEXT
+  steer type TEXT [--app APP]
+  steer hotkey KEYS
+  steer scroll DIRECTION AMOUNT [--app APP]
+  steer drag START_X START_Y END_X END_Y
+  steer focus APP
+  steer find SEARCH_TEXT
+  steer wait SEARCH_TEXT [--timeout N]
+  steer clipboard read|write [TEXT]
+  steer apps
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OCR_HELPER = os.path.join(SCRIPT_DIR, "ocr-helper")
+
+
+def run(cmd: list[str], timeout: int = 30, input_data: bytes | None = None) -> str:
+    """Run a shell command and return stdout."""
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        timeout=timeout,
+        input=input_data,
+    )
+    if result.returncode != 0:
+        err = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(cmd)}: {err}")
+    return result.stdout.decode("utf-8", errors="replace").strip()
+
+
+def output_json(data: dict) -> None:
+    """Print JSON result to stdout."""
+    print(json.dumps(data))
+
+
+# ─── steer see ───────────────────────────────────────────────────────────────
+
+def cmd_see(args: list[str]) -> None:
+    output_path = None
+    target = "screen"
+    i = 0
+    while i < len(args):
+        if args[i] == "--output" and i + 1 < len(args):
+            output_path = args[i + 1]
+            i += 2
+        elif args[i] == "--app" and i + 1 < len(args):
+            target = args[i + 1]
+            i += 2
+        elif args[i] == "--region":
+            i += 2  # skip region for now
+        else:
+            i += 1
+
+    if not output_path:
+        output_path = os.path.join(tempfile.gettempdir(), f"steer_{uuid.uuid4().hex[:8]}.png")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    if target == "screen":
+        run(["screencapture", "-x", output_path])
+    else:
+        # Focus the app first, then capture
+        try:
+            run(["osascript", "-e", f'tell application "{target}" to activate'])
+            time.sleep(0.3)
+        except RuntimeError:
+            pass
+        run(["screencapture", "-x", output_path])
+
+    output_json({"success": True, "path": output_path})
+
+
+# ─── steer ocr ───────────────────────────────────────────────────────────────
+
+def cmd_ocr(args: list[str]) -> None:
+    target = "screen"
+    store = False
+    i = 0
+    while i < len(args):
+        if args[i] == "--app" and i + 1 < len(args):
+            target = args[i + 1]
+            i += 2
+        elif args[i] == "--store":
+            store = True
+            i += 1
+        else:
+            i += 1
+
+    # Take screenshot first
+    tmp = os.path.join(tempfile.gettempdir(), f"steer_ocr_{uuid.uuid4().hex[:8]}.png")
+    if target == "screen":
+        run(["screencapture", "-x", tmp])
+    else:
+        try:
+            run(["osascript", "-e", f'tell application "{target}" to activate'])
+            time.sleep(0.3)
+        except RuntimeError:
+            pass
+        run(["screencapture", "-x", tmp])
+
+    if not os.path.exists(OCR_HELPER):
+        print(json.dumps({"error": "ocr-helper binary not found"}), file=sys.stderr)
+        sys.exit(1)
+
+    if store:
+        raw = run([OCR_HELPER, tmp, "--json"])
+        try:
+            elements = json.loads(raw)
+        except json.JSONDecodeError:
+            elements = []
+        output_json(elements)
+    else:
+        text = run([OCR_HELPER, tmp])
+        lines = [line for line in text.split("\n") if line.strip()]
+        output_json(lines)
+
+    os.unlink(tmp)
+
+
+# ─── steer click ─────────────────────────────────────────────────────────────
+
+def cmd_click(args: list[str]) -> None:
+    x, y = None, None
+    element_text = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--text" and i + 1 < len(args):
+            element_text = args[i + 1]
+            i += 2
+        elif x is None:
+            x = int(args[i])
+            i += 1
+        elif y is None:
+            y = int(args[i])
+            i += 1
+        else:
+            i += 1
+
+    if element_text:
+        # OCR to find element, then click its center
+        tmp = os.path.join(tempfile.gettempdir(), f"steer_find_{uuid.uuid4().hex[:8]}.png")
+        run(["screencapture", "-x", tmp])
+        raw = run([OCR_HELPER, tmp, "--json"])
+        elements = json.loads(raw) if raw else []
+        os.unlink(tmp)
+
+        for el in elements:
+            if element_text.lower() in el.get("text", "").lower():
+                x = el["x"] + el["width"] // 2
+                y = el["y"] + el["height"] // 2
+                break
+        else:
+            output_json({"success": False, "error": f"Element '{element_text}' not found"})
+            sys.exit(1)
+
+    if x is not None and y is not None:
+        run(["cliclick", f"c:{x},{y}"])
+        output_json({"success": True, "x": x, "y": y})
+    else:
+        output_json({"success": False, "error": "No coordinates or text provided"})
+        sys.exit(1)
+
+
+# ─── steer type ──────────────────────────────────────────────────────────────
+
+def cmd_type(args: list[str]) -> None:
+    target = ""
+    text_parts = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--app" and i + 1 < len(args):
+            target = args[i + 1]
+            i += 2
+        else:
+            text_parts.append(args[i])
+            i += 1
+    text = " ".join(text_parts)
+
+    if target:
+        try:
+            run(["osascript", "-e", f'tell application "{target}" to activate'])
+            time.sleep(0.2)
+        except RuntimeError:
+            pass
+
+    # Use cliclick for typing — it handles special chars better
+    run(["cliclick", f"t:{text}"])
+    output_json({"success": True})
+
+
+# ─── steer hotkey ────────────────────────────────────────────────────────────
+
+def cmd_hotkey(args: list[str]) -> None:
+    if not args:
+        output_json({"success": False, "error": "No keys specified"})
+        sys.exit(1)
+
+    keys = args[0]
+
+    # Map common key names to cliclick modifier format
+    # cliclick kp format: kp:key (with modifiers as prefix)
+    # cliclick key-down/key-up: kd:modifier ku:modifier
+    parts = keys.lower().split("+")
+    modifiers = []
+    key = parts[-1] if parts else ""
+
+    modifier_map = {
+        "cmd": "cmd",
+        "command": "cmd",
+        "ctrl": "ctrl",
+        "control": "ctrl",
+        "alt": "alt",
+        "option": "alt",
+        "shift": "shift",
+    }
+
+    for p in parts[:-1]:
+        mod = modifier_map.get(p, p)
+        modifiers.append(mod)
+
+    # Use osascript for hotkeys — more reliable than cliclick for modifier combos
+    key_code_script = _build_keystroke_script(key, modifiers)
+    run(["osascript", "-e", key_code_script])
+    output_json({"success": True})
+
+
+def _build_keystroke_script(key: str, modifiers: list[str]) -> str:
+    """Build AppleScript to send a keystroke with modifiers."""
+    modifier_map = {
+        "cmd": "command down",
+        "ctrl": "control down",
+        "alt": "option down",
+        "shift": "shift down",
+    }
+    mod_list = ", ".join(modifier_map.get(m, m + " down") for m in modifiers)
+
+    # Special keys
+    special_keys = {
+        "return": "return", "enter": "return", "tab": "tab",
+        "delete": "delete", "backspace": "delete",
+        "escape": "escape", "esc": "escape",
+        "space": "space",
+        "up": "up arrow", "down": "down arrow",
+        "left": "left arrow", "right": "right arrow",
+    }
+
+    if key in special_keys:
+        apple_key = special_keys[key]
+        if mod_list:
+            return f'tell application "System Events" to key code (key code of {apple_key}) using {{{mod_list}}}'
+        # Use keystroke for special keys
+        return f'tell application "System Events" to keystroke (ASCII character 13)'  # fallback
+
+    # Regular character
+    if mod_list:
+        return f'tell application "System Events" to keystroke "{key}" using {{{mod_list}}}'
+    return f'tell application "System Events" to keystroke "{key}"'
+
+
+# ─── steer scroll ────────────────────────────────────────────────────────────
+
+def cmd_scroll(args: list[str]) -> None:
+    direction = args[0] if args else "down"
+    amount = int(args[1]) if len(args) > 1 else 3
+    target = ""
+
+    i = 2
+    while i < len(args):
+        if args[i] == "--app" and i + 1 < len(args):
+            target = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if target:
+        try:
+            run(["osascript", "-e", f'tell application "{target}" to activate'])
+            time.sleep(0.2)
+        except RuntimeError:
+            pass
+
+    # Use osascript to scroll via System Events
+    scroll_amount = amount if direction == "down" else -amount
+    script = f'''
+    tell application "System Events"
+        repeat {abs(scroll_amount)} times
+            if {scroll_amount} > 0 then
+                key code 125 -- down arrow (approximate scroll)
+            else
+                key code 126 -- up arrow
+            end if
+        end repeat
+    end tell
+    '''
+    # Better: use cliclick scroll if available
+    try:
+        # cliclick scroll: positive = up, negative = down
+        cliclick_amount = -amount if direction == "down" else amount
+        run(["cliclick", f"sc:{cliclick_amount}"])
+    except (RuntimeError, FileNotFoundError):
+        run(["osascript", "-e", script])
+
+    output_json({"success": True})
+
+
+# ─── steer drag ──────────────────────────────────────────────────────────────
+
+def cmd_drag(args: list[str]) -> None:
+    if len(args) < 4:
+        output_json({"success": False, "error": "drag requires start_x start_y end_x end_y"})
+        sys.exit(1)
+
+    sx, sy, ex, ey = int(args[0]), int(args[1]), int(args[2]), int(args[3])
+    run(["cliclick", f"dd:{sx},{sy}", f"du:{ex},{ey}"])
+    output_json({"success": True})
+
+
+# ─── steer focus ─────────────────────────────────────────────────────────────
+
+def cmd_focus(args: list[str]) -> None:
+    if not args:
+        output_json({"success": False, "error": "No app name specified"})
+        sys.exit(1)
+
+    app = " ".join(args)
+    run(["osascript", "-e", f'tell application "{app}" to activate'])
+    time.sleep(0.3)
+    output_json({"success": True})
+
+
+# ─── steer find ──────────────────────────────────────────────────────────────
+
+def cmd_find(args: list[str]) -> None:
+    if not args:
+        output_json({"success": False, "error": "No search text specified"})
+        sys.exit(1)
+
+    search_text = " ".join(args)
+    tmp = os.path.join(tempfile.gettempdir(), f"steer_find_{uuid.uuid4().hex[:8]}.png")
+    run(["screencapture", "-x", tmp])
+    raw = run([OCR_HELPER, tmp, "--json"])
+    elements = json.loads(raw) if raw else []
+    os.unlink(tmp)
+
+    for el in elements:
+        if search_text.lower() in el.get("text", "").lower():
+            cx = el["x"] + el["width"] // 2
+            cy = el["y"] + el["height"] // 2
+            output_json({"x": cx, "y": cy})
+            return
+
+    output_json({"success": False, "error": f"'{search_text}' not found"})
+    sys.exit(1)
+
+
+# ─── steer wait ──────────────────────────────────────────────────────────────
+
+def cmd_wait(args: list[str]) -> None:
+    search_text = ""
+    timeout_sec = 10
+    positional = []
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--timeout" and i + 1 < len(args):
+            timeout_sec = int(args[i + 1])
+            i += 2
+        else:
+            positional.append(args[i])
+            i += 1
+
+    search_text = " ".join(positional)
+    if not search_text:
+        output_json({"success": False, "error": "No search text"})
+        sys.exit(1)
+
+    elapsed = 0
+    while elapsed < timeout_sec:
+        tmp = os.path.join(tempfile.gettempdir(), f"steer_wait_{uuid.uuid4().hex[:8]}.png")
+        try:
+            run(["screencapture", "-x", tmp])
+            raw = run([OCR_HELPER, tmp, "--json"])
+            elements = json.loads(raw) if raw else []
+            for el in elements:
+                if search_text.lower() in el.get("text", "").lower():
+                    output_json({"success": True, "found_after": elapsed})
+                    return
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+
+        time.sleep(1)
+        elapsed += 1
+
+    output_json({"success": False, "error": "Timed out"})
+    sys.exit(1)
+
+
+# ─── steer clipboard ────────────────────────────────────────────────────────
+
+def cmd_clipboard(args: list[str]) -> None:
+    action = args[0] if args else "read"
+
+    if action == "write":
+        text = " ".join(args[1:]) if len(args) > 1 else ""
+        run(["pbcopy"], input_data=text.encode("utf-8"))
+        output_json({"success": True, "clipboard": text})
+    else:
+        content = run(["pbpaste"])
+        output_json(content)
+
+
+# ─── steer apps ──────────────────────────────────────────────────────────────
+
+def cmd_apps(args: list[str]) -> None:
+    script = '''
+    tell application "System Events"
+        set appList to name of every application process whose background only is false
+        set output to ""
+        repeat with appName in appList
+            set output to output & appName & linefeed
+        end repeat
+        return output
+    end tell
+    '''
+    try:
+        output = run(["osascript", "-e", script])
+        apps = [{"name": line.strip()} for line in output.split("\n") if line.strip()]
+    except RuntimeError:
+        # Fallback to ps
+        output = run(["ps", "-eo", "comm"])
+        apps = [{"name": os.path.basename(line.strip())} for line in output.split("\n")
+                if line.strip() and "/" in line and "." not in os.path.basename(line.strip())]
+    output_json(apps)
+
+
+# ─── Main dispatch ───────────────────────────────────────────────────────────
+
+COMMANDS = {
+    "see": cmd_see,
+    "ocr": cmd_ocr,
+    "click": cmd_click,
+    "type": cmd_type,
+    "hotkey": cmd_hotkey,
+    "scroll": cmd_scroll,
+    "drag": cmd_drag,
+    "focus": cmd_focus,
+    "find": cmd_find,
+    "wait": cmd_wait,
+    "clipboard": cmd_clipboard,
+    "apps": cmd_apps,
+}
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: steer <command> [args...]", file=sys.stderr)
+        print(f"Commands: {', '.join(COMMANDS.keys())}", file=sys.stderr)
+        sys.exit(1)
+
+    command = sys.argv[1]
+    if command == "--version":
+        print("steer 1.0.0 (macOS native)")
+        sys.exit(0)
+
+    if command == "--help":
+        print(__doc__)
+        sys.exit(0)
+
+    handler = COMMANDS.get(command)
+    if not handler:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        handler(sys.argv[2:])
+    except Exception as e:
+        output_json({"success": False, "error": str(e)})
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

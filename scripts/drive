@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""drive — macOS terminal automation CLI for AgentForge.
+
+Wraps tmux for terminal session management and command execution.
+
+Usage:
+  drive session create NAME | list | kill NAME
+  drive run COMMAND --session NAME [--timeout N]
+  drive send KEYS --session NAME
+  drive logs --session NAME
+  drive poll --session NAME [--sentinel MARKER] [--timeout N]
+  drive fanout COMMAND [COMMAND ...] --session NAME
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+import uuid
+
+
+def run(cmd: list[str], timeout: int = 30, input_data: bytes | None = None) -> str:
+    """Run a shell command and return stdout."""
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        timeout=timeout,
+        input=input_data,
+    )
+    if result.returncode != 0:
+        err = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(cmd)}: {err}")
+    return result.stdout.decode("utf-8", errors="replace").strip()
+
+
+def output_json(data: dict | list) -> None:
+    print(json.dumps(data))
+
+
+# ─── drive session ───────────────────────────────────────────────────────────
+
+def cmd_session(args: list[str]) -> None:
+    if not args:
+        output_json({"success": False, "error": "session requires: create|list|kill"})
+        sys.exit(1)
+
+    action = args[0]
+
+    if action == "create":
+        name = args[1] if len(args) > 1 else f"drive-{uuid.uuid4().hex[:8]}"
+        run(["tmux", "new-session", "-d", "-s", name])
+        output_json({"success": True, "session": name, "action": "created"})
+
+    elif action == "list":
+        try:
+            out = run(["tmux", "list-sessions", "-F", "#{session_name}"])
+            sessions = [s.strip() for s in out.split("\n") if s.strip()]
+        except RuntimeError:
+            sessions = []
+        output_json({"success": True, "sessions": sessions})
+
+    elif action == "kill":
+        name = args[1] if len(args) > 1 else ""
+        if not name:
+            output_json({"success": False, "error": "kill requires session name"})
+            sys.exit(1)
+        run(["tmux", "kill-session", "-t", name])
+        output_json({"success": True, "session": name, "action": "killed"})
+
+    else:
+        output_json({"success": False, "error": f"Unknown session action: {action}"})
+        sys.exit(1)
+
+
+# ─── drive run ───────────────────────────────────────────────────────────────
+
+def cmd_run(args: list[str]) -> None:
+    session = ""
+    timeout_sec = 30
+    command_parts = []
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--session" and i + 1 < len(args):
+            session = args[i + 1]
+            i += 2
+        elif args[i] == "--timeout" and i + 1 < len(args):
+            timeout_sec = int(args[i + 1])
+            i += 2
+        else:
+            command_parts.append(args[i])
+            i += 1
+
+    command = " ".join(command_parts)
+    if not session or not command:
+        output_json({"success": False, "error": "run requires --session and a command"})
+        sys.exit(1)
+
+    # Use sentinel pattern: append echo of unique marker after command
+    sentinel = f"__DRIVE_DONE_{uuid.uuid4().hex[:8]}__"
+    full_cmd = f"{command}; echo {sentinel} $?"
+
+    # Send command to tmux pane
+    run(["tmux", "send-keys", "-t", session, full_cmd, "Enter"])
+
+    # Poll for sentinel
+    elapsed = 0
+    while elapsed < timeout_sec:
+        time.sleep(0.5)
+        elapsed += 0.5
+        try:
+            pane_output = run(["tmux", "capture-pane", "-t", session, "-p"])
+        except RuntimeError:
+            continue
+
+        for line in pane_output.split("\n"):
+            if sentinel in line:
+                # Extract exit code
+                parts = line.strip().split()
+                exit_code = 0
+                if len(parts) >= 2:
+                    try:
+                        exit_code = int(parts[-1])
+                    except ValueError:
+                        pass
+
+                # Get clean output (everything between command and sentinel)
+                lines = pane_output.split("\n")
+                output_lines = []
+                capturing = False
+                for ol in lines:
+                    if sentinel in ol:
+                        break
+                    if capturing:
+                        output_lines.append(ol)
+                    if full_cmd.rstrip() in ol or command.rstrip() in ol:
+                        capturing = True
+
+                output_json({
+                    "success": exit_code == 0,
+                    "output": "\n".join(output_lines),
+                    "exit_code": exit_code,
+                })
+                return
+
+    output_json({"success": False, "error": f"Timed out after {timeout_sec}s", "exit_code": -1})
+    sys.exit(1)
+
+
+# ─── drive send ──────────────────────────────────────────────────────────────
+
+def cmd_send(args: list[str]) -> None:
+    session = ""
+    keys_parts = []
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--session" and i + 1 < len(args):
+            session = args[i + 1]
+            i += 2
+        else:
+            keys_parts.append(args[i])
+            i += 1
+
+    keys = " ".join(keys_parts)
+    if not session or not keys:
+        output_json({"success": False, "error": "send requires --session and keys"})
+        sys.exit(1)
+
+    run(["tmux", "send-keys", "-t", session, keys, "Enter"])
+    output_json({"success": True})
+
+
+# ─── drive logs ──────────────────────────────────────────────────────────────
+
+def cmd_logs(args: list[str]) -> None:
+    session = ""
+    i = 0
+    while i < len(args):
+        if args[i] == "--session" and i + 1 < len(args):
+            session = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if not session:
+        output_json({"success": False, "error": "logs requires --session"})
+        sys.exit(1)
+
+    output = run(["tmux", "capture-pane", "-t", session, "-p"])
+    output_json({"success": True, "output": output})
+
+
+# ─── drive poll ──────────────────────────────────────────────────────────────
+
+def cmd_poll(args: list[str]) -> None:
+    session = ""
+    sentinel = ""
+    timeout_sec = 30
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--session" and i + 1 < len(args):
+            session = args[i + 1]
+            i += 2
+        elif args[i] == "--sentinel" and i + 1 < len(args):
+            sentinel = args[i + 1]
+            i += 2
+        elif args[i] == "--timeout" and i + 1 < len(args):
+            timeout_sec = int(args[i + 1])
+            i += 2
+        else:
+            i += 1
+
+    if not session or not sentinel:
+        output_json({"success": False, "error": "poll requires --session and --sentinel"})
+        sys.exit(1)
+
+    elapsed = 0
+    while elapsed < timeout_sec:
+        try:
+            output = run(["tmux", "capture-pane", "-t", session, "-p"])
+            if sentinel in output:
+                output_json({"success": True, "found": True, "output": output})
+                return
+        except RuntimeError:
+            pass
+        time.sleep(0.5)
+        elapsed += 0.5
+
+    output_json({"success": False, "found": False, "error": "Sentinel not found before timeout"})
+    sys.exit(1)
+
+
+# ─── drive fanout ────────────────────────────────────────────────────────────
+
+def cmd_fanout(args: list[str]) -> None:
+    session = ""
+    commands = []
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--session" and i + 1 < len(args):
+            session = args[i + 1]
+            i += 2
+        else:
+            commands.append(args[i])
+            i += 1
+
+    if not session or not commands:
+        output_json({"success": False, "error": "fanout requires --session and commands"})
+        sys.exit(1)
+
+    # Create split panes for each additional command
+    for idx in range(1, len(commands)):
+        run(["tmux", "split-window", "-t", session])
+        run(["tmux", "select-layout", "-t", session, "tiled"])
+
+    # Send commands to each pane
+    for idx, cmd in enumerate(commands):
+        pane = f"{session}:{0}.{idx}"
+        run(["tmux", "send-keys", "-t", pane, cmd, "Enter"])
+
+    output_json({"success": True, "panes": len(commands)})
+
+
+# ─── Main dispatch ───────────────────────────────────────────────────────────
+
+COMMANDS = {
+    "session": cmd_session,
+    "run": cmd_run,
+    "send": cmd_send,
+    "logs": cmd_logs,
+    "poll": cmd_poll,
+    "fanout": cmd_fanout,
+}
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: drive <command> [args...]", file=sys.stderr)
+        print(f"Commands: {', '.join(COMMANDS.keys())}", file=sys.stderr)
+        sys.exit(1)
+
+    command = sys.argv[1]
+    if command == "--version":
+        print("drive 1.0.0 (macOS tmux)")
+        sys.exit(0)
+
+    if command == "--help":
+        print(__doc__)
+        sys.exit(0)
+
+    handler = COMMANDS.get(command)
+    if not handler:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        handler(sys.argv[2:])
+    except Exception as e:
+        output_json({"success": False, "error": str(e)})
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
