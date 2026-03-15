@@ -27,33 +27,25 @@ skip() {
 
 echo "═══ Steer Commands ═══"
 
-# Check if screen recording works first
+# Test steer see (uses CoreGraphics — works over SSH)
+check "steer_see" steer see --output /tmp/steer-verify-see.png
 SR_OK=false
-TMPFILE=$(mktemp /tmp/sr-verify-XXXXXX.png)
-if screencapture -x "$TMPFILE" 2>/dev/null; then
-    SIZE=$(stat -f%z "$TMPFILE" 2>/dev/null || echo "0")
-    [ "$SIZE" -gt 1000 ] && SR_OK=true
-fi
-rm -f "$TMPFILE"
+[ -f /tmp/steer-verify-see.png ] && SR_OK=true
+rm -f /tmp/steer-verify-see.png
 
-if $SR_OK; then
-    check "steer_see" steer see --output /tmp/steer-verify-see.png
-    rm -f /tmp/steer-verify-see.png
-
-    if [ -f "$(dirname "$0")/ocr-helper" ]; then
-        # Take a screenshot for OCR test
-        screencapture -x /tmp/steer-verify-ocr.png 2>/dev/null
-        check "steer_ocr" steer ocr
-        check "steer_find" steer find "AgentForge" || true  # may not find text
-        rm -f /tmp/steer-verify-ocr.png
-    else
-        skip "steer_ocr" "ocr-helper not built"
-        skip "steer_find" "requires OCR"
-    fi
+if $SR_OK && [ -f "$(dirname "$0")/ocr-helper" ]; then
+    check "steer_ocr" steer ocr
+    # steer_find may not find text depending on what's on screen
+    steer find "Finder" &>/dev/null && {
+        echo "  ✅ steer_find"
+        PASS=$((PASS + 1))
+    } || {
+        echo "  ⏭️  steer_find — text not on screen (normal)"
+        SKIP=$((SKIP + 1))
+    }
 else
-    skip "steer_see" "screen recording denied"
-    skip "steer_ocr" "screen recording denied"
-    skip "steer_find" "screen recording denied"
+    skip "steer_ocr" "steer_see failed or ocr-helper not built"
+    skip "steer_find" "requires steer_see + OCR"
 fi
 
 # These need accessibility
@@ -66,33 +58,23 @@ else
     skip "steer_type" "cliclick not installed"
 fi
 
-# Hotkey/focus need accessibility
-ACC_OK=false
-timeout 3 osascript -e 'tell application "System Events" to count of (every process)' &>/dev/null && ACC_OK=true
+# Hotkey/focus — try them directly, they may work or may not over SSH
+check "steer_focus (Finder)" steer focus Finder
+check "steer_hotkey (cmd+a)" steer hotkey "cmd+a"
+check "steer_scroll (down 1)" steer scroll down 1
 
-if $ACC_OK; then
-    check "steer_focus (Finder)" steer focus Finder
-    check "steer_hotkey (cmd+a)" steer hotkey "cmd+a"
-    check "steer_scroll (down 1)" steer scroll down 1
-else
-    skip "steer_focus" "accessibility denied"
-    skip "steer_hotkey" "accessibility denied"
-    skip "steer_scroll" "accessibility denied"
-fi
-
-if command -v cliclick &>/dev/null && $ACC_OK; then
+if command -v cliclick &>/dev/null; then
     check "steer_click (center)" steer click 500 500
     check "steer_type" steer type "test"
     check "steer_drag" steer drag 100 100 200 200
 else
-    skip "steer_click" "needs cliclick + accessibility"
-    skip "steer_type" "needs cliclick + accessibility"
-    skip "steer_drag" "needs cliclick + accessibility"
+    skip "steer_click" "cliclick not installed"
+    skip "steer_type" "cliclick not installed"
+    skip "steer_drag" "cliclick not installed"
 fi
 
-if $SR_OK && $ACC_OK; then
-    # steer_wait with a short timeout — may not find anything
-    steer wait "Finder" --timeout 2 &>/dev/null && {
+if $SR_OK; then
+    steer wait "Finder" --timeout 3 &>/dev/null && {
         echo "  ✅ steer_wait"
         PASS=$((PASS + 1))
     } || {
@@ -100,7 +82,7 @@ if $SR_OK && $ACC_OK; then
         SKIP=$((SKIP + 1))
     }
 else
-    skip "steer_wait" "needs screen recording + accessibility"
+    skip "steer_wait" "needs screenshot"
 fi
 
 echo ""

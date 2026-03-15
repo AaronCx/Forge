@@ -2,7 +2,8 @@
 """steer — macOS GUI automation CLI for AgentForge.
 
 Implements all 12 Steer commands using native macOS tools:
-  screencapture, cliclick, osascript, pbcopy/pbpaste, and Vision OCR.
+  CoreGraphics (screenshot), cliclick, osascript, pbcopy/pbpaste, and Vision OCR.
+  Uses CoreGraphics directly for screenshots — works over SSH unlike screencapture.
 
 Usage:
   steer see [--app APP] [--output PATH] [--region REGION]
@@ -29,8 +30,63 @@ import tempfile
 import time
 import uuid
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+import ctypes
+import ctypes.util
+
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 OCR_HELPER = os.path.join(SCRIPT_DIR, "ocr-helper")
+
+# ─── CoreGraphics screenshot (works over SSH) ────────────────────────────────
+
+def _cg_screenshot(output_path: str) -> bool:
+    """Capture the main display to a PNG file using CoreGraphics directly.
+    Works over SSH — unlike screencapture which requires a console session."""
+    try:
+        cg = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreGraphics"))
+        imageio = ctypes.cdll.LoadLibrary(ctypes.util.find_library("ImageIO"))
+        cf = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreFoundation"))
+
+        cg.CGMainDisplayID.restype = ctypes.c_uint32
+        cg.CGDisplayCreateImage.restype = ctypes.c_void_p
+        cg.CGDisplayCreateImage.argtypes = [ctypes.c_uint32]
+
+        display_id = cg.CGMainDisplayID()
+        image_ref = cg.CGDisplayCreateImage(display_id)
+        if not image_ref:
+            return False
+
+        cf.CFStringCreateWithCString.restype = ctypes.c_void_p
+        cf.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
+        cf.CFURLCreateWithFileSystemPath.restype = ctypes.c_void_p
+        cf.CFURLCreateWithFileSystemPath.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_bool]
+
+        path_str = cf.CFStringCreateWithCString(None, output_path.encode(), 0x08000100)
+        url = cf.CFURLCreateWithFileSystemPath(None, path_str, 0, False)
+        type_str = cf.CFStringCreateWithCString(None, b"public.png", 0x08000100)
+
+        imageio.CGImageDestinationCreateWithURL.restype = ctypes.c_void_p
+        imageio.CGImageDestinationCreateWithURL.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p]
+        dest = imageio.CGImageDestinationCreateWithURL(url, type_str, 1, None)
+        if not dest:
+            return False
+
+        imageio.CGImageDestinationAddImage.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+        imageio.CGImageDestinationAddImage(dest, image_ref, None)
+
+        imageio.CGImageDestinationFinalize.restype = ctypes.c_bool
+        imageio.CGImageDestinationFinalize.argtypes = [ctypes.c_void_p]
+        return imageio.CGImageDestinationFinalize(dest)
+    except Exception:
+        return False
+
+
+def take_screenshot(output_path: str) -> None:
+    """Take a screenshot, trying CoreGraphics first, falling back to screencapture."""
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    if _cg_screenshot(output_path):
+        return
+    # Fallback to screencapture (works from console session)
+    run(["screencapture", "-x", output_path])
 
 
 def run(cmd: list[str], timeout: int = 30, input_data: bytes | None = None) -> str:
@@ -75,16 +131,13 @@ def cmd_see(args: list[str]) -> None:
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    if target == "screen":
-        run(["screencapture", "-x", output_path])
-    else:
-        # Focus the app first, then capture
+    if target != "screen":
         try:
             run(["osascript", "-e", f'tell application "{target}" to activate'])
             time.sleep(0.3)
         except RuntimeError:
             pass
-        run(["screencapture", "-x", output_path])
+    take_screenshot(output_path)
 
     output_json({"success": True, "path": output_path})
 
@@ -108,14 +161,14 @@ def cmd_ocr(args: list[str]) -> None:
     # Take screenshot first
     tmp = os.path.join(tempfile.gettempdir(), f"steer_ocr_{uuid.uuid4().hex[:8]}.png")
     if target == "screen":
-        run(["screencapture", "-x", tmp])
+        take_screenshot(tmp)
     else:
         try:
             run(["osascript", "-e", f'tell application "{target}" to activate'])
             time.sleep(0.3)
         except RuntimeError:
             pass
-        run(["screencapture", "-x", tmp])
+        take_screenshot(tmp)
 
     if not os.path.exists(OCR_HELPER):
         print(json.dumps({"error": "ocr-helper binary not found"}), file=sys.stderr)
@@ -158,7 +211,7 @@ def cmd_click(args: list[str]) -> None:
     if element_text:
         # OCR to find element, then click its center
         tmp = os.path.join(tempfile.gettempdir(), f"steer_find_{uuid.uuid4().hex[:8]}.png")
-        run(["screencapture", "-x", tmp])
+        take_screenshot(tmp)
         raw = run([OCR_HELPER, tmp, "--json"])
         elements = json.loads(raw) if raw else []
         os.unlink(tmp)
@@ -215,65 +268,51 @@ def cmd_hotkey(args: list[str]) -> None:
         sys.exit(1)
 
     keys = args[0]
-
-    # Map common key names to cliclick modifier format
-    # cliclick kp format: kp:key (with modifiers as prefix)
-    # cliclick key-down/key-up: kd:modifier ku:modifier
     parts = keys.lower().split("+")
-    modifiers = []
+    modifiers = parts[:-1]
     key = parts[-1] if parts else ""
 
+    # Use cliclick kd/ku (key-down/key-up) for modifiers + kp for the key
+    # cliclick modifier names: cmd, ctrl, alt, shift, fn
     modifier_map = {
-        "cmd": "cmd",
-        "command": "cmd",
-        "ctrl": "ctrl",
-        "control": "ctrl",
-        "alt": "alt",
-        "option": "alt",
-        "shift": "shift",
+        "cmd": "cmd", "command": "cmd",
+        "ctrl": "ctrl", "control": "ctrl",
+        "alt": "alt", "option": "alt",
+        "shift": "shift", "fn": "fn",
     }
 
-    for p in parts[:-1]:
-        mod = modifier_map.get(p, p)
-        modifiers.append(mod)
-
-    # Use osascript for hotkeys — more reliable than cliclick for modifier combos
-    key_code_script = _build_keystroke_script(key, modifiers)
-    run(["osascript", "-e", key_code_script])
-    output_json({"success": True})
-
-
-def _build_keystroke_script(key: str, modifiers: list[str]) -> str:
-    """Build AppleScript to send a keystroke with modifiers."""
-    modifier_map = {
-        "cmd": "command down",
-        "ctrl": "control down",
-        "alt": "option down",
-        "shift": "shift down",
-    }
-    mod_list = ", ".join(modifier_map.get(m, m + " down") for m in modifiers)
-
-    # Special keys
+    # Special key names for cliclick kp:
     special_keys = {
         "return": "return", "enter": "return", "tab": "tab",
         "delete": "delete", "backspace": "delete",
-        "escape": "escape", "esc": "escape",
+        "escape": "esc", "esc": "esc",
         "space": "space",
-        "up": "up arrow", "down": "down arrow",
-        "left": "left arrow", "right": "right arrow",
+        "up": "arrow-up", "down": "arrow-down",
+        "left": "arrow-left", "right": "arrow-right",
+        "f1": "f1", "f2": "f2", "f3": "f3", "f4": "f4",
+        "f5": "f5", "f6": "f6", "f7": "f7", "f8": "f8",
     }
 
-    if key in special_keys:
-        apple_key = special_keys[key]
-        if mod_list:
-            return f'tell application "System Events" to key code (key code of {apple_key}) using {{{mod_list}}}'
-        # Use keystroke for special keys
-        return f'tell application "System Events" to keystroke (ASCII character 13)'  # fallback
+    cliclick_cmds = []
+    # Press modifiers down
+    for m in modifiers:
+        mod = modifier_map.get(m, m)
+        cliclick_cmds.append(f"kd:{mod}")
 
-    # Regular character
-    if mod_list:
-        return f'tell application "System Events" to keystroke "{key}" using {{{mod_list}}}'
-    return f'tell application "System Events" to keystroke "{key}"'
+    # Press the key — kp: only works for special keys, use t: for regular chars
+    if key in special_keys:
+        cliclick_cmds.append(f"kp:{special_keys[key]}")
+    else:
+        # t: types the character (works with held modifiers)
+        cliclick_cmds.append(f"t:{key}")
+
+    # Release modifiers up (reverse order)
+    for m in reversed(modifiers):
+        mod = modifier_map.get(m, m)
+        cliclick_cmds.append(f"ku:{mod}")
+
+    run(["cliclick"] + cliclick_cmds)
+    output_json({"success": True})
 
 
 # ─── steer scroll ────────────────────────────────────────────────────────────
@@ -298,26 +337,10 @@ def cmd_scroll(args: list[str]) -> None:
         except RuntimeError:
             pass
 
-    # Use osascript to scroll via System Events
-    scroll_amount = amount if direction == "down" else -amount
-    script = f'''
-    tell application "System Events"
-        repeat {abs(scroll_amount)} times
-            if {scroll_amount} > 0 then
-                key code 125 -- down arrow (approximate scroll)
-            else
-                key code 126 -- up arrow
-            end if
-        end repeat
-    end tell
-    '''
-    # Better: use cliclick scroll if available
-    try:
-        # cliclick scroll: positive = up, negative = down
-        cliclick_amount = -amount if direction == "down" else amount
-        run(["cliclick", f"sc:{cliclick_amount}"])
-    except (RuntimeError, FileNotFoundError):
-        run(["osascript", "-e", script])
+    # Use cliclick for arrow key presses to simulate scrolling
+    key = "arrow-down" if direction == "down" else "arrow-up"
+    cliclick_cmds = [f"kp:{key}" for _ in range(amount)]
+    run(["cliclick"] + cliclick_cmds)
 
     output_json({"success": True})
 
@@ -356,7 +379,7 @@ def cmd_find(args: list[str]) -> None:
 
     search_text = " ".join(args)
     tmp = os.path.join(tempfile.gettempdir(), f"steer_find_{uuid.uuid4().hex[:8]}.png")
-    run(["screencapture", "-x", tmp])
+    take_screenshot(tmp)
     raw = run([OCR_HELPER, tmp, "--json"])
     elements = json.loads(raw) if raw else []
     os.unlink(tmp)
@@ -397,7 +420,7 @@ def cmd_wait(args: list[str]) -> None:
     while elapsed < timeout_sec:
         tmp = os.path.join(tempfile.gettempdir(), f"steer_wait_{uuid.uuid4().hex[:8]}.png")
         try:
-            run(["screencapture", "-x", tmp])
+            take_screenshot(tmp)
             raw = run([OCR_HELPER, tmp, "--json"])
             elements = json.loads(raw) if raw else []
             for el in elements:
@@ -468,6 +491,184 @@ def cmd_apps(args: list[str]) -> None:
     output_json(apps)
 
 
+# ─── steer record ────────────────────────────────────────────────────────────
+
+def cmd_record(args: list[str]) -> None:
+    """Record the screen using CoreGraphics frame capture piped to ffmpeg.
+    Works over SSH — does not require AVFoundation or screencapture.
+
+    Usage: steer record --output FILE [--duration N] [--fps N] [--quality low|medium|high]
+           steer record --stop PID
+    """
+    output_path = None
+    duration = 0  # 0 = until stopped
+    fps = 15
+    quality = "medium"
+    stop_pid = None
+    i = 0
+
+    while i < len(args):
+        if args[i] == "--output" and i + 1 < len(args):
+            output_path = args[i + 1]
+            i += 2
+        elif args[i] == "--duration" and i + 1 < len(args):
+            duration = int(args[i + 1])
+            i += 2
+        elif args[i] == "--fps" and i + 1 < len(args):
+            fps = int(args[i + 1])
+            i += 2
+        elif args[i] == "--quality" and i + 1 < len(args):
+            quality = args[i + 1]
+            i += 2
+        elif args[i] == "--stop" and i + 1 < len(args):
+            stop_pid = int(args[i + 1])
+            i += 2
+        else:
+            i += 1
+
+    if stop_pid:
+        import signal
+        try:
+            os.kill(stop_pid, signal.SIGTERM)
+            output_json({"success": True, "stopped_pid": stop_pid})
+        except ProcessLookupError:
+            output_json({"success": False, "error": f"Process {stop_pid} not found"})
+            sys.exit(1)
+        return
+
+    if not output_path:
+        output_path = os.path.join(tempfile.gettempdir(), f"steer_record_{uuid.uuid4().hex[:8]}.mp4")
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+    bitrate_map = {"low": "2M", "medium": "5M", "high": "10M"}
+    bitrate = bitrate_map.get(quality, "5M")
+
+    # Set up CoreGraphics
+    cg = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreGraphics"))
+    cf_lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreFoundation"))
+
+    cg.CGMainDisplayID.restype = ctypes.c_uint32
+    cg.CGDisplayCreateImage.restype = ctypes.c_void_p
+    cg.CGDisplayCreateImage.argtypes = [ctypes.c_uint32]
+    cg.CGImageGetWidth.restype = ctypes.c_size_t
+    cg.CGImageGetWidth.argtypes = [ctypes.c_void_p]
+    cg.CGImageGetHeight.restype = ctypes.c_size_t
+    cg.CGImageGetHeight.argtypes = [ctypes.c_void_p]
+    cg.CGImageGetBytesPerRow.restype = ctypes.c_size_t
+    cg.CGImageGetBytesPerRow.argtypes = [ctypes.c_void_p]
+    cg.CGImageGetDataProvider.restype = ctypes.c_void_p
+    cg.CGImageGetDataProvider.argtypes = [ctypes.c_void_p]
+    cg.CGDataProviderCopyData.restype = ctypes.c_void_p
+    cg.CGDataProviderCopyData.argtypes = [ctypes.c_void_p]
+
+    cf_lib.CFDataGetLength.restype = ctypes.c_long
+    cf_lib.CFDataGetLength.argtypes = [ctypes.c_void_p]
+    cf_lib.CFDataGetBytePtr.restype = ctypes.c_void_p
+    cf_lib.CFDataGetBytePtr.argtypes = [ctypes.c_void_p]
+    cf_lib.CFRelease.argtypes = [ctypes.c_void_p]
+
+    display_id = cg.CGMainDisplayID()
+    img = cg.CGDisplayCreateImage(display_id)
+    if not img:
+        output_json({"success": False, "error": "Cannot access display"})
+        sys.exit(1)
+
+    w = cg.CGImageGetWidth(img)
+    h = cg.CGImageGetHeight(img)
+
+    ffmpeg_cmd = [
+        "ffmpeg", "-y",
+        "-f", "rawvideo",
+        "-pixel_format", "bgra",
+        "-video_size", f"{w}x{h}",
+        "-framerate", str(fps),
+        "-i", "pipe:0",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p",
+        "-b:v", bitrate,
+    ]
+    if duration > 0:
+        ffmpeg_cmd.extend(["-t", str(duration)])
+    ffmpeg_cmd.append(output_path)
+
+    proc = subprocess.Popen(
+        ffmpeg_cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Write our PID so callers can stop us
+    pid_file = output_path + ".pid"
+    with open(pid_file, "w") as f:
+        f.write(str(os.getpid()))
+
+    import signal
+    recording = True
+
+    def handle_stop(signum, frame):
+        nonlocal recording
+        recording = False
+
+    signal.signal(signal.SIGTERM, handle_stop)
+    signal.signal(signal.SIGINT, handle_stop)
+
+    frame_interval = 1.0 / fps
+    frame_count = 0
+    max_frames = fps * duration if duration > 0 else float("inf")
+
+    try:
+        while recording and frame_count < max_frames:
+            t0 = time.monotonic()
+            img = cg.CGDisplayCreateImage(display_id)
+            if not img:
+                continue
+
+            bpr = cg.CGImageGetBytesPerRow(img)
+            provider = cg.CGImageGetDataProvider(img)
+            data = cg.CGDataProviderCopyData(provider)
+            length = cf_lib.CFDataGetLength(data)
+            ptr = cf_lib.CFDataGetBytePtr(data)
+            raw = ctypes.string_at(ptr, length)
+
+            if bpr != w * 4:
+                frame = b""
+                for row in range(h):
+                    frame += raw[row * bpr : row * bpr + w * 4]
+                raw = frame
+
+            proc.stdin.write(raw)
+            cf_lib.CFRelease(data)
+            frame_count += 1
+
+            elapsed = time.monotonic() - t0
+            sleep_time = frame_interval - elapsed
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+    except BrokenPipeError:
+        pass
+
+    proc.stdin.close()
+    proc.wait(timeout=15)
+
+    # Clean up pid file
+    if os.path.exists(pid_file):
+        os.unlink(pid_file)
+
+    file_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
+    output_json({
+        "success": proc.returncode == 0,
+        "path": output_path,
+        "frames": frame_count,
+        "duration_seconds": frame_count / fps,
+        "resolution": f"{w}x{h}",
+        "fps": fps,
+        "size_bytes": file_size,
+    })
+
+
 # ─── Main dispatch ───────────────────────────────────────────────────────────
 
 COMMANDS = {
@@ -483,6 +684,7 @@ COMMANDS = {
     "wait": cmd_wait,
     "clipboard": cmd_clipboard,
     "apps": cmd_apps,
+    "record": cmd_record,
 }
 
 
