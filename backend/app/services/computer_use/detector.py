@@ -40,6 +40,13 @@ class CapabilityReport:
     # Agent backends
     agent_backends: list[str] = field(default_factory=list)
 
+    # macOS permissions
+    accessibility_permission: bool = False
+    screen_recording_permission: bool = False
+    # Detected system commands
+    detected_commands: dict[str, bool] = field(default_factory=dict)
+    ffmpeg_available: bool = False
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "steer_available": self.steer_available,
@@ -50,12 +57,18 @@ class CapabilityReport:
             "drive_commands": self.drive_commands,
             "tmux_available": self.tmux_available,
             "tmux_version": self.tmux_version,
+            "ffmpeg_available": self.ffmpeg_available,
             "macos_version": self.macos_version,
             "is_macos": self.is_macos,
             "platform": self.platform_name,
             "computer_use_ready": self.steer_available and self.drive_available,
             "missing": self.missing,
             "install_instructions": self.install_instructions,
+            # Permissions (macOS)
+            "accessibility_permission": self.accessibility_permission,
+            "screen_recording_permission": self.screen_recording_permission,
+            # Detected system commands
+            "detected_commands": self.detected_commands,
             # Linux
             "xdotool_available": self.xdotool_available,
             "tesseract_available": self.tesseract_available,
@@ -208,6 +221,46 @@ class CapabilityDetector:
             report.wsl_available = shutil.which("wsl") is not None
             report.drive_available = True  # PowerShell always available
             report.drive_version = "powershell" + (" + wsl-tmux" if report.wsl_available else "")
+
+        # --- macOS permissions ---
+        if report.is_macos:
+            report.detected_commands = {
+                "screencapture": shutil.which("screencapture") is not None,
+                "cliclick": shutil.which("cliclick") is not None,
+                "osascript": shutil.which("osascript") is not None,
+                "tmux": shutil.which("tmux") is not None,
+                "ffmpeg": shutil.which("ffmpeg") is not None,
+            }
+            report.ffmpeg_available = report.detected_commands.get("ffmpeg", False)
+
+            # Check screen recording by attempting a screenshot
+            try:
+                import tempfile
+                import os
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+                    tmp = f.name
+                result = subprocess.run(
+                    ["screencapture", "-x", tmp],
+                    capture_output=True, timeout=5,
+                )
+                if result.returncode == 0 and os.path.exists(tmp):
+                    size = os.path.getsize(tmp)
+                    report.screen_recording_permission = size > 1000
+                    os.unlink(tmp)
+                else:
+                    report.screen_recording_permission = False
+            except Exception:
+                report.screen_recording_permission = False
+
+            # Check accessibility (simplified — avoid hanging osascript)
+            try:
+                result = subprocess.run(
+                    ["osascript", "-e", 'tell application "System Events" to count of (every process)'],
+                    capture_output=True, text=True, timeout=3,
+                )
+                report.accessibility_permission = result.returncode == 0
+            except (subprocess.TimeoutExpired, Exception):
+                report.accessibility_permission = False
 
         # --- Common: Check tmux ---
         tmux_path = shutil.which("tmux")

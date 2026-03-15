@@ -26,9 +26,12 @@ def get_capabilities() -> dict[str, Any]:
 
     if p == "macos":
         caps["steer_available"] = shutil.which("steer") is not None
-        caps["drive_available"] = shutil.which("drive") is not None
-        caps["steer_method"] = "steer-cli"
-        caps["drive_method"] = "drive-cli"
+        caps["drive_available"] = shutil.which("drive") is not None or caps["tmux_available"]
+        caps["steer_method"] = "steer-native" if caps["steer_available"] else "unavailable"
+        caps["drive_method"] = "drive-native" if shutil.which("drive") else ("tmux" if caps["tmux_available"] else "unavailable")
+        caps["cliclick"] = shutil.which("cliclick") is not None
+        caps["ffmpeg"] = shutil.which("ffmpeg") is not None
+        caps["screencapture"] = shutil.which("screencapture") is not None
 
     elif p == "linux":
         caps["steer_available"] = shutil.which("xdotool") is not None

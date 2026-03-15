@@ -254,15 +254,20 @@ def cmd_fanout(args: list[str]) -> None:
         output_json({"success": False, "error": "fanout requires --session and commands"})
         sys.exit(1)
 
+    # Get the initial pane ID
     # Create split panes for each additional command
     for idx in range(1, len(commands)):
         run(["tmux", "split-window", "-t", session])
         run(["tmux", "select-layout", "-t", session, "tiled"])
 
+    # Get actual pane IDs
+    pane_list = run(["tmux", "list-panes", "-t", session, "-F", "#{pane_id}"])
+    pane_ids = [p.strip() for p in pane_list.split("\n") if p.strip()]
+
     # Send commands to each pane
     for idx, cmd in enumerate(commands):
-        pane = f"{session}:{0}.{idx}"
-        run(["tmux", "send-keys", "-t", pane, cmd, "Enter"])
+        target = pane_ids[idx] if idx < len(pane_ids) else session
+        run(["tmux", "send-keys", "-t", target, cmd, "Enter"])
 
     output_json({"success": True, "panes": len(commands)})
 

@@ -432,24 +432,39 @@ def cmd_clipboard(args: list[str]) -> None:
 # ─── steer apps ──────────────────────────────────────────────────────────────
 
 def cmd_apps(args: list[str]) -> None:
-    script = '''
-    tell application "System Events"
-        set appList to name of every application process whose background only is false
-        set output to ""
-        repeat with appName in appList
-            set output to output & appName & linefeed
-        end repeat
-        return output
-    end tell
-    '''
+    # Try osascript with a short timeout first, fall back to ps
     try:
-        output = run(["osascript", "-e", script])
-        apps = [{"name": line.strip()} for line in output.split("\n") if line.strip()]
-    except RuntimeError:
-        # Fallback to ps
-        output = run(["ps", "-eo", "comm"])
-        apps = [{"name": os.path.basename(line.strip())} for line in output.split("\n")
-                if line.strip() and "/" in line and "." not in os.path.basename(line.strip())]
+        script = (
+            'tell application "System Events" to get name of every application process '
+            'whose background only is false'
+        )
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True, timeout=5,
+        )
+        if result.returncode == 0:
+            output = result.stdout.decode().strip()
+            app_names = [a.strip() for a in output.split(",") if a.strip()]
+            apps = [{"name": n} for n in app_names]
+            output_json(apps)
+            return
+    except (subprocess.TimeoutExpired, Exception):
+        pass
+
+    # Fallback: use ps to list GUI apps (those in /Applications or with .app)
+    output = run(["ps", "-eo", "comm"])
+    seen = set()
+    apps = []
+    for line in output.split("\n"):
+        line = line.strip()
+        if ".app/" in line:
+            # Extract app name from path like /Applications/Foo.app/Contents/MacOS/Foo
+            parts = line.split(".app/")
+            app_path = parts[0] + ".app"
+            name = os.path.basename(app_path).replace(".app", "")
+            if name not in seen:
+                seen.add(name)
+                apps.append({"name": name})
     output_json(apps)
 
 
