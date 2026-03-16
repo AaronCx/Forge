@@ -27,6 +27,7 @@ export default function TracesPage() {
   const [traces, setTraces] = useState<Trace[]>([]);
   const [stats, setStats] = useState<TraceStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
   const [filterType, setFilterType] = useState<string>("");
 
@@ -55,7 +56,7 @@ export default function TracesPage() {
       setTraces(traceList);
       setStats(traceStats);
     } catch {
-      // ignore
+      setError("Failed to load traces. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -76,6 +77,11 @@ export default function TracesPage() {
 
   return (
     <div>
+      {error && (
+        <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Traces</h1>

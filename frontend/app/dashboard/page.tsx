@@ -20,6 +20,7 @@ export default function DashboardPage() {
   });
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -40,7 +41,7 @@ export default function DashboardPage() {
         setStats(s);
         setBlueprints(bps);
       } catch {
-        // Stats endpoint may not be available yet
+        setError("Failed to load dashboard data. Check your connection.");
       } finally {
         setLoading(false);
       }
@@ -50,6 +51,11 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {error && (
+        <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>

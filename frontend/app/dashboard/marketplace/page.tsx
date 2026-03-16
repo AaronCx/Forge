@@ -42,6 +42,7 @@ export default function MarketplacePage() {
   const [ratings, setRatings] = useState<{ rating: number; review: string; user_id: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [forking, setForking] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -53,6 +54,7 @@ export default function MarketplacePage() {
 
   async function loadListings() {
     setLoading(true);
+    setError("");
     try {
       const t = await getToken();
       const params: Record<string, string> = {};
@@ -63,6 +65,7 @@ export default function MarketplacePage() {
       setListings(data);
     } catch {
       setListings([]);
+      setError("Failed to load marketplace listings. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -100,6 +103,11 @@ export default function MarketplacePage() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Marketplace</h1>
       </div>

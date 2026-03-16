@@ -60,6 +60,7 @@ export default function BlueprintsPage() {
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [templates, setTemplates] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -80,7 +81,7 @@ export default function BlueprintsPage() {
         setBlueprints(userBps);
         setTemplates(templateBps);
       } catch {
-        // API may not be running
+        setError("Failed to load blueprints. Check your connection.");
       } finally {
         setLoading(false);
       }
@@ -113,6 +114,11 @@ export default function BlueprintsPage() {
 
   return (
     <div>
+      {error && (
+        <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Blueprints</h1>
