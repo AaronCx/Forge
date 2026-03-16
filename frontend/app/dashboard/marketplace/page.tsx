@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,12 +34,14 @@ async function getToken(): Promise<string> {
 }
 
 export default function MarketplacePage() {
+  const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [ratings, setRatings] = useState<{ rating: number; review: string; user_id: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [forking, setForking] = useState(false);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -212,8 +215,33 @@ export default function MarketplacePage() {
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm">Fork Workflow</Button>
-                <Button size="sm" variant="outline">
+                <Button
+                  size="sm"
+                  disabled={forking}
+                  onClick={async () => {
+                    if (!selectedListing) return;
+                    setForking(true);
+                    try {
+                      const t = await getToken();
+                      await api.marketplace.fork(selectedListing.id, { forked_blueprint_id: selectedListing.blueprint_id }, t);
+                      await loadListings();
+                    } catch {
+                      // fork failed
+                    } finally {
+                      setForking(false);
+                    }
+                  }}
+                >
+                  {forking ? "Forking..." : "Fork Workflow"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!selectedListing) return;
+                    router.push(`/dashboard/blueprints/${selectedListing.blueprint_id}/edit`);
+                  }}
+                >
                   View Blueprint
                 </Button>
               </div>
