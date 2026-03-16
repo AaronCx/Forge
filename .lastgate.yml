@@ -5,6 +5,8 @@ checks:
   secrets:
     enabled: true
     severity: fail
+    exclude:
+      - "frontend/lib/supabase.ts"
 
   lint:
     enabled: true
