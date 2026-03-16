@@ -21,11 +21,10 @@ export function ToolSelector({ selected, onChange }: ToolSelectorProps) {
   }, []);
 
   async function loadMcpTools() {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) return;
     try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
       const tools = await api.mcp.tools(data.session.access_token);
-      // Filter out built-in tools (already in AVAILABLE_TOOLS)
       setMcpTools(tools.filter((t) => t.source !== "built-in"));
     } catch {
       // API may not be running
