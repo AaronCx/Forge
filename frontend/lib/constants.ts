@@ -1,4 +1,9 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || (() => {
+  if (typeof window !== "undefined") {
+    console.warn("NEXT_PUBLIC_API_URL is not set — falling back to http://localhost:8000. Set this variable for production deployments.");
+  }
+  return "http://localhost:8000";
+})();
 
 export const AVAILABLE_TOOLS = [
   {
