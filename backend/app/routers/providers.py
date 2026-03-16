@@ -46,7 +46,7 @@ async def save_provider_config(config: ProviderConfigCreate, user=Depends(get_cu
     data = {
         "user_id": user.id,
         "provider": config.provider,
-        "api_key_encrypted": config.api_key or "",  # stored plaintext for now (app-layer encryption later)
+        "api_key_encrypted": config.api_key or "",  # WARNING: stored as plaintext. Access control relies on Supabase RLS policies.
         "base_url": config.base_url or "",
         "is_default": config.is_default,
         "is_enabled": True,
