@@ -249,6 +249,82 @@ export const DEMO_AGENT_ON_AGENT = {
   ],
 };
 
+export const DEMO_API_KEYS = [
+  { id: "demo-key-1", name: "production", created_at: "2026-03-10T10:00:00Z", last_used_at: "2026-03-12T08:00:00Z" },
+  { id: "demo-key-2", name: "development", created_at: "2026-03-11T14:00:00Z", last_used_at: null },
+];
+
+export const DEMO_PROVIDER_HEALTH = [
+  { provider: "openai", status: "healthy" as const, latency_ms: 120, error: null },
+];
+
+export const DEMO_PROVIDER_CONFIGS = [
+  { id: "demo-pc-1", provider: "openai", api_key_masked: "sk-proj...A4xB", base_url: "", is_default: true, is_enabled: true, created_at: "2026-03-10T10:00:00Z" },
+];
+
+export const DEMO_SETTINGS_CU_STATUS = {
+  steer_available: false, steer_version: "", drive_available: false, drive_version: "",
+  tmux_available: true, tmux_version: "3.4", macos_version: "15.3", is_macos: true,
+  platform: "macos", computer_use_ready: false, missing: ["steer", "drive"],
+  install_instructions: { steer: "brew install disler/tap/steer", drive: "brew install disler/tap/drive" },
+  agent_backends: [] as string[],
+};
+
+export const DEMO_TRIGGERS = [
+  {
+    id: "demo-trigger-1",
+    user_id: "demo",
+    type: "webhook" as const,
+    config: { webhook_secret: "abc123" },
+    target_type: "blueprint" as const,
+    target_id: "demo-bp-1",
+    enabled: true,
+    last_fired_at: "2026-03-12T10:00:00Z",
+    fire_count: 12,
+    created_at: "2026-03-10T10:00:00Z",
+  },
+  {
+    id: "demo-trigger-2",
+    user_id: "demo",
+    type: "cron" as const,
+    config: { cron_expression: "0 9 * * *" },
+    target_type: "agent" as const,
+    target_id: "demo-1",
+    enabled: true,
+    last_fired_at: "2026-03-12T09:00:00Z",
+    fire_count: 3,
+    created_at: "2026-03-11T09:00:00Z",
+  },
+];
+
+export const DEMO_COST_BY_AGENT = [
+  { name: "Research Agent", input_tokens: 8200, output_tokens: 3100, cost: 0.012, requests: 18 },
+  { name: "Data Extractor", input_tokens: 5400, output_tokens: 1800, cost: 0.008, requests: 14 },
+  { name: "Code Reviewer", input_tokens: 4600, output_tokens: 1400, cost: 0.007, requests: 15 },
+];
+
+export const DEMO_COST_BY_MODEL = [
+  { name: "gpt-4o-mini", input_tokens: 18200, output_tokens: 6300, cost: 0.031, requests: 47 },
+];
+
+export const DEMO_COST_WEEK = {
+  period: "week",
+  total_input_tokens: 18_200,
+  total_output_tokens: 6_300,
+  total_tokens: 156_000,
+  total_cost: 0.196,
+  request_count: 312,
+};
+
+export const DEMO_COST_MONTH = {
+  period: "month",
+  total_input_tokens: 18_200,
+  total_output_tokens: 6_300,
+  total_tokens: 482_350,
+  total_cost: 0.84,
+  request_count: 1247,
+};
+
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
   return (

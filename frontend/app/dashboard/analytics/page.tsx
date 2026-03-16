@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isDemoMode, DEMO_COST_SUMMARY, DEMO_COST_PROJECTION } from "@/lib/demo-data";
+import { isDemoMode, DEMO_COST_SUMMARY, DEMO_COST_PROJECTION, DEMO_COST_BY_AGENT, DEMO_COST_BY_MODEL, DEMO_COST_WEEK, DEMO_COST_MONTH } from "@/lib/demo-data";
 import { API_URL } from "@/lib/constants";
 
 interface CostSummary {
@@ -43,16 +43,10 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (isDemoMode()) {
       setToday(DEMO_COST_SUMMARY as CostSummary);
-      setWeek({ ...DEMO_COST_SUMMARY, period: "week", total_tokens: 156_000, total_cost: 0.196, request_count: 312 } as CostSummary);
-      setMonth({ ...DEMO_COST_SUMMARY, period: "month", total_tokens: 482_350, total_cost: 0.84, request_count: 1247 } as CostSummary);
-      setByAgent([
-        { name: "Research Agent", input_tokens: 8200, output_tokens: 3100, cost: 0.012, requests: 18 },
-        { name: "Data Extractor", input_tokens: 5400, output_tokens: 1800, cost: 0.008, requests: 14 },
-        { name: "Code Reviewer", input_tokens: 4600, output_tokens: 1400, cost: 0.007, requests: 15 },
-      ]);
-      setByModel([
-        { name: "gpt-4o-mini", input_tokens: 18200, output_tokens: 6300, cost: 0.031, requests: 47 },
-      ]);
+      setWeek(DEMO_COST_WEEK as CostSummary);
+      setMonth(DEMO_COST_MONTH as CostSummary);
+      setByAgent(DEMO_COST_BY_AGENT);
+      setByModel(DEMO_COST_BY_MODEL);
       setProjection(DEMO_COST_PROJECTION as Projection);
       setLoading(false);
       return;

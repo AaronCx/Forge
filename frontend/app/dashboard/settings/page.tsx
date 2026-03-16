@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UsageChart } from "@/components/dashboard/UsageChart";
 import { MCPManager } from "@/components/MCPManager";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_API_KEYS, DEMO_PROVIDER_HEALTH, DEMO_PROVIDER_CONFIGS, DEMO_SETTINGS_CU_STATUS } from "@/lib/demo-data";
 
 interface ApiKey {
   id: string;
@@ -85,26 +85,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (isDemoMode()) {
-      setKeys([
-        { id: "demo-key-1", name: "production", created_at: "2026-03-10T10:00:00Z", last_used_at: "2026-03-12T08:00:00Z" },
-        { id: "demo-key-2", name: "development", created_at: "2026-03-11T14:00:00Z", last_used_at: null },
-      ]);
+      setKeys(DEMO_API_KEYS);
       setTotalTokens(482_350);
-      setProviderHealth([
-        { provider: "openai", status: "healthy", latency_ms: 120, error: null },
-      ]);
+      setProviderHealth(DEMO_PROVIDER_HEALTH);
       setDefaultModel("gpt-4o-mini");
       setProviders(["openai"]);
-      setProviderConfigs([
-        { id: "demo-pc-1", provider: "openai", api_key_masked: "sk-proj...A4xB", base_url: "", is_default: true, is_enabled: true, created_at: "2026-03-10T10:00:00Z" },
-      ]);
-      setCuStatus({
-        steer_available: false, steer_version: "", drive_available: false, drive_version: "",
-        tmux_available: true, tmux_version: "3.4", macos_version: "15.3", is_macos: true,
-        platform: "macos", computer_use_ready: false, missing: ["steer", "drive"],
-        install_instructions: { steer: "brew install disler/tap/steer", drive: "brew install disler/tap/drive" },
-        agent_backends: [],
-      });
+      setProviderConfigs(DEMO_PROVIDER_CONFIGS);
+      setCuStatus(DEMO_SETTINGS_CU_STATUS);
       return;
     }
     loadData();

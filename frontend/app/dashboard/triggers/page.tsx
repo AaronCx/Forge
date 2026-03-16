@@ -7,35 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_TRIGGERS } from "@/lib/demo-data";
 import { API_URL } from "@/lib/constants";
-
-const DEMO_TRIGGERS: Trigger[] = [
-  {
-    id: "demo-trigger-1",
-    user_id: "demo",
-    type: "webhook",
-    config: { webhook_secret: "abc123" },
-    target_type: "blueprint",
-    target_id: "demo-bp-1",
-    enabled: true,
-    last_fired_at: "2026-03-12T10:00:00Z",
-    fire_count: 12,
-    created_at: "2026-03-10T10:00:00Z",
-  },
-  {
-    id: "demo-trigger-2",
-    user_id: "demo",
-    type: "cron",
-    config: { cron_expression: "0 9 * * *" },
-    target_type: "agent",
-    target_id: "demo-1",
-    enabled: true,
-    last_fired_at: "2026-03-12T09:00:00Z",
-    fire_count: 3,
-    created_at: "2026-03-11T09:00:00Z",
-  },
-];
 
 export default function TriggersPage() {
   const [triggers, setTriggers] = useState<Trigger[]>([]);
