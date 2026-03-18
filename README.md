@@ -191,7 +191,7 @@ That's the entire quick start. Four visible steps.
 - Python 3.11+ (backend + CLI)
 - [Bun](https://bun.sh) or Node.js (frontend)
 - [Supabase](https://supabase.com) project (database + auth)
-- OpenAI API key (optionally Anthropic / Google)
+- At least one LLM provider: OpenAI, Anthropic, Google, or a local model via [Ollama](https://ollama.com)
 
 ### Database Migrations
 
@@ -246,14 +246,17 @@ agentforge dashboard   # Live TUI monitor
 
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
-| `GOOGLE_API_KEY` | Google AI API key (optional) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key |
-| `SERPAPI_KEY` | SerpAPI key for web search (optional) |
+| `OPENAI_API_KEY` | OpenAI API key (optional — use any provider) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
+| `GOOGLE_API_KEY` | Google AI API key (optional) |
+| `OLLAMA_BASE_URL` | Ollama endpoint for local models (optional, default `http://localhost:11434`) |
+| `SERPAPI_KEY` | SerpAPI key for web search tool (optional) |
 | `FRONTEND_URL` | Frontend URL for CORS |
 | `CU_DRY_RUN` | `true` for computer use dry-run mode |
+
+Configure at least one provider. For local-only usage with Ollama, no API keys are needed.
 
 ### Frontend (`frontend/.env.local`)
 
