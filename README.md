@@ -2,9 +2,9 @@
 
 **Agentic AI orchestration platform — design workflows visually, automate GUIs and terminals, and coordinate agents across machines.**
 
-Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 44 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming.
+Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 44 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming. Runs fully local with SQLite (zero external accounts) or scales to cloud with Supabase.
 
-![Version](https://img.shields.io/badge/version-1.9.2-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Tests](https://img.shields.io/badge/tests-641_passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal)
