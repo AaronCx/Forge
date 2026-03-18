@@ -25,3 +25,6 @@ package-lock.json
 *.swo
 *~
 *.pdf
+supabase/migrations/combined_all.sql
+backend/server.log
+frontend/server.log
