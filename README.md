@@ -156,8 +156,8 @@ graph TB
 | Backend | Python 3.12, FastAPI, LangChain, OpenAI/Anthropic/Google APIs |
 | Computer Use | CoreGraphics, cliclick, Vision OCR, ffmpeg, tmux, xdotool, pyautogui |
 | CLI | Typer, Rich, httpx |
-| Database | PostgreSQL via Supabase (17 migrations with RLS) |
-| Auth | Supabase Auth (email + GitHub OAuth) |
+| Database | SQLite (default, zero config) or PostgreSQL via Supabase |
+| Auth | Local JWT (default) or Supabase Auth (email + GitHub OAuth) |
 | Testing | pytest (620 tests), vitest + testing-library (21 tests) |
 | Deployment | Vercel (frontend), Render (backend) |
 | CI/CD | GitHub Actions (Ruff, mypy, pytest, ESLint, tsc, vitest) |
@@ -240,31 +240,56 @@ agentforge dashboard   # Live TUI monitor
 
 ---
 
+## Deployment Options
+
+### Local (recommended for personal use)
+- **Database:** SQLite (zero config, auto-created)
+- **Auth:** Local JWT (auto-configured)
+- **Setup:** `./setup.sh && agentforge up`
+- **External accounts:** None required
+
+### Docker (self-hosted)
+- **Database:** SQLite in mounted volume
+- **Auth:** Local JWT
+- **Setup:** `docker-compose up`
+
+### Cloud (team deployment)
+- **Database:** Supabase PostgreSQL
+- **Auth:** Supabase Auth (email + GitHub OAuth)
+- **Setup:** Create Supabase project, configure keys, deploy to Vercel + Render
+
+### Showcase (agentforge.vercel.app)
+- Demo mode with simulated data
+- Optional BYOK for live LLM calls
+- No account required
+
+---
+
 ## Environment Variables
 
 ### Backend (`backend/.env`)
 
 | Variable | Description |
 |----------|-------------|
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key |
 | `OPENAI_API_KEY` | OpenAI API key (optional — use any provider) |
 | `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
 | `GOOGLE_API_KEY` | Google AI API key (optional) |
-| `OLLAMA_BASE_URL` | Ollama endpoint for local models (optional, default `http://localhost:11434`) |
+| `OLLAMA_BASE_URL` | Ollama endpoint for local models (optional) |
 | `SERPAPI_KEY` | SerpAPI key for web search tool (optional) |
 | `FRONTEND_URL` | Frontend URL for CORS |
 | `CU_DRY_RUN` | `true` for computer use dry-run mode |
+| `SUPABASE_URL` | Supabase project URL (only for cloud mode) |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key (only for cloud mode) |
 
-Configure at least one provider. For local-only usage with Ollama, no API keys are needed.
+For local mode: only LLM provider keys needed. Database and auth are automatic.
 
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `NEXT_PUBLIC_API_URL` | Backend API URL |
+| `NEXT_PUBLIC_API_URL` | Backend API URL (required) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (cloud mode only) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (cloud mode only) |
 
 ---
 
