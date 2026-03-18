@@ -172,9 +172,8 @@ git clone https://github.com/AaronCx/AgentForge.git
 cd AgentForge
 ./setup.sh
 
-# Add your API keys
-edit backend/.env              # Add OpenAI/Anthropic/Supabase keys
-edit frontend/.env.local       # Add Supabase keys
+# Add an LLM provider key
+edit backend/.env              # Add OpenAI, Anthropic, or use Ollama for local models
 
 # Start everything
 agentforge up
@@ -184,22 +183,15 @@ agentforge dashboard           # Terminal TUI
 # or visit http://localhost:3000  # Web GUI
 ```
 
-That's the entire quick start. Four visible steps.
+Three steps. No database accounts. No migration steps. SQLite is created automatically.
 
 ### Prerequisites
 
 - Python 3.11+ (backend + CLI)
 - [Bun](https://bun.sh) or Node.js (frontend)
-- [Supabase](https://supabase.com) project (database + auth)
 - At least one LLM provider: OpenAI, Anthropic, Google, or a local model via [Ollama](https://ollama.com)
 
-### Database Migrations
-
-`setup.sh` generates a combined migration file at `supabase/migrations/combined_all.sql`. Paste it into your Supabase SQL Editor, or use the Supabase CLI:
-
-```bash
-npx supabase db push
-```
+No Supabase account needed for local use — the database (SQLite) and auth (local JWT) are built-in.
 
 ### Computer Use (macOS)
 
@@ -440,10 +432,11 @@ AgentForge/
 ├── frontend/                    # Next.js 14 + TypeScript + Tailwind + shadcn/ui
 │   ├── app/dashboard/           # 15+ dashboard routes
 │   ├── components/              # Blueprint editor, dashboard, UI primitives
-│   └── lib/                     # API client, Supabase, demo data
+│   └── lib/                     # API client, auth client, demo data
 ├── backend/                     # FastAPI + LangChain
 │   ├── app/
-│   │   ├── routers/             # 20+ API route modules
+│   │   ├── db/                  # Pluggable database layer (SQLite + Supabase)
+│   │   ├── routers/             # 22 API route modules (incl. auth API)
 │   │   ├── providers/           # Multi-model provider registry
 │   │   └── services/
 │   │       ├── blueprint_nodes/ # 44 node type executors
@@ -455,7 +448,7 @@ AgentForge/
 │   └── tests/                   # 620 tests
 ├── cli/                         # Typer + Rich CLI (35+ command groups)
 ├── scripts/                     # Bootstrap, Steer/Drive CLIs, OCR helper
-├── supabase/migrations/         # 17 SQL migrations with RLS
+├── supabase/migrations/         # 17 SQL migrations (cloud mode only)
 ├── setup.sh                     # One-command project setup
 ├── Makefile                     # setup, up, down, test, lint targets
 ├── docs/                        # Test & security reports
