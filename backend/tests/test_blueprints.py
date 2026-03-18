@@ -235,7 +235,7 @@ def test_context_assembly_relevance_scoring():
 
 
 def test_list_blueprints(auth_client):
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -248,7 +248,7 @@ def test_list_blueprints(auth_client):
 
 
 def test_list_blueprint_templates(client):
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -273,7 +273,7 @@ def test_get_node_types_filtered(client):
 
 
 def test_create_blueprint(auth_client, mock_user):
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         bp_data = {
             "id": "bp-1",
             "user_id": "test-user-id-123",
@@ -307,7 +307,7 @@ def test_create_blueprint(auth_client, mock_user):
 
 
 def test_delete_blueprint(auth_client, mock_user):
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "test-user-id-123"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing
@@ -321,7 +321,7 @@ def test_delete_blueprint(auth_client, mock_user):
 
 
 def test_delete_blueprint_not_owner(auth_client):
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "other-user"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing

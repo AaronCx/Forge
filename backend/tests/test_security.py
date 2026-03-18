@@ -284,7 +284,7 @@ class TestComputerUseInjection:
         from app.services.computer_use.safety import log_action
 
         # This should not raise — just truncate
-        with patch("app.services.computer_use.safety.supabase") as mock_sb:
+        with patch("app.db._db") as mock_sb:
             mock_sb.table.return_value.insert.return_value.execute.return_value = None
             log_action(
                 node_type="test",
@@ -360,7 +360,7 @@ class TestAuthSecurity:
         from app.routers.auth import get_current_user
 
         # Mock supabase.auth.get_user to simulate invalid token
-        with patch("app.routers.auth.supabase") as mock_sb:
+        with patch("app.db._db") as mock_sb:
             mock_sb.auth.get_user.side_effect = Exception("Invalid token")
             with pytest.raises(HTTPException) as exc_info:
                 asyncio.get_event_loop().run_until_complete(

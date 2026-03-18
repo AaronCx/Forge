@@ -47,7 +47,7 @@ def test_stats_requires_auth(client):
 
 
 def test_invalid_bearer_token(client):
-    with patch("app.routers.auth.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.auth.get_user.side_effect = Exception("Invalid token")
         response = client.get(
             "/api/agents", headers={"Authorization": "Bearer invalid-token"}
@@ -66,7 +66,7 @@ def test_missing_bearer_prefix(client):
 
 
 def test_list_agents(auth_client):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -79,7 +79,7 @@ def test_list_agents(auth_client):
 
 
 def test_list_templates(client):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
@@ -89,7 +89,7 @@ def test_list_templates(client):
 
 
 def test_create_agent(auth_client, mock_user):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         agent_data = {
             "id": "agent-1",
             "user_id": "test-user-id-123",
@@ -122,7 +122,7 @@ def test_create_agent(auth_client, mock_user):
 
 
 def test_get_agent(auth_client, mock_user):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         agent_data = {
             "id": "agent-1",
             "user_id": "test-user-id-123",
@@ -148,7 +148,7 @@ def test_get_agent(auth_client, mock_user):
 
 
 def test_get_agent_not_found(auth_client):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = None
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -161,7 +161,7 @@ def test_get_agent_not_found(auth_client):
 
 
 def test_delete_agent(auth_client, mock_user):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "test-user-id-123"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing
@@ -175,7 +175,7 @@ def test_delete_agent(auth_client, mock_user):
 
 
 def test_delete_agent_not_owner(auth_client):
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "other-user-id"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing
@@ -191,7 +191,7 @@ def test_delete_agent_not_owner(auth_client):
 
 
 def test_list_runs(auth_client):
-    with patch("app.routers.runs.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
@@ -204,7 +204,7 @@ def test_list_runs(auth_client):
 
 
 def test_get_run_not_found(auth_client):
-    with patch("app.routers.runs.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = None
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -220,7 +220,7 @@ def test_get_run_not_found(auth_client):
 
 
 def test_list_keys(auth_client):
-    with patch("app.routers.api_keys.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
@@ -232,7 +232,7 @@ def test_list_keys(auth_client):
 
 
 def test_create_key(auth_client):
-    with patch("app.routers.api_keys.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock()
 
         response = auth_client.post(
@@ -246,7 +246,7 @@ def test_create_key(auth_client):
 
 
 def test_delete_key(auth_client, mock_user):
-    with patch("app.routers.api_keys.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "test-user-id-123"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing
@@ -260,7 +260,7 @@ def test_delete_key(auth_client, mock_user):
 
 
 def test_delete_key_not_owner(auth_client):
-    with patch("app.routers.api_keys.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "other-user-id"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing
@@ -276,7 +276,7 @@ def test_delete_key_not_owner(auth_client):
 
 
 def test_stats(auth_client):
-    with patch("app.routers.runs.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_agents = MagicMock()
         mock_agents.count = 5
         mock_agents.data = []

@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.database import supabase
+from app.db import get_db
 from app.models.blueprint import (
     BlueprintCreate,
     BlueprintResponse,
@@ -32,7 +32,7 @@ async def list_blueprints(
 ):
     """List user's blueprints."""
     result = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", desc=True)
@@ -45,7 +45,7 @@ async def list_blueprints(
 async def list_blueprint_templates():
     """List pre-built blueprint templates."""
     result = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .select("*")
         .eq("is_template", True)
         .order("name")
@@ -66,7 +66,7 @@ async def get_blueprint(
 ):
     """Get a blueprint by ID."""
     result = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .select("*")
         .eq("id", blueprint_id)
         .single()
@@ -98,7 +98,7 @@ async def create_blueprint(
         "retry_policy": bp.retry_policy,
         "output_schema": bp.output_schema,
     }
-    result = supabase.table("blueprints").insert(data).execute()
+    result = get_db().table("blueprints").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create blueprint")
     return result.data[0]
@@ -111,7 +111,7 @@ async def update_blueprint(
     """Update a blueprint."""
     # Verify ownership
     existing = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .select("user_id")
         .eq("id", blueprint_id)
         .single()
@@ -129,7 +129,7 @@ async def update_blueprint(
     update_data["version"] = existing.data.get("version", 1) + 1 if existing.data else 1
 
     result = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .update(update_data)
         .eq("id", blueprint_id)
         .execute()
@@ -145,7 +145,7 @@ async def delete_blueprint(
 ):
     """Delete a blueprint."""
     existing = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .select("user_id")
         .eq("id", blueprint_id)
         .single()
@@ -154,7 +154,7 @@ async def delete_blueprint(
     if not existing.data or existing.data["user_id"] != user.id:
         raise HTTPException(status_code=404, detail="Blueprint not found")
 
-    supabase.table("blueprints").delete().eq("id", blueprint_id).execute()
+    get_db().table("blueprints").delete().eq("id", blueprint_id).execute()
 
 
 # --- Execution ---
@@ -171,7 +171,7 @@ async def run_blueprint(
     """Execute a blueprint with input payload. Streams progress via SSE."""
     # Load blueprint
     bp_result = (
-        supabase.table("blueprints")
+        get_db().table("blueprints")
         .select("*")
         .eq("id", blueprint_id)
         .single()
@@ -189,7 +189,7 @@ async def run_blueprint(
         "text": run_req.input_text,
         **run_req.input_data,
     }
-    run_result = supabase.table("blueprint_runs").insert({
+    run_result = get_db().table("blueprint_runs").insert({
         "blueprint_id": blueprint_id,
         "user_id": user.id,
         "status": "running",
@@ -214,7 +214,7 @@ async def run_blueprint(
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.exception("Blueprint execution failed: %s", e)
-            supabase.table("blueprint_runs").update({
+            get_db().table("blueprint_runs").update({
                 "status": "failed",
             }).eq("id", run_id).execute()
             yield f"data: {json.dumps({'type': 'error', 'data': 'Blueprint execution failed'})}\n\n"
@@ -239,7 +239,7 @@ async def get_blueprint_run(
 ):
     """Get execution trace for a blueprint run."""
     result = (
-        supabase.table("blueprint_runs")
+        get_db().table("blueprint_runs")
         .select("*")
         .eq("id", run_id)
         .single()
@@ -260,7 +260,7 @@ async def list_blueprint_runs(
 ):
     """List runs for a specific blueprint."""
     result = (
-        supabase.table("blueprint_runs")
+        get_db().table("blueprint_runs")
         .select("*")
         .eq("blueprint_id", blueprint_id)
         .eq("user_id", user.id)

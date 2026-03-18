@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +33,13 @@ class ApprovalService:
             "status": "pending",
             "context": context,
         }
-        result = supabase.table("approvals").insert(row).execute()
+        result = get_db().table("approvals").insert(row).execute()
         return result.data[0] if result.data else row
 
     async def list_pending(self, user_id: str) -> list[dict[str, Any]]:
         """List all pending approvals for a user."""
         result = (
-            supabase.table("approvals")
+            get_db().table("approvals")
             .select("*")
             .eq("user_id", user_id)
             .eq("status", "pending")
@@ -51,7 +51,7 @@ class ApprovalService:
     async def list_all(self, user_id: str) -> list[dict[str, Any]]:
         """List all approvals for a user (any status)."""
         result = (
-            supabase.table("approvals")
+            get_db().table("approvals")
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -62,7 +62,7 @@ class ApprovalService:
     async def get_approval(self, approval_id: str) -> dict[str, Any] | None:
         """Get a single approval by ID."""
         result = (
-            supabase.table("approvals")
+            get_db().table("approvals")
             .select("*")
             .eq("id", approval_id)
             .single()
@@ -82,7 +82,7 @@ class ApprovalService:
             return None
 
         result = (
-            supabase.table("approvals")
+            get_db().table("approvals")
             .update({
                 "status": "approved",
                 "feedback": feedback,
@@ -104,7 +104,7 @@ class ApprovalService:
             return None
 
         result = (
-            supabase.table("approvals")
+            get_db().table("approvals")
             .update({
                 "status": "rejected",
                 "feedback": feedback,
@@ -120,7 +120,7 @@ class ApprovalService:
     ) -> dict[str, Any] | None:
         """Get the approval status for a specific node in a run."""
         result = (
-            supabase.table("approvals")
+            get_db().table("approvals")
             .select("*")
             .eq("blueprint_run_id", blueprint_run_id)
             .eq("node_id", node_id)

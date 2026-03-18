@@ -54,11 +54,11 @@ async def test_remote(_user=Depends(get_current_user)):  # noqa: B008
 @router.get("/computer-use/audit-log")
 async def audit_log(limit: int = 50, _user=Depends(get_current_user)):  # noqa: B008
     """Return recent computer use audit log entries."""
-    from app.database import supabase
+    from app.db import get_db
 
     try:
         result = (
-            supabase.table("computer_use_audit_log")
+            get_db().table("computer_use_audit_log")
             .select("*")
             .order("created_at", desc=True)
             .limit(limit)

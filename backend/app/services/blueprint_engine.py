@@ -9,7 +9,7 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 from app.services.blueprint_nodes.agent_nodes import AGENT_EXECUTORS
 from app.services.blueprint_nodes.context_assembly import assemble_context
 from app.services.blueprint_nodes.deterministic import DETERMINISTIC_EXECUTORS
@@ -226,7 +226,7 @@ class BlueprintEngine:
                         "data": {"node_id": node_id, "error": str(result)},
                     }
                     # Update run as failed
-                    supabase.table("blueprint_runs").update({
+                    get_db().table("blueprint_runs").update({
                         "status": "failed",
                         "execution_trace": execution_trace,
                     }).eq("id", run_id).execute()
@@ -283,7 +283,7 @@ class BlueprintEngine:
                 logger.warning("Failed to record token usage for blueprint run %s", run_id)
 
         # Update run
-        supabase.table("blueprint_runs").update({
+        get_db().table("blueprint_runs").update({
             "status": "completed",
             "output": {"result": result_text, "total_tokens": total_input_tokens + total_output_tokens},
             "execution_trace": execution_trace,

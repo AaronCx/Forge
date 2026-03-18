@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.database import supabase
+from app.db import get_db
 from app.routers.auth import get_current_user
 from app.services.heartbeat import heartbeat_service
 
@@ -40,7 +40,7 @@ async def get_event_timeline(
 ):
     """Get recent agent events for the timeline."""
     query = (
-        supabase.table("agent_heartbeats")
+        get_db().table("agent_heartbeats")
         .select("*, agents!inner(name, user_id)")
         .eq("agents.user_id", user.id)
         .order("updated_at", desc=True)
@@ -90,7 +90,7 @@ async def stream_dashboard_updates(
     if not token:
         raise HTTPException(status_code=401, detail="Token required")
     try:
-        user_response = supabase.auth.get_user(token)
+        user_response = get_db().auth.get_user(token)
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid token")
     except HTTPException:

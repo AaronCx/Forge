@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.database import supabase
+from app.db import get_db
 from app.mcp.client import mcp_client
 from app.mcp.tool_registry import tool_registry
 from app.routers.auth import get_current_user
@@ -67,7 +67,7 @@ async def connect_mcp_server(
         "last_connected_at": datetime.now(UTC).isoformat(),
     }
 
-    result = supabase.table("mcp_connections").insert(row).execute()
+    result = get_db().table("mcp_connections").insert(row).execute()
     return result.data[0] if result.data else row
 
 
@@ -77,7 +77,7 @@ async def list_mcp_connections(
 ) -> list[dict[str, Any]]:
     """List user's MCP connections with status."""
     result = (
-        supabase.table("mcp_connections")
+        get_db().table("mcp_connections")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", desc=True)
@@ -91,7 +91,7 @@ async def delete_mcp_connection(
     connection_id: str, user: Any = Depends(get_current_user)  # noqa: B008
 ) -> dict[str, str]:
     """Remove an MCP connection."""
-    supabase.table("mcp_connections").delete().eq("id", connection_id).eq(
+    get_db().table("mcp_connections").delete().eq("id", connection_id).eq(
         "user_id", user.id
     ).execute()
     return {"status": "deleted"}
@@ -103,7 +103,7 @@ async def list_connection_tools(
 ) -> list[dict[str, Any]]:
     """List tools from a specific MCP server."""
     result = (
-        supabase.table("mcp_connections")
+        get_db().table("mcp_connections")
         .select("*")
         .eq("id", connection_id)
         .eq("user_id", user.id)
@@ -125,7 +125,7 @@ async def list_connection_tools(
     ]
 
     # Update stored tools
-    supabase.table("mcp_connections").update(
+    get_db().table("mcp_connections").update(
         {"tools_discovered": tools_json, "last_connected_at": datetime.now(UTC).isoformat()}
     ).eq("id", connection_id).execute()
 
@@ -138,7 +138,7 @@ async def test_mcp_connection(
 ) -> dict[str, Any]:
     """Test an MCP connection."""
     result = (
-        supabase.table("mcp_connections")
+        get_db().table("mcp_connections")
         .select("*")
         .eq("id", connection_id)
         .eq("user_id", user.id)
@@ -153,7 +153,7 @@ async def test_mcp_connection(
 
     # Update status in DB
     new_status = status.status
-    supabase.table("mcp_connections").update(
+    get_db().table("mcp_connections").update(
         {"status": new_status, "last_connected_at": datetime.now(UTC).isoformat()}
     ).eq("id", connection_id).execute()
 
@@ -174,7 +174,7 @@ async def list_all_tools(
     """Unified tool listing — built-in tools + all MCP tools for this user."""
     # Get user's MCP connections
     result = (
-        supabase.table("mcp_connections")
+        get_db().table("mcp_connections")
         .select("*")
         .eq("user_id", user.id)
         .eq("status", "connected")

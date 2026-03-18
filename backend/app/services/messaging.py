@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from app.database import supabase
+from app.db import get_db
 
 MessageType = Literal["info", "request", "response", "error", "handoff"]
 
@@ -38,7 +38,7 @@ class MessagingService:
         if receiver_index is not None:
             row["receiver_index"] = receiver_index
 
-        result = supabase.table("agent_messages").insert(row).execute()
+        result = get_db().table("agent_messages").insert(row).execute()
         return result.data[0] if result.data else row
 
     def get_messages(
@@ -51,7 +51,7 @@ class MessagingService:
     ) -> list[dict]:
         """Get messages for a group, optionally filtered by receiver or type."""
         query = (
-            supabase.table("agent_messages")
+            get_db().table("agent_messages")
             .select("*")
             .eq("group_id", group_id)
             .order("created_at")
@@ -76,7 +76,7 @@ class MessagingService:
         """Get messages exchanged between two specific agents."""
         a, b = _validate_index(agent_a), _validate_index(agent_b)
         result = (
-            supabase.table("agent_messages")
+            get_db().table("agent_messages")
             .select("*")
             .eq("group_id", group_id)
             .or_(

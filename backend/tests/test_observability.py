@@ -22,7 +22,7 @@ async def test_record_span():
         "output_tokens": 50, "latency_ms": 500.0,
     }]
 
-    with patch("app.services.observability.trace_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_result
         result = await service.record_span(
             user_id="u1",
@@ -56,7 +56,7 @@ async def test_start_and_end_span():
         "output_tokens": 100, "latency_ms": 300.0,
     }]
 
-    with patch("app.services.observability.trace_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_start
         span = await service.start_span(
             user_id="u1", span_type="llm_call", span_name="Test",
@@ -80,7 +80,7 @@ async def test_list_traces():
         {"id": "t2", "span_type": "llm_call"},
     ]
 
-    with patch("app.services.observability.trace_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         query = MagicMock()
         mock_sb.table.return_value.select.return_value.eq.return_value = query
         query.order.return_value.range.return_value.execute.return_value = mock_result
@@ -95,7 +95,7 @@ async def test_get_trace():
     mock_result = MagicMock()
     mock_result.data = {"id": "t1", "span_type": "agent_step", "user_id": "u1"}
 
-    with patch("app.services.observability.trace_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
         result = await service.get_trace("t1", "u1")
 
@@ -115,7 +115,7 @@ async def test_get_trace_tree():
         {"id": "t2", "span_type": "llm_call", "parent_span_id": "t1"},
     ]
 
-    with patch("app.services.observability.trace_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         # get_trace call
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_parent
         # children call
@@ -137,7 +137,7 @@ async def test_trace_stats():
         {"span_type": "agent_step", "status": "ok", "input_tokens": 150, "output_tokens": 75, "latency_ms": 300},
     ]
 
-    with patch("app.services.observability.trace_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.gte.return_value.execute.return_value = mock_result
         stats = await service.get_trace_stats("u1")
 
@@ -165,7 +165,7 @@ async def test_create_first_version():
         "change_summary": "Initial version",
     }]
 
-    with patch("app.services.observability.prompt_versions.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_insert
 
@@ -199,7 +199,7 @@ async def test_create_subsequent_version():
         "diff_from_previous": "--- previous\n+++ current\n-Old prompt\n+New prompt\n",
     }]
 
-    with patch("app.services.observability.prompt_versions.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_deactivate
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_insert
@@ -221,7 +221,7 @@ async def test_list_versions():
         {"id": "v1", "version_number": 1, "is_active": False},
     ]
 
-    with patch("app.services.observability.prompt_versions.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
         result = await service.list_versions("a1", "u1")
 
@@ -257,7 +257,7 @@ async def test_rollback():
     mock_agent_update = MagicMock()
     mock_agent_update.data = [{"id": "a1"}]
 
-    with patch("app.services.observability.prompt_versions.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         # get_version
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_target
         # create_version -> get prev

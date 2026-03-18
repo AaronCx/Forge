@@ -9,7 +9,7 @@ from collections import deque
 from typing import Any
 
 from app.config.computer_use import cu_config
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def log_action(
 ) -> None:
     """Log a computer use action to the audit log."""
     try:
-        supabase.table("computer_use_audit_log").insert({
+        get_db().table("computer_use_audit_log").insert({
             "node_type": node_type,
             "command": command,
             "arguments": arguments,

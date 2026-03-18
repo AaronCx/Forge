@@ -237,7 +237,7 @@ async def test_trigger_create():
         "fire_count": 0,
     }]
 
-    with patch("app.mcp.triggers.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_result
         result = await service.create_trigger(
             user_id="u1",
@@ -261,7 +261,7 @@ async def test_trigger_list():
         {"id": "t2", "type": "cron", "enabled": False},
     ]
 
-    with patch("app.mcp.triggers.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
         triggers = await service.list_triggers("u1")
 
@@ -278,7 +278,7 @@ async def test_trigger_toggle():
     mock_update_result = MagicMock()
     mock_update_result.data = [{"id": "t1", "enabled": False}]
 
-    with patch("app.mcp.triggers.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_get_result
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_update_result
 
@@ -307,7 +307,7 @@ async def test_mcp_connect_endpoint():
                 MCPTool(name="t1", description="Tool 1"),
                 MCPTool(name="t2", description="Tool 2"),
             ])
-            with patch("app.routers.mcp.supabase") as mock_sb:
+            with patch("app.db._db") as mock_sb:
                 mock_sb.table.return_value.insert.return_value.execute.return_value = MagicMock(
                     data=[{"id": "c1", "name": "Test", "server_url": "http://test:3100",
                            "status": "connected", "tools_discovered": []}]
@@ -411,7 +411,7 @@ def test_tools_endpoint():
     app.dependency_overrides[get_current_user] = lambda: mock_user
 
     try:
-        with patch("app.routers.mcp.supabase") as mock_sb:
+        with patch("app.db._db") as mock_sb:
             mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
                 data=[]
             )

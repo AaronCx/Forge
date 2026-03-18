@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.database import supabase
+from app.db import get_db
 from app.routers.auth import get_current_user
 from app.services.evals.executor import eval_executor
 
@@ -51,7 +51,7 @@ async def create_suite(
         "target_type": req.target_type,
         "target_id": req.target_id,
     }
-    result = supabase.table("eval_suites").insert(row).execute()
+    result = get_db().table("eval_suites").insert(row).execute()
     return result.data[0] if result.data else row
 
 
@@ -61,7 +61,7 @@ async def list_suites(
 ) -> list[dict[str, Any]]:
     """List user's eval suites."""
     result = (
-        supabase.table("eval_suites")
+        get_db().table("eval_suites")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", desc=True)
@@ -77,7 +77,7 @@ async def get_suite(
 ) -> dict[str, Any]:
     """Get an eval suite with its cases."""
     suite = (
-        supabase.table("eval_suites")
+        get_db().table("eval_suites")
         .select("*")
         .eq("id", suite_id)
         .eq("user_id", user.id)
@@ -88,7 +88,7 @@ async def get_suite(
         raise HTTPException(status_code=404, detail="Suite not found")
 
     cases = (
-        supabase.table("eval_cases")
+        get_db().table("eval_cases")
         .select("*")
         .eq("suite_id", suite_id)
         .order("created_at")
@@ -105,7 +105,7 @@ async def delete_suite(
     user: Any = Depends(get_current_user),  # noqa: B008
 ) -> dict[str, str]:
     """Delete an eval suite."""
-    supabase.table("eval_suites").delete().eq("id", suite_id).eq("user_id", user.id).execute()
+    get_db().table("eval_suites").delete().eq("id", suite_id).eq("user_id", user.id).execute()
     return {"status": "deleted"}
 
 
@@ -121,7 +121,7 @@ async def create_case(
     """Add a test case to a suite."""
     # Verify suite ownership
     suite = (
-        supabase.table("eval_suites")
+        get_db().table("eval_suites")
         .select("id")
         .eq("id", suite_id)
         .eq("user_id", user.id)
@@ -140,7 +140,7 @@ async def create_case(
         "grading_method": req.grading_method,
         "grading_config": req.grading_config,
     }
-    result = supabase.table("eval_cases").insert(row).execute()
+    result = get_db().table("eval_cases").insert(row).execute()
     return result.data[0] if result.data else row
 
 
@@ -152,11 +152,11 @@ async def delete_case(
     """Delete a test case."""
     # Ownership check via suite
     case = (
-        supabase.table("eval_cases").select("*, eval_suites!inner(user_id)").eq("id", case_id).single().execute()
+        get_db().table("eval_cases").select("*, eval_suites!inner(user_id)").eq("id", case_id).single().execute()
     ).data
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    supabase.table("eval_cases").delete().eq("id", case_id).execute()
+    get_db().table("eval_cases").delete().eq("id", case_id).execute()
     return {"status": "deleted"}
 
 
@@ -186,7 +186,7 @@ async def list_runs(
 ) -> list[dict[str, Any]]:
     """List eval runs for a suite."""
     result = (
-        supabase.table("eval_runs")
+        get_db().table("eval_runs")
         .select("*")
         .eq("suite_id", suite_id)
         .order("created_at", desc=True)
@@ -202,13 +202,13 @@ async def get_run(
 ) -> dict[str, Any]:
     """Get detailed eval run results."""
     run = (
-        supabase.table("eval_runs").select("*").eq("id", run_id).single().execute()
+        get_db().table("eval_runs").select("*").eq("id", run_id).single().execute()
     ).data
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
     results = (
-        supabase.table("eval_results")
+        get_db().table("eval_results")
         .select("*")
         .eq("run_id", run_id)
         .order("created_at")
@@ -226,14 +226,14 @@ async def compare_runs(
     user: Any = Depends(get_current_user),  # noqa: B008
 ) -> dict[str, Any]:
     """Compare two eval runs to see regressions/improvements."""
-    run_a = (supabase.table("eval_runs").select("*").eq("id", run_id).single().execute()).data
-    run_b = (supabase.table("eval_runs").select("*").eq("id", other_run_id).single().execute()).data
+    run_a = (get_db().table("eval_runs").select("*").eq("id", run_id).single().execute()).data
+    run_b = (get_db().table("eval_runs").select("*").eq("id", other_run_id).single().execute()).data
 
     if not run_a or not run_b:
         raise HTTPException(status_code=404, detail="One or both runs not found")
 
-    results_a = (supabase.table("eval_results").select("*").eq("run_id", run_id).execute()).data or []
-    results_b = (supabase.table("eval_results").select("*").eq("run_id", other_run_id).execute()).data or []
+    results_a = (get_db().table("eval_results").select("*").eq("run_id", run_id).execute()).data or []
+    results_b = (get_db().table("eval_results").select("*").eq("run_id", other_run_id).execute()).data or []
 
     # Index by case_id
     a_by_case = {r["case_id"]: r for r in results_a}

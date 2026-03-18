@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class MarketplaceService:
         if org_id:
             row["org_id"] = org_id
 
-        result = supabase.table("marketplace_listings").insert(row).execute()
+        result = get_db().table("marketplace_listings").insert(row).execute()
         data = result.data
         listing: dict[str, Any] = data[0] if isinstance(data, list) else data
         return listing
@@ -62,7 +62,7 @@ class MarketplaceService:
     ) -> list[dict[str, Any]]:
         """List published marketplace listings."""
         query = (
-            supabase.table("marketplace_listings")
+            get_db().table("marketplace_listings")
             .select("*")
             .eq("status", "published")
         )
@@ -88,7 +88,7 @@ class MarketplaceService:
     async def get_listing(self, listing_id: str) -> dict[str, Any] | None:
         """Get a single marketplace listing."""
         result = (
-            supabase.table("marketplace_listings")
+            get_db().table("marketplace_listings")
             .select("*")
             .eq("id", listing_id)
             .single()
@@ -100,7 +100,7 @@ class MarketplaceService:
     async def get_user_listings(self, user_id: str) -> list[dict[str, Any]]:
         """Get all listings by a user."""
         result = (
-            supabase.table("marketplace_listings")
+            get_db().table("marketplace_listings")
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -122,7 +122,7 @@ class MarketplaceService:
         if not allowed:
             return listing
         result = (
-            supabase.table("marketplace_listings")
+            get_db().table("marketplace_listings")
             .update(allowed)
             .eq("id", listing_id)
             .execute()
@@ -136,7 +136,7 @@ class MarketplaceService:
         listing = await self.get_listing(listing_id)
         if not listing or listing["user_id"] != user_id:
             return False
-        supabase.table("marketplace_listings").delete().eq("id", listing_id).execute()
+        get_db().table("marketplace_listings").delete().eq("id", listing_id).execute()
         return True
 
     # === Ratings ===
@@ -150,7 +150,7 @@ class MarketplaceService:
         review: str = "",
     ) -> dict[str, Any]:
         """Rate a marketplace listing (upsert)."""
-        result = supabase.table("marketplace_ratings").upsert({
+        result = get_db().table("marketplace_ratings").upsert({
             "listing_id": listing_id,
             "user_id": user_id,
             "rating": rating,
@@ -166,7 +166,7 @@ class MarketplaceService:
     async def _update_rating_stats(self, listing_id: str) -> None:
         """Recalculate rating stats for a listing."""
         ratings = (
-            supabase.table("marketplace_ratings")
+            get_db().table("marketplace_ratings")
             .select("rating")
             .eq("listing_id", listing_id)
             .execute()
@@ -175,7 +175,7 @@ class MarketplaceService:
         if ratings:
             values = [r["rating"] for r in ratings]
             avg = sum(values) / len(values)
-            supabase.table("marketplace_listings").update({
+            get_db().table("marketplace_listings").update({
                 "rating_avg": round(avg, 2),
                 "rating_count": len(values),
             }).eq("id", listing_id).execute()
@@ -183,7 +183,7 @@ class MarketplaceService:
     async def get_ratings(self, listing_id: str) -> list[dict[str, Any]]:
         """Get all ratings for a listing."""
         result = (
-            supabase.table("marketplace_ratings")
+            get_db().table("marketplace_ratings")
             .select("*")
             .eq("listing_id", listing_id)
             .order("created_at", desc=True)
@@ -206,7 +206,7 @@ class MarketplaceService:
             msg = "Listing not found"
             raise ValueError(msg)
 
-        result = supabase.table("marketplace_forks").insert({
+        result = get_db().table("marketplace_forks").insert({
             "listing_id": listing_id,
             "source_blueprint_id": listing["blueprint_id"],
             "forked_blueprint_id": forked_blueprint_id,
@@ -216,7 +216,7 @@ class MarketplaceService:
         fork: dict[str, Any] = data[0] if isinstance(data, list) else data
 
         # Increment fork count
-        supabase.table("marketplace_listings").update({
+        get_db().table("marketplace_listings").update({
             "fork_count": (listing.get("fork_count", 0) or 0) + 1,
         }).eq("id", listing_id).execute()
 
@@ -225,7 +225,7 @@ class MarketplaceService:
     async def get_forks(self, listing_id: str) -> list[dict[str, Any]]:
         """Get all forks of a listing."""
         result = (
-            supabase.table("marketplace_forks")
+            get_db().table("marketplace_forks")
             .select("*")
             .eq("listing_id", listing_id)
             .order("created_at", desc=True)

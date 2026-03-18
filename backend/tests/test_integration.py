@@ -40,7 +40,7 @@ def test_rate_limiter_configured(client):
 
 def test_rate_limit_headers_present(auth_client):
     """1.5 — Rate limit headers in responses."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -74,7 +74,7 @@ def test_dashboard_sse_requires_token(client):
 
 def test_dashboard_sse_rejects_invalid_token(client):
     """4.3 — Dashboard SSE rejects invalid token."""
-    with patch("app.routers.dashboard.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_db.auth.get_user.side_effect = Exception("Invalid token")
         response = client.get("/api/dashboard/stream?token=bad-token")
         assert response.status_code == 401
@@ -82,7 +82,7 @@ def test_dashboard_sse_rejects_invalid_token(client):
 
 def test_agent_run_sse_endpoint_exists(client):
     """3.2 — Agent run SSE endpoint returns streaming response."""
-    with patch("app.routers.runs.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         # Mock token auth
         mock_user = MagicMock()
         mock_user.user = MagicMock(id="test-user-id-123")
@@ -125,7 +125,7 @@ def test_agent_run_sse_endpoint_exists(client):
 
 def test_blueprint_run_sse_endpoint_exists(auth_client):
     """7.7 — Blueprint run SSE endpoint exists and streams."""
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         # Mock blueprint lookup (single .eq)
         mock_bp = MagicMock()
         mock_bp.data = {
@@ -161,9 +161,9 @@ def test_blueprint_run_sse_endpoint_exists(auth_client):
 
 def test_orchestration_sse_endpoint(auth_client):
     """10.5 — Orchestration SSE endpoint streams events."""
-    with patch("app.routers.orchestration.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
-        mock_result.data = {"id": "group-1"}
+        mock_result.data = [{"id": "group-1"}]
         mock_db.table.return_value.insert.return_value.execute.return_value = mock_result
         mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
 
@@ -304,7 +304,7 @@ def test_cli_costs_help():
 
 def test_concurrent_agent_list(auth_client):
     """19.4 — Concurrent requests don't crash."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = [
             {
@@ -342,7 +342,7 @@ def test_concurrent_agent_list(auth_client):
 def test_error_recovery_after_failure(auth_client):
     """19.5 — Server recovers after returning error responses."""
     # First request: agent not found (404)
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = None
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -350,7 +350,7 @@ def test_error_recovery_after_failure(auth_client):
         assert response.status_code == 404
 
     # Second request: should still work fine
-    with patch("app.routers.agents.supabase") as mock_db2:
+    with patch("app.db._db") as mock_db2:
         mock_result2 = MagicMock()
         mock_result2.data = []
         mock_db2.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result2
@@ -380,7 +380,7 @@ def test_large_payload_rejected(auth_client):
 
 def test_large_agent_list(auth_client):
     """19.6 — Can handle large result sets."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = [
             {

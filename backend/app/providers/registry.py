@@ -202,10 +202,10 @@ async def create_user_registry(user_id: str) -> ProviderRegistry:
 
     Falls back to the global env-var-based registry if the user has no configs.
     """
-    from app.database import supabase
+    from app.db import get_db
 
     result = (
-        supabase.table("provider_configs")
+        get_db().table("provider_configs")
         .select("*")
         .eq("user_id", user_id)
         .eq("is_enabled", True)

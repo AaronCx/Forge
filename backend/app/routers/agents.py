@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.database import supabase
+from app.db import get_db
 from app.models.agent import AgentCreate, AgentResponse, AgentUpdate
 from app.routers.auth import get_current_user
 from app.services.rate_limiter import limiter
@@ -12,13 +12,13 @@ router = APIRouter(tags=["agents"])
 async def list_agents(
     user=Depends(get_current_user),  # noqa: B008
 ):
-    result = supabase.table("agents").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
+    result = get_db().table("agents").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     return result.data
 
 
 @router.get("/agents/templates", response_model=list[AgentResponse])
 async def list_templates():
-    result = supabase.table("agents").select("*").eq("is_template", True).execute()
+    result = get_db().table("agents").select("*").eq("is_template", True).execute()
     return result.data
 
 
@@ -27,7 +27,7 @@ async def get_agent(
     agent_id: str,
     user=Depends(get_current_user),  # noqa: B008
 ):
-    result = supabase.table("agents").select("*").eq("id", agent_id).single().execute()
+    result = get_db().table("agents").select("*").eq("id", agent_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Agent not found")
     if result.data["user_id"] != user.id and not result.data["is_template"]:
@@ -44,7 +44,7 @@ async def create_agent(
 ):
     data = agent.model_dump()
     data["user_id"] = user.id
-    result = supabase.table("agents").insert(data).execute()
+    result = get_db().table("agents").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create agent")
     return result.data[0]
@@ -56,12 +56,12 @@ async def update_agent(
     agent: AgentUpdate,
     user=Depends(get_current_user),  # noqa: B008
 ):
-    existing = supabase.table("agents").select("user_id").eq("id", agent_id).single().execute()
+    existing = get_db().table("agents").select("user_id").eq("id", agent_id).single().execute()
     if not existing.data or existing.data["user_id"] != user.id:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     update_data = agent.model_dump(exclude_none=True)
-    result = supabase.table("agents").update(update_data).eq("id", agent_id).execute()
+    result = get_db().table("agents").update(update_data).eq("id", agent_id).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to update agent")
     return result.data[0]
@@ -72,8 +72,8 @@ async def delete_agent(
     agent_id: str,
     user=Depends(get_current_user),  # noqa: B008
 ):
-    existing = supabase.table("agents").select("user_id").eq("id", agent_id).single().execute()
+    existing = get_db().table("agents").select("user_id").eq("id", agent_id).single().execute()
     if not existing.data or existing.data["user_id"] != user.id:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    supabase.table("agents").delete().eq("id", agent_id).execute()
+    get_db().table("agents").delete().eq("id", agent_id).execute()

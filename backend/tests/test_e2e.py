@@ -22,7 +22,7 @@ def test_protected_route_requires_auth(client):
 
 def test_protected_route_with_auth(auth_client):
     """1.3 — Protected routes accept authenticated requests."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -34,7 +34,7 @@ def test_protected_route_with_auth(auth_client):
 
 def test_api_key_crud(auth_client):
     """1.4 — API key management."""
-    with patch("app.routers.api_keys.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         # Create
         key_data = {"id": "k1", "user_id": "test-user-id-123", "key_prefix": "af_test", "name": "test"}
         mock_result = MagicMock()
@@ -78,7 +78,7 @@ def test_openapi_docs(client):
 
 def test_create_agent(auth_client):
     """2.1 — Create agent."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         agent_data = {
             "id": "a1",
             "user_id": "test-user-id-123",
@@ -113,7 +113,7 @@ def test_create_agent(auth_client):
 
 def test_list_agents(auth_client):
     """2.2 — List agents."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         agent1 = {
             "id": "a1", "user_id": "test-user-id-123", "name": "Agent 1",
             "description": "", "system_prompt": "", "tools": [], "workflow_steps": [],
@@ -134,7 +134,7 @@ def test_list_agents(auth_client):
 
 def test_delete_agent(auth_client):
     """2.4 — Delete agent."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_existing = MagicMock()
         mock_existing.data = {"user_id": "test-user-id-123"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_existing
@@ -149,7 +149,7 @@ def test_delete_agent(auth_client):
 
 def test_agent_templates(client):
     """2.5 — Templates exist."""
-    with patch("app.routers.agents.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = [
             {"id": "t1", "name": "Document Analyzer", "is_template": True},
@@ -168,7 +168,7 @@ def test_agent_templates(client):
 
 def test_list_runs(auth_client):
     """3.3 — Run history."""
-    with patch("app.routers.runs.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
@@ -186,7 +186,7 @@ def test_list_runs(auth_client):
 
 def test_dashboard_metrics(auth_client):
     """4.2 — Dashboard metrics endpoint."""
-    with patch("app.routers.dashboard.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         # Mock agent count
         mock_agents = MagicMock()
         mock_agents.data = []
@@ -201,7 +201,7 @@ def test_dashboard_metrics(auth_client):
 
 def test_dashboard_active(auth_client):
     """4.2 — Dashboard active agents."""
-    with patch("app.routers.dashboard.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
@@ -289,7 +289,7 @@ def test_provider_health(auth_client):
 
 def test_blueprint_crud(auth_client):
     """7.1 — Blueprint CRUD."""
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         bp_data = {
             "id": "bp-1",
             "user_id": "test-user-id-123",
@@ -364,7 +364,7 @@ def test_blueprint_node_types_filtered(client):
 
 def test_blueprint_templates(client):
     """7.2 — Blueprint templates."""
-    with patch("app.routers.blueprints.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -380,7 +380,7 @@ def test_blueprint_templates(client):
 
 def test_mcp_connections(auth_client):
     """8.1 — MCP connection listing."""
-    with patch("app.routers.mcp.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -413,7 +413,7 @@ def test_triggers_list(auth_client):
 
 def test_orchestrate_groups(auth_client):
     """10.6 — Orchestration groups listing."""
-    with patch("app.routers.orchestration.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -431,7 +431,7 @@ def test_orchestrate_groups(auth_client):
 
 def test_messages_list(auth_client):
     """11.1 — Message listing."""
-    with patch("app.routers.messages.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
@@ -450,7 +450,7 @@ def test_messages_list(auth_client):
 
 def test_eval_suite_crud(auth_client):
     """12.1 — Eval suite CRUD."""
-    with patch("app.routers.evals.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         # List suites
         mock_result = MagicMock()
         mock_result.data = []

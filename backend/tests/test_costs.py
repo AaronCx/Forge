@@ -19,7 +19,7 @@ def test_cost_projection_requires_auth(client):
 
 
 def test_cost_summary(auth_client):
-    with patch("app.services.token_tracker.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = [
             {"input_tokens": 100, "output_tokens": 50, "cost_usd": 0.0001, "model": "gpt-4o-mini"}
@@ -37,7 +37,7 @@ def test_cost_summary(auth_client):
 
 
 def test_cost_breakdown(auth_client):
-    with patch("app.services.token_tracker.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
@@ -50,7 +50,7 @@ def test_cost_breakdown(auth_client):
 
 
 def test_cost_projection(auth_client):
-    with patch("app.services.token_tracker.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.execute.return_value = mock_result
@@ -65,7 +65,7 @@ def test_cost_projection(auth_client):
 
 
 def test_cost_all(auth_client):
-    with patch("app.services.token_tracker.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.execute.return_value = mock_result

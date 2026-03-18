@@ -5,7 +5,7 @@ from typing import cast
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from app.database import supabase
+from app.db import get_db
 from app.routers.auth import get_current_user
 from app.services.messaging import MessageType, messaging_service
 
@@ -29,7 +29,7 @@ async def send_message(
     """Send a message between agents."""
     # Verify group belongs to user
     group = (
-        supabase.table("task_groups")
+        get_db().table("task_groups")
         .select("id")
         .eq("id", body.group_id)
         .eq("user_id", user.id)
@@ -61,7 +61,7 @@ async def get_messages(
     """Get messages for a task group."""
     # Verify group belongs to user
     group = (
-        supabase.table("task_groups")
+        get_db().table("task_groups")
         .select("id")
         .eq("id", group_id)
         .eq("user_id", user.id)
@@ -89,7 +89,7 @@ async def get_conversation(
 ):
     """Get messages exchanged between two specific agents."""
     group = (
-        supabase.table("task_groups")
+        get_db().table("task_groups")
         .select("id")
         .eq("id", group_id)
         .eq("user_id", user.id)

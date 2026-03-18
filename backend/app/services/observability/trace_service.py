@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class TraceService:
         if provider:
             row["provider"] = provider
 
-        result = supabase.table("traces").insert(row).execute()
+        result = get_db().table("traces").insert(row).execute()
         data = result.data
         span_data: dict[str, Any] = data[0] if isinstance(data, list) else data
         return span_data
@@ -86,7 +86,7 @@ class TraceService:
         if provider:
             update["provider"] = provider
 
-        result = supabase.table("traces").update(update).eq("id", span_id).execute()
+        result = get_db().table("traces").update(update).eq("id", span_id).execute()
         data = result.data
         if not data:
             return None
@@ -142,7 +142,7 @@ class TraceService:
         if parent_span_id:
             row["parent_span_id"] = parent_span_id
 
-        result = supabase.table("traces").insert(row).execute()
+        result = get_db().table("traces").insert(row).execute()
         data = result.data
         row_data: dict[str, Any] = data[0] if isinstance(data, list) else data
         return row_data
@@ -159,7 +159,7 @@ class TraceService:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """List traces for a user with optional filters."""
-        query = supabase.table("traces").select("*").eq("user_id", user_id)
+        query = get_db().table("traces").select("*").eq("user_id", user_id)
 
         if run_id:
             query = query.eq("run_id", run_id)
@@ -176,7 +176,7 @@ class TraceService:
     async def get_trace(self, trace_id: str, user_id: str) -> dict[str, Any] | None:
         """Get a single trace by ID."""
         result = (
-            supabase.table("traces")
+            get_db().table("traces")
             .select("*")
             .eq("id", trace_id)
             .eq("user_id", user_id)
@@ -193,7 +193,7 @@ class TraceService:
             return {}
 
         children = (
-            supabase.table("traces")
+            get_db().table("traces")
             .select("*")
             .eq("parent_span_id", trace_id)
             .eq("user_id", user_id)
@@ -208,7 +208,7 @@ class TraceService:
         """Get aggregated trace statistics."""
         # Get recent traces for stats
         traces = (
-            supabase.table("traces")
+            get_db().table("traces")
             .select("span_type,status,input_tokens,output_tokens,latency_ms")
             .eq("user_id", user_id)
             .gte("created_at", datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat())

@@ -70,7 +70,7 @@ async def test_create_collection():
         "document_count": 0, "chunk_count": 0,
     }]
 
-    with patch("app.services.knowledge.knowledge_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_result
         result = await service.create_collection(
             user_id="u1", name="Test KB",
@@ -88,7 +88,7 @@ async def test_list_collections():
         {"id": "c2", "name": "KB 2"},
     ]
 
-    with patch("app.services.knowledge.knowledge_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
         result = await service.list_collections("u1")
 
@@ -101,7 +101,7 @@ async def test_get_collection():
     mock_result = MagicMock()
     mock_result.data = {"id": "c1", "name": "Test KB", "user_id": "u1"}
 
-    with patch("app.services.knowledge.knowledge_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
         result = await service.get_collection("c1", "u1")
 
@@ -115,7 +115,7 @@ async def test_delete_collection():
     mock_result = MagicMock()
     mock_result.data = []
 
-    with patch("app.services.knowledge.knowledge_service.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
         result = await service.delete_collection("c1", "u1")
 
@@ -142,7 +142,7 @@ async def test_search():
     ]
 
     with (
-        patch("app.services.knowledge.knowledge_service.supabase") as mock_sb,
+        patch("app.db._db") as mock_sb,
         patch("app.services.knowledge.knowledge_service.generate_embeddings") as mock_embed,
     ):
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_collection

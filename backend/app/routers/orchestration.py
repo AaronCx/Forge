@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.database import supabase
+from app.db import get_db
 from app.routers.auth import get_current_user
 from app.services.orchestrator import Orchestrator
 from app.services.rate_limiter import limiter
@@ -52,7 +52,7 @@ async def list_groups(
 ):
     """List all orchestration groups for the user."""
     result = (
-        supabase.table("task_groups")
+        get_db().table("task_groups")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", desc=True)
@@ -69,7 +69,7 @@ async def get_group(
 ):
     """Get orchestration group details with members."""
     group = (
-        supabase.table("task_groups")
+        get_db().table("task_groups")
         .select("*")
         .eq("id", group_id)
         .eq("user_id", user.id)
@@ -80,7 +80,7 @@ async def get_group(
         raise HTTPException(status_code=404, detail="Group not found")
 
     members = (
-        supabase.table("task_group_members")
+        get_db().table("task_group_members")
         .select("*")
         .eq("group_id", group_id)
         .order("sort_order")
@@ -100,7 +100,7 @@ async def get_group_result(
 ):
     """Get the final result of an orchestration."""
     group = (
-        supabase.table("task_groups")
+        get_db().table("task_groups")
         .select("id, status, result, objective")
         .eq("id", group_id)
         .eq("user_id", user.id)

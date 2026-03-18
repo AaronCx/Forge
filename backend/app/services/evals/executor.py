@@ -11,7 +11,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 from app.providers.registry import provider_registry
 from app.services.evals.grading import GRADING_METHODS
 
@@ -32,7 +32,7 @@ class EvalExecutor:
         """Execute an eval suite and return the run summary."""
         # Get suite
         suite = (
-            supabase.table("eval_suites")
+            get_db().table("eval_suites")
             .select("*")
             .eq("id", suite_id)
             .single()
@@ -43,7 +43,7 @@ class EvalExecutor:
 
         # Get cases
         cases = (
-            supabase.table("eval_cases")
+            get_db().table("eval_cases")
             .select("*")
             .eq("suite_id", suite_id)
             .order("created_at")
@@ -55,7 +55,7 @@ class EvalExecutor:
 
         # Create run record
         run_id = str(uuid.uuid4())
-        supabase.table("eval_runs").insert({
+        get_db().table("eval_runs").insert({
             "id": run_id,
             "suite_id": suite_id,
             "triggered_by": triggered_by,
@@ -102,7 +102,7 @@ class EvalExecutor:
         pass_rate = passed_count / total if total > 0 else 0.0
         avg_score = total_score / total if total > 0 else 0.0
 
-        supabase.table("eval_runs").update({
+        get_db().table("eval_runs").update({
             "status": "completed",
             "pass_rate": pass_rate,
             "avg_score": avg_score,
@@ -192,7 +192,7 @@ class EvalExecutor:
         if target_type == "agent":
             # Simple LLM call using the agent's system prompt
             agent = (
-                supabase.table("agents")
+                get_db().table("agents")
                 .select("*")
                 .eq("id", target_id)
                 .single()
@@ -236,7 +236,7 @@ class EvalExecutor:
 
     def _save_result(self, run_id: str, result: dict[str, Any]) -> None:
         """Save a single eval result to the database."""
-        supabase.table("eval_results").insert({
+        get_db().table("eval_results").insert({
             "id": str(uuid.uuid4()),
             "run_id": run_id,
             "case_id": result["case_id"],

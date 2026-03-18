@@ -7,7 +7,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.database import supabase
+from app.db import get_db
 from app.providers.registry import provider_registry
 from app.routers.auth import get_current_user
 from app.services.token_tracker import calculate_cost
@@ -47,7 +47,7 @@ async def compare_models(
 ):
     """Run the same prompt on multiple models and return results side-by-side."""
     # Create comparison record
-    run_result = supabase.table("comparison_runs").insert({
+    run_result = get_db().table("comparison_runs").insert({
         "user_id": user.id,
         "prompt": req.prompt,
         "models": req.models,
@@ -101,7 +101,7 @@ async def compare_models(
     result_list = list(results)
 
     # Store results
-    supabase.table("comparison_runs").update({
+    get_db().table("comparison_runs").update({
         "status": "completed",
         "results": [r.model_dump() for r in result_list],
     }).eq("id", run_id).execute()
@@ -116,7 +116,7 @@ async def get_comparison(
 ):
     """Get a previous comparison run result."""
     result = (
-        supabase.table("comparison_runs")
+        get_db().table("comparison_runs")
         .select("*")
         .eq("id", run_id)
         .single()

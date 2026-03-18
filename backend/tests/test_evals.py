@@ -168,7 +168,7 @@ async def test_approval_create():
         "node_id": "n1", "status": "pending", "context": {},
     }]
 
-    with patch("app.services.evals.approvals.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_result
         result = await service.create_approval(
             user_id="u1", blueprint_run_id="r1", node_id="n1", context={},
@@ -187,7 +187,7 @@ async def test_approval_approve():
     mock_update = MagicMock()
     mock_update.data = [{"id": "a1", "status": "approved", "feedback": "LGTM"}]
 
-    with patch("app.services.evals.approvals.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_get
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_update
 
@@ -207,7 +207,7 @@ async def test_approval_reject():
     mock_update = MagicMock()
     mock_update.data = [{"id": "a1", "status": "rejected", "feedback": "Not ready"}]
 
-    with patch("app.services.evals.approvals.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_get
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_update
 
@@ -224,7 +224,7 @@ async def test_approval_wrong_user():
     mock_get = MagicMock()
     mock_get.data = {"id": "a1", "user_id": "u1", "status": "pending"}
 
-    with patch("app.services.evals.approvals.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_get
 
         result = await service.approve("a1", "u2", "")
@@ -239,7 +239,7 @@ async def test_approval_already_decided():
     mock_get = MagicMock()
     mock_get.data = {"id": "a1", "user_id": "u1", "status": "approved"}
 
-    with patch("app.services.evals.approvals.supabase") as mock_sb:
+    with patch("app.db._db") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_get
 
         result = await service.approve("a1", "u1", "")

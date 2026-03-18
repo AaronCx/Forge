@@ -28,7 +28,7 @@ async def test_org_create():
     from app.services.marketplace.org_service import OrgService
 
     svc = OrgService()
-    with patch("app.services.marketplace.org_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         org_data = {"id": "org-1", "name": "Team A", "slug": "team-a", "owner_id": "u1"}
         mock_result = MagicMock()
         mock_result.data = [org_data]
@@ -44,7 +44,7 @@ async def test_org_list_empty():
     from app.services.marketplace.org_service import OrgService
 
     svc = OrgService()
-    with patch("app.services.marketplace.org_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
@@ -58,7 +58,7 @@ async def test_org_get():
     from app.services.marketplace.org_service import OrgService
 
     svc = OrgService()
-    with patch("app.services.marketplace.org_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         org_data = {"id": "org-1", "name": "Team A", "slug": "team-a", "owner_id": "u1"}
         mock_result = MagicMock()
         mock_result.data = org_data
@@ -74,7 +74,7 @@ async def test_org_delete_not_owner():
     from app.services.marketplace.org_service import OrgService
 
     svc = OrgService()
-    with patch("app.services.marketplace.org_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = {"id": "org-1", "owner_id": "other-user"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -88,7 +88,7 @@ async def test_get_user_role():
     from app.services.marketplace.org_service import OrgService
 
     svc = OrgService()
-    with patch("app.services.marketplace.org_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = {"role": "admin"}
         mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -102,7 +102,7 @@ async def test_get_user_role_not_member():
     from app.services.marketplace.org_service import OrgService
 
     svc = OrgService()
-    with patch("app.services.marketplace.org_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = None
         mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -119,7 +119,7 @@ async def test_marketplace_publish():
     from app.services.marketplace.marketplace_service import MarketplaceService
 
     svc = MarketplaceService()
-    with patch("app.services.marketplace.marketplace_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         listing_data = {
             "id": "listing-1",
             "blueprint_id": "bp-1",
@@ -145,7 +145,7 @@ async def test_marketplace_list_empty():
     from app.services.marketplace.marketplace_service import MarketplaceService
 
     svc = MarketplaceService()
-    with patch("app.services.marketplace.marketplace_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
@@ -159,7 +159,7 @@ async def test_marketplace_get_listing():
     from app.services.marketplace.marketplace_service import MarketplaceService
 
     svc = MarketplaceService()
-    with patch("app.services.marketplace.marketplace_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         listing_data = {"id": "listing-1", "title": "Test", "user_id": "u1"}
         mock_result = MagicMock()
         mock_result.data = listing_data
@@ -175,7 +175,7 @@ async def test_marketplace_delete_not_owner():
     from app.services.marketplace.marketplace_service import MarketplaceService
 
     svc = MarketplaceService()
-    with patch("app.services.marketplace.marketplace_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = {"id": "listing-1", "user_id": "other-user"}
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_result
@@ -189,7 +189,7 @@ async def test_marketplace_rate():
     from app.services.marketplace.marketplace_service import MarketplaceService
 
     svc = MarketplaceService()
-    with patch("app.services.marketplace.marketplace_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         rating_data = {"id": "r-1", "listing_id": "listing-1", "user_id": "u1", "rating": 4}
         mock_upsert = MagicMock()
         mock_upsert.data = [rating_data]
@@ -210,7 +210,7 @@ async def test_marketplace_fork():
     from app.services.marketplace.marketplace_service import MarketplaceService
 
     svc = MarketplaceService()
-    with patch("app.services.marketplace.marketplace_service.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         # Mock get_listing
         listing_data = {"id": "listing-1", "blueprint_id": "bp-1", "user_id": "u1", "fork_count": 0}
         mock_listing = MagicMock()

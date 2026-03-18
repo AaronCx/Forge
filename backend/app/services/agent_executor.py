@@ -46,10 +46,10 @@ class AgentRunner:
         # Try to get user's OpenAI key from provider_configs
         if self.user_id:
             try:
-                from app.database import supabase
+                from app.db import get_db
 
                 result = (
-                    supabase.table("provider_configs")
+                    get_db().table("provider_configs")
                     .select("api_key_encrypted")
                     .eq("user_id", self.user_id)
                     .eq("provider", "openai")

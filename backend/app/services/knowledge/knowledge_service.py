@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 from app.services.knowledge.chunker import chunk_text
 from app.services.knowledge.embeddings import (
     cosine_similarity,
@@ -31,7 +31,7 @@ class KnowledgeService:
         chunk_overlap: int = 200,
     ) -> dict[str, Any]:
         """Create a new knowledge collection."""
-        result = supabase.table("knowledge_collections").insert({
+        result = get_db().table("knowledge_collections").insert({
             "user_id": user_id,
             "name": name,
             "description": description,
@@ -46,7 +46,7 @@ class KnowledgeService:
     async def list_collections(self, user_id: str) -> list[dict[str, Any]]:
         """List all collections for a user."""
         result = (
-            supabase.table("knowledge_collections")
+            get_db().table("knowledge_collections")
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -57,7 +57,7 @@ class KnowledgeService:
     async def get_collection(self, collection_id: str, user_id: str) -> dict[str, Any] | None:
         """Get a single collection."""
         result = (
-            supabase.table("knowledge_collections")
+            get_db().table("knowledge_collections")
             .select("*")
             .eq("id", collection_id)
             .eq("user_id", user_id)
@@ -69,7 +69,7 @@ class KnowledgeService:
 
     async def delete_collection(self, collection_id: str, user_id: str) -> bool:
         """Delete a collection and all its documents/chunks."""
-        supabase.table("knowledge_collections").delete().eq(
+        get_db().table("knowledge_collections").delete().eq(
             "id", collection_id
         ).eq("user_id", user_id).execute()
         return True
@@ -80,7 +80,7 @@ class KnowledgeService:
         """Fetch user's OpenAI API key from provider_configs."""
         try:
             result = (
-                supabase.table("provider_configs")
+                get_db().table("provider_configs")
                 .select("api_key_encrypted")
                 .eq("user_id", user_id)
                 .eq("provider", "openai")
@@ -105,7 +105,7 @@ class KnowledgeService:
     ) -> dict[str, Any]:
         """Add a document to a collection and process it (chunk + embed)."""
         # Create document record
-        doc_result = supabase.table("knowledge_documents").insert({
+        doc_result = get_db().table("knowledge_documents").insert({
             "user_id": user_id,
             "collection_id": collection_id,
             "filename": filename,
@@ -157,10 +157,10 @@ class KnowledgeService:
                 })
 
             if chunk_rows:
-                supabase.table("knowledge_chunks").insert(chunk_rows).execute()
+                get_db().table("knowledge_chunks").insert(chunk_rows).execute()
 
             # Update document status
-            supabase.table("knowledge_documents").update({
+            get_db().table("knowledge_documents").update({
                 "status": "ready",
                 "chunk_count": len(chunks),
             }).eq("id", doc_id).execute()
@@ -173,7 +173,7 @@ class KnowledgeService:
 
             # Re-fetch document
             doc_refresh = (
-                supabase.table("knowledge_documents")
+                get_db().table("knowledge_documents")
                 .select("*")
                 .eq("id", doc_id)
                 .single()
@@ -184,7 +184,7 @@ class KnowledgeService:
 
         except Exception as e:
             logger.error("Failed to process document %s: %s", doc_id, e)
-            supabase.table("knowledge_documents").update({
+            get_db().table("knowledge_documents").update({
                 "status": "error",
                 "error_message": str(e),
             }).eq("id", doc_id).execute()
@@ -194,17 +194,17 @@ class KnowledgeService:
 
     def _update_collection_counts(self, collection_id: str) -> None:
         """Update document and chunk counts on a collection."""
-        docs = supabase.table("knowledge_documents").select(
+        docs = get_db().table("knowledge_documents").select(
             "id", count="exact"  # type: ignore[arg-type]
         ).eq("collection_id", collection_id).eq("status", "ready").execute()
-        chunks = supabase.table("knowledge_chunks").select(
+        chunks = get_db().table("knowledge_chunks").select(
             "id", count="exact"  # type: ignore[arg-type]
         ).eq("collection_id", collection_id).execute()
 
         doc_count = docs.count if hasattr(docs, "count") and docs.count else 0
         chunk_count = chunks.count if hasattr(chunks, "count") and chunks.count else 0
 
-        supabase.table("knowledge_collections").update({
+        get_db().table("knowledge_collections").update({
             "document_count": doc_count,
             "chunk_count": chunk_count,
         }).eq("id", collection_id).execute()
@@ -214,7 +214,7 @@ class KnowledgeService:
     ) -> list[dict[str, Any]]:
         """List documents in a collection."""
         result = (
-            supabase.table("knowledge_documents")
+            get_db().table("knowledge_documents")
             .select("id,collection_id,filename,content_type,file_size,chunk_count,status,created_at")
             .eq("collection_id", collection_id)
             .eq("user_id", user_id)
@@ -226,7 +226,7 @@ class KnowledgeService:
     async def delete_document(self, document_id: str, user_id: str) -> bool:
         """Delete a document and its chunks."""
         doc = (
-            supabase.table("knowledge_documents")
+            get_db().table("knowledge_documents")
             .select("collection_id")
             .eq("id", document_id)
             .eq("user_id", user_id)
@@ -236,7 +236,7 @@ class KnowledgeService:
         if not doc:
             return False
 
-        supabase.table("knowledge_documents").delete().eq(
+        get_db().table("knowledge_documents").delete().eq(
             "id", document_id
         ).eq("user_id", user_id).execute()
 
@@ -272,7 +272,7 @@ class KnowledgeService:
         # Fetch all chunks for this collection (for small collections)
         # For production, use pgvector extension
         chunks = (
-            supabase.table("knowledge_chunks")
+            get_db().table("knowledge_chunks")
             .select("id,content,embedding,chunk_index,document_id,metadata")
             .eq("collection_id", collection_id)
             .eq("user_id", user_id)

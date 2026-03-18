@@ -1,6 +1,6 @@
 from fastapi import Header, HTTPException
 
-from app.database import supabase
+from app.db import get_db
 
 
 async def get_current_user(authorization: str = Header(...)):
@@ -11,7 +11,7 @@ async def get_current_user(authorization: str = Header(...)):
     token = authorization.removeprefix("Bearer ")
 
     try:
-        user_response = supabase.auth.get_user(token)
+        user_response = get_db().auth.get_user(token)
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid token")
         return user_response.user

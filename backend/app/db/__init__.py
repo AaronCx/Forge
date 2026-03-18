@@ -26,10 +26,15 @@ def init_db(backend: DatabaseBackend) -> None:
 
 
 def get_db() -> DatabaseBackend:
-    """Return the initialized database backend."""
-    if _db is None:
+    """Return the initialized database backend.
+
+    In tests, use init_db() to set a mock backend, or patch app.db._db directly.
+    """
+    import app.db as _mod
+
+    if _mod._db is None:
         raise RuntimeError("Database not initialized. Call init_db() during app startup.")
-    return _db
+    return _mod._db
 
 
 def create_db_from_env() -> DatabaseBackend:

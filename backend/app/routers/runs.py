@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.database import supabase
+from app.db import get_db
 from app.models.run import RunResponse
 from app.routers.auth import get_current_user
 from app.services.agent_executor import AgentRunner
@@ -19,7 +19,7 @@ router = APIRouter(tags=["runs"])
 async def list_runs(
     user=Depends(get_current_user),  # noqa: B008
 ):
-    result = supabase.table("runs").select("*").eq("user_id", user.id).order("created_at", desc=True).limit(50).execute()
+    result = get_db().table("runs").select("*").eq("user_id", user.id).order("created_at", desc=True).limit(50).execute()
     return result.data
 
 
@@ -28,7 +28,7 @@ async def get_run(
     run_id: str,
     user=Depends(get_current_user),  # noqa: B008
 ):
-    result = supabase.table("runs").select("*").eq("id", run_id).single().execute()
+    result = get_db().table("runs").select("*").eq("id", run_id).single().execute()
     if not result.data or result.data["user_id"] != user.id:
         raise HTTPException(status_code=404, detail="Run not found")
     return result.data
@@ -44,7 +44,7 @@ async def run_agent(
 ):
     # Verify token
     try:
-        user_response = supabase.auth.get_user(token)
+        user_response = get_db().auth.get_user(token)
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid token")
         user = user_response.user
@@ -52,7 +52,7 @@ async def run_agent(
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
     # Get agent config and verify ownership
-    agent_result = supabase.table("agents").select("*").eq("id", agent_id).single().execute()
+    agent_result = get_db().table("agents").select("*").eq("id", agent_id).single().execute()
     if not agent_result.data:
         raise HTTPException(status_code=404, detail="Agent not found")
 
@@ -61,7 +61,7 @@ async def run_agent(
         raise HTTPException(status_code=403, detail="Not authorized to run this agent")
 
     # Create run record
-    run_result = supabase.table("runs").insert({
+    run_result = get_db().table("runs").insert({
         "agent_id": agent_id,
         "user_id": user.id,
         "input_text": input_text,
@@ -119,7 +119,7 @@ async def run_agent(
             duration_ms = int((time.time() - start_time) * 1000)
 
             # Update run record
-            supabase.table("runs").update({
+            get_db().table("runs").update({
                 "status": "completed",
                 "output": final_output,
                 "step_logs": step_logs,
@@ -133,7 +133,7 @@ async def run_agent(
             import logging
             logging.getLogger(__name__).exception("Agent run %s failed", run_id)
 
-            supabase.table("runs").update({
+            get_db().table("runs").update({
                 "status": "failed",
                 "output": str(e),
                 "step_logs": step_logs,
@@ -152,14 +152,14 @@ async def run_agent(
 async def get_stats(
     user=Depends(get_current_user),  # noqa: B008
 ):
-    agents = supabase.table("agents").select("id", count="exact").eq("user_id", user.id).execute()  # type: ignore[arg-type]
-    runs = supabase.table("runs").select("tokens_used", count="exact").eq("user_id", user.id).execute()  # type: ignore[arg-type]
+    agents = get_db().table("agents").select("id", count="exact").eq("user_id", user.id).execute()  # type: ignore[arg-type]
+    runs = get_db().table("runs").select("tokens_used", count="exact").eq("user_id", user.id).execute()  # type: ignore[arg-type]
 
     total_tokens = sum(r.get("tokens_used", 0) for r in (runs.data or []))
 
     # Count runs in the last hour
     one_hour_ago = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
-    recent_runs = supabase.table("runs").select("id", count="exact").eq("user_id", user.id).gte("created_at", one_hour_ago).execute()  # type: ignore[arg-type]
+    recent_runs = get_db().table("runs").select("id", count="exact").eq("user_id", user.id).gte("created_at", one_hour_ago).execute()  # type: ignore[arg-type]
 
     return {
         "total_agents": agents.count or 0,

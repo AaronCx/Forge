@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from app.database import supabase
+from app.db import get_db
 
 # Pricing per 1M tokens (USD)
 MODEL_PRICING = {
@@ -55,7 +55,7 @@ class TokenTracker:
         """Record token usage for a single step."""
         cost = calculate_cost(model, input_tokens, output_tokens)
 
-        result = supabase.table("token_usage").insert({
+        result = get_db().table("token_usage").insert({
             "run_id": run_id,
             "agent_id": agent_id,
             "user_id": user_id,
@@ -82,7 +82,7 @@ class TokenTracker:
             since = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         result = (
-            supabase.table("token_usage")
+            get_db().table("token_usage")
             .select("input_tokens, output_tokens, cost_usd, model, provider")
             .eq("user_id", user_id)
             .gte("created_at", since.isoformat())
@@ -113,7 +113,7 @@ class TokenTracker:
     def get_breakdown(self, user_id: str, group_by: str = "agent") -> list[dict]:
         """Get cost breakdown grouped by agent, model, or provider."""
         result = (
-            supabase.table("token_usage")
+            get_db().table("token_usage")
             .select("agent_id, model, provider, input_tokens, output_tokens, cost_usd, agents(name)")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -147,7 +147,7 @@ class TokenTracker:
     def get_run_usage(self, run_id: str) -> list[dict]:
         """Get step-by-step token usage for a specific run."""
         result = (
-            supabase.table("token_usage")
+            get_db().table("token_usage")
             .select("*")
             .eq("run_id", run_id)
             .order("step_number")

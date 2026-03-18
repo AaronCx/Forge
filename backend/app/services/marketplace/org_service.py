@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class OrgService:
     ) -> dict[str, Any]:
         """Create a new organization."""
         slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-        result = supabase.table("organizations").insert({
+        result = get_db().table("organizations").insert({
             "name": name,
             "slug": slug,
             "description": description,
@@ -35,7 +35,7 @@ class OrgService:
         org: dict[str, Any] = data[0] if isinstance(data, list) else data
 
         # Add owner as member with 'owner' role
-        supabase.table("org_members").insert({
+        get_db().table("org_members").insert({
             "org_id": org["id"],
             "user_id": owner_id,
             "role": "owner",
@@ -46,7 +46,7 @@ class OrgService:
     async def list_orgs(self, user_id: str) -> list[dict[str, Any]]:
         """List organizations the user belongs to."""
         memberships = (
-            supabase.table("org_members")
+            get_db().table("org_members")
             .select("org_id")
             .eq("user_id", user_id)
             .execute()
@@ -56,7 +56,7 @@ class OrgService:
 
         org_ids = [m["org_id"] for m in memberships]
         result = (
-            supabase.table("organizations")
+            get_db().table("organizations")
             .select("*")
             .in_("id", org_ids)
             .order("created_at", desc=True)
@@ -67,7 +67,7 @@ class OrgService:
     async def get_org(self, org_id: str) -> dict[str, Any] | None:
         """Get an organization by ID."""
         result = (
-            supabase.table("organizations")
+            get_db().table("organizations")
             .select("*")
             .eq("id", org_id)
             .single()
@@ -87,7 +87,7 @@ class OrgService:
         if not allowed:
             return org
         result = (
-            supabase.table("organizations")
+            get_db().table("organizations")
             .update(allowed)
             .eq("id", org_id)
             .execute()
@@ -101,7 +101,7 @@ class OrgService:
         org = await self.get_org(org_id)
         if not org or org["owner_id"] != owner_id:
             return False
-        supabase.table("organizations").delete().eq("id", org_id).execute()
+        get_db().table("organizations").delete().eq("id", org_id).execute()
         return True
 
     # === Member management ===
@@ -109,7 +109,7 @@ class OrgService:
     async def list_members(self, org_id: str) -> list[dict[str, Any]]:
         """List all members of an organization."""
         result = (
-            supabase.table("org_members")
+            get_db().table("org_members")
             .select("*")
             .eq("org_id", org_id)
             .order("joined_at")
@@ -126,7 +126,7 @@ class OrgService:
         invited_by: str | None = None,
     ) -> dict[str, Any]:
         """Add a member to an organization."""
-        result = supabase.table("org_members").insert({
+        result = get_db().table("org_members").insert({
             "org_id": org_id,
             "user_id": user_id,
             "role": role,
@@ -143,7 +143,7 @@ class OrgService:
         if role not in ("admin", "member", "viewer"):
             return None
         result = (
-            supabase.table("org_members")
+            get_db().table("org_members")
             .update({"role": role})
             .eq("org_id", org_id)
             .eq("user_id", user_id)
@@ -157,7 +157,7 @@ class OrgService:
 
     async def remove_member(self, org_id: str, user_id: str) -> bool:
         """Remove a member from an organization."""
-        supabase.table("org_members").delete().eq(
+        get_db().table("org_members").delete().eq(
             "org_id", org_id
         ).eq("user_id", user_id).execute()
         return True
@@ -165,7 +165,7 @@ class OrgService:
     async def get_user_role(self, org_id: str, user_id: str) -> str | None:
         """Get a user's role in an organization."""
         result = (
-            supabase.table("org_members")
+            get_db().table("org_members")
             .select("role")
             .eq("org_id", org_id)
             .eq("user_id", user_id)

@@ -28,7 +28,7 @@ def test_dashboard_timeline_requires_auth(client):
 
 
 def test_dashboard_active(auth_client):
-    with patch("app.services.heartbeat.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.in_.return_value.order.return_value.eq.return_value.execute.return_value = mock_result
@@ -42,7 +42,7 @@ def test_dashboard_active(auth_client):
 
 
 def test_dashboard_metrics(auth_client):
-    with patch("app.services.heartbeat.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_active = MagicMock()
         mock_active.count = 2
         mock_active.data = []
@@ -77,7 +77,7 @@ def test_dashboard_metrics(auth_client):
 
 
 def test_dashboard_timeline(auth_client):
-    with patch("app.routers.dashboard.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = []
         mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
@@ -91,7 +91,7 @@ def test_dashboard_timeline(auth_client):
 
 
 def test_dashboard_timeline_with_events(auth_client):
-    with patch("app.routers.dashboard.supabase") as mock_db:
+    with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
         mock_result.data = [
             {

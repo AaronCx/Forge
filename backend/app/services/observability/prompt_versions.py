@@ -6,7 +6,7 @@ import difflib
 import logging
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class PromptVersionService:
         """Create a new prompt version, computing diff from previous."""
         # Get the current active version
         prev = (
-            supabase.table("prompt_versions")
+            get_db().table("prompt_versions")
             .select("*")
             .eq("agent_id", agent_id)
             .eq("is_active", True)
@@ -41,7 +41,7 @@ class PromptVersionService:
             previous_prompt = prev[0].get("system_prompt", "")
             next_version = prev[0].get("version_number", 0) + 1
             # Deactivate previous version
-            supabase.table("prompt_versions").update(
+            get_db().table("prompt_versions").update(
                 {"is_active": False}
             ).eq("id", prev[0]["id"]).execute()
 
@@ -58,7 +58,7 @@ class PromptVersionService:
             "is_active": True,
         }
 
-        result = supabase.table("prompt_versions").insert(row).execute()
+        result = get_db().table("prompt_versions").insert(row).execute()
         data = result.data
         row_data: dict[str, Any] = data[0] if isinstance(data, list) else data
         return row_data
@@ -68,7 +68,7 @@ class PromptVersionService:
     ) -> list[dict[str, Any]]:
         """List all versions for an agent, newest first."""
         result = (
-            supabase.table("prompt_versions")
+            get_db().table("prompt_versions")
             .select("id,agent_id,version_number,change_summary,is_active,created_at")
             .eq("agent_id", agent_id)
             .eq("user_id", user_id)
@@ -83,7 +83,7 @@ class PromptVersionService:
     ) -> dict[str, Any] | None:
         """Get a specific version with full prompt text."""
         result = (
-            supabase.table("prompt_versions")
+            get_db().table("prompt_versions")
             .select("*")
             .eq("id", version_id)
             .eq("user_id", user_id)
@@ -98,7 +98,7 @@ class PromptVersionService:
     ) -> dict[str, Any] | None:
         """Get the currently active version for an agent."""
         result = (
-            supabase.table("prompt_versions")
+            get_db().table("prompt_versions")
             .select("*")
             .eq("agent_id", agent_id)
             .eq("user_id", user_id)
@@ -131,7 +131,7 @@ class PromptVersionService:
         )
 
         # Also update the agent's system_prompt
-        supabase.table("agents").update(
+        get_db().table("agents").update(
             {"system_prompt": system_prompt}
         ).eq("id", agent_id).eq("user_id", user_id).execute()
 

@@ -4,7 +4,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 
-from app.database import supabase
+from app.db import get_db
 from app.providers.registry import provider_registry
 from app.services.agent_executor import AgentRunner
 from app.services.messaging import messaging_service
@@ -80,7 +80,7 @@ class Orchestrator:
         available_tools = tools or []
 
         # Create task group
-        group_result = supabase.table("task_groups").insert({
+        group_result = get_db().table("task_groups").insert({
             "user_id": user_id,
             "objective": objective,
             "status": "planning",
@@ -94,7 +94,7 @@ class Orchestrator:
             tasks = await self.decompose(objective, available_tools)
         except Exception as e:
             yield {"type": "error", "data": f"Failed to decompose: {e}"}
-            supabase.table("task_groups").update({"status": "failed"}).eq("id", group_id).execute()
+            get_db().table("task_groups").update({"status": "failed"}).eq("id", group_id).execute()
             return
 
         # Validate dependency indices
@@ -105,7 +105,7 @@ class Orchestrator:
             task["dependencies"] = valid_deps
 
         # Store plan
-        supabase.table("task_groups").update({
+        get_db().table("task_groups").update({
             "plan": tasks,
             "status": "running",
         }).eq("id", group_id).execute()
@@ -115,7 +115,7 @@ class Orchestrator:
         # Create task group members
         members = []
         for i, task in enumerate(tasks):
-            member_result = supabase.table("task_group_members").insert({
+            member_result = get_db().table("task_group_members").insert({
                 "group_id": group_id,
                 "task_description": task.get("description", ""),
                 "dependencies": task.get("dependencies", []),
@@ -148,7 +148,7 @@ class Orchestrator:
                 member = members[idx]
 
                 # Update status
-                supabase.table("task_group_members").update(
+                get_db().table("task_group_members").update(
                     {"status": "running"}
                 ).eq("id", member["id"]).execute()
 
@@ -200,7 +200,7 @@ class Orchestrator:
                 )
 
                 # Update member
-                supabase.table("task_group_members").update({
+                get_db().table("task_group_members").update({
                     "status": "completed",
                     "result": full_output[:2000],
                 }).eq("id", member["id"]).execute()
@@ -257,7 +257,7 @@ class Orchestrator:
             final = f"Synthesis failed: {e}\n\nRaw results:\n{all_results}"
 
         # Update group
-        supabase.table("task_groups").update({
+        get_db().table("task_groups").update({
             "status": "completed",
             "result": final,
         }).eq("id", group_id).execute()

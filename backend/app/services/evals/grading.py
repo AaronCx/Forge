@@ -233,20 +233,25 @@ def grade_ocr_contains(actual: str, _expected: str, config: dict[str, Any]) -> d
     if not texts:
         return {"passed": False, "score": 0.0, "method": "ocr_contains", "error": "No texts to check"}
 
-    # Try to extract text from the screenshot via OCR
+    # Try to extract text from a screenshot file via OCR, or treat actual as text
+    import os
     import subprocess
 
-    try:
-        # Use steer ocr if available
-        result = subprocess.run(
-            ["steer", "ocr", "--file", actual],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        ocr_text = result.stdout.lower() if result.returncode == 0 else ""
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        # Fallback: treat actual as text content directly
+    ocr_text = ""
+    if os.path.isfile(actual):
+        try:
+            result = subprocess.run(
+                ["steer", "ocr"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            ocr_text = result.stdout.lower() if result.returncode == 0 else ""
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+    if not ocr_text:
+        # Treat actual as text content directly
         ocr_text = actual.lower()
 
     matches = sum(1 for t in texts if t.lower() in ocr_text)

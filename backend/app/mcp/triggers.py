@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from app.database import supabase
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +38,13 @@ class TriggerService:
             "enabled": True,
             "fire_count": 0,
         }
-        result = supabase.table("triggers").insert(row).execute()
+        result = get_db().table("triggers").insert(row).execute()
         return result.data[0] if result.data else row
 
     async def list_triggers(self, user_id: str) -> list[dict[str, Any]]:
         """List all triggers for a user."""
         result = (
-            supabase.table("triggers")
+            get_db().table("triggers")
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -55,7 +55,7 @@ class TriggerService:
     async def get_trigger(self, trigger_id: str) -> dict[str, Any] | None:
         """Get a single trigger by ID."""
         result = (
-            supabase.table("triggers")
+            get_db().table("triggers")
             .select("*")
             .eq("id", trigger_id)
             .single()
@@ -69,7 +69,7 @@ class TriggerService:
     ) -> dict[str, Any] | None:
         """Update a trigger's config."""
         result = (
-            supabase.table("triggers")
+            get_db().table("triggers")
             .update(updates)
             .eq("id", trigger_id)
             .execute()
@@ -78,7 +78,7 @@ class TriggerService:
 
     async def delete_trigger(self, trigger_id: str) -> bool:
         """Delete a trigger."""
-        supabase.table("triggers").delete().eq("id", trigger_id).execute()
+        get_db().table("triggers").delete().eq("id", trigger_id).execute()
         return True
 
     async def toggle_trigger(self, trigger_id: str) -> dict[str, Any] | None:
@@ -100,7 +100,7 @@ class TriggerService:
             raise ValueError(f"Trigger {trigger_id} is disabled")
 
         # Update fire count and last_fired_at
-        supabase.table("triggers").update({
+        get_db().table("triggers").update({
             "fire_count": (trigger.get("fire_count", 0) or 0) + 1,
             "last_fired_at": datetime.now(UTC).isoformat(),
         }).eq("id", trigger_id).execute()
@@ -112,7 +112,7 @@ class TriggerService:
             "payload": payload or {},
             "status": "fired",
         }
-        supabase.table("trigger_history").insert(history_row).execute()
+        get_db().table("trigger_history").insert(history_row).execute()
 
         target_type = trigger["target_type"]
         target_id = trigger["target_id"]
@@ -132,7 +132,7 @@ class TriggerService:
 
         # Update history with run_id
         if run_result.get("run_id"):
-            supabase.table("trigger_history").update({
+            get_db().table("trigger_history").update({
                 "run_id": run_result["run_id"],
                 "status": "started",
             }).eq("id", history_row["id"]).execute()
@@ -156,7 +156,7 @@ class TriggerService:
             input_text = json.dumps(payload)
 
         run_id = str(uuid.uuid4())
-        supabase.table("runs").insert({
+        get_db().table("runs").insert({
             "id": run_id,
             "agent_id": agent_id,
             "user_id": user_id,
@@ -173,7 +173,7 @@ class TriggerService:
     ) -> dict[str, Any]:
         """Start a blueprint run from a trigger."""
         run_id = str(uuid.uuid4())
-        supabase.table("blueprint_runs").insert({
+        get_db().table("blueprint_runs").insert({
             "id": run_id,
             "blueprint_id": blueprint_id,
             "user_id": user_id,
@@ -189,7 +189,7 @@ class TriggerService:
     ) -> list[dict[str, Any]]:
         """Get recent firings for a trigger."""
         result = (
-            supabase.table("trigger_history")
+            get_db().table("trigger_history")
             .select("*")
             .eq("trigger_id", trigger_id)
             .order("created_at", desc=True)
@@ -201,7 +201,7 @@ class TriggerService:
     def get_due_cron_triggers(self) -> list[dict[str, Any]]:
         """Get cron triggers that are due to fire (synchronous for scheduler use)."""
         result = (
-            supabase.table("triggers")
+            get_db().table("triggers")
             .select("*")
             .eq("type", "cron")
             .eq("enabled", True)
