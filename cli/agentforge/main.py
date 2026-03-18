@@ -305,6 +305,162 @@ def config_set(
     console.print(f"[green]Set {config_key} = {display_value}[/green]")
 
 
+@config_app.command("set-provider")
+def config_set_provider(
+    provider: str = typer.Argument(..., help="Provider name (openai, anthropic, ollama)"),
+    api_key: str = typer.Argument(..., help="API key or URL"),
+):
+    """Configure a provider API key (also updates backend .env)."""
+    # Update CLI config
+    ensure_config()
+    lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+    key_name = f"{provider}_api_key" if provider != "ollama" else "ollama_url"
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith(key_name):
+            lines[i] = f'{key_name} = "{api_key}"'
+            found = True
+    if not found:
+        lines.append(f'{key_name} = "{api_key}"')
+    CONFIG_FILE.write_text("\n".join(lines) + "\n")
+
+    # Also update backend .env if it exists
+    root = _find_project_root()
+    if root:
+        env_file = root / "backend" / ".env"
+        if env_file.exists():
+            env_key = {
+                "openai": "OPENAI_API_KEY",
+                "anthropic": "ANTHROPIC_API_KEY",
+                "google": "GOOGLE_API_KEY",
+            }.get(provider)
+            if env_key:
+                env_lines = env_file.read_text().splitlines()
+                env_found = False
+                for i, line in enumerate(env_lines):
+                    if line.startswith(f"{env_key}="):
+                        env_lines[i] = f"{env_key}={api_key}"
+                        env_found = True
+                if not env_found:
+                    env_lines.append(f"{env_key}={api_key}")
+                env_file.write_text("\n".join(env_lines) + "\n")
+                console.print(f"[green]Updated backend/.env {env_key}[/green]")
+
+    masked = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "***"
+    console.print(f"[green]Set {provider} = {masked}[/green]")
+
+
+@config_app.command("set-default-model")
+def config_set_default_model(
+    model: str = typer.Argument(..., help="Default model name"),
+):
+    """Set the default model for agent execution."""
+    ensure_config()
+    lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith("default_model") or line.strip().startswith("model"):
+            lines[i] = f'default_model = "{model}"'
+            found = True
+    if not found:
+        lines.append(f'default_model = "{model}"')
+    CONFIG_FILE.write_text("\n".join(lines) + "\n")
+    console.print(f"[green]Default model set to: {model}[/green]")
+
+
+# --- Auth commands ---
+
+auth_app = typer.Typer(help="Authentication commands")
+app.add_typer(auth_app, name="auth")
+
+
+@auth_app.command("signup")
+def auth_signup(
+    email: str = typer.Option(..., "--email", "-e", help="Email address"),
+    password: str = typer.Option(..., "--password", "-p", help="Password"),
+):
+    """Create an account from the CLI."""
+    try:
+        result = client.post("/api/auth/signup", json={"email": email, "password": password})
+        console.print(f"[green]Account created for {email}[/green]")
+        token = result.get("access_token", "")
+        if token:
+            # Store token in config
+            ensure_config()
+            lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+            found = False
+            for i, line in enumerate(lines):
+                if line.strip().startswith("api_key"):
+                    lines[i] = f'api_key = "{token}"'
+                    found = True
+            if not found:
+                lines.append(f'api_key = "{token}"')
+            CONFIG_FILE.write_text("\n".join(lines) + "\n")
+            console.print("[green]Session token saved to config.[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@auth_app.command("login")
+def auth_login(
+    email: str = typer.Option(..., "--email", "-e", help="Email address"),
+    password: str = typer.Option(..., "--password", "-p", help="Password"),
+):
+    """Login and store session token."""
+    try:
+        result = client.post("/api/auth/login", json={"email": email, "password": password})
+        token = result.get("access_token", "")
+        if token:
+            ensure_config()
+            lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+            found = False
+            for i, line in enumerate(lines):
+                if line.strip().startswith("api_key"):
+                    lines[i] = f'api_key = "{token}"'
+                    found = True
+            if not found:
+                lines.append(f'api_key = "{token}"')
+            CONFIG_FILE.write_text("\n".join(lines) + "\n")
+            console.print(f"[green]Logged in as {email}. Token saved.[/green]")
+        else:
+            console.print("[yellow]Login succeeded but no token returned.[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@auth_app.command("logout")
+def auth_logout():
+    """Clear stored session token."""
+    ensure_config()
+    if CONFIG_FILE.exists():
+        lines = CONFIG_FILE.read_text().splitlines()
+        lines = [l for l in lines if not l.strip().startswith("api_key")]
+        lines.append('api_key = ""')
+        CONFIG_FILE.write_text("\n".join(lines) + "\n")
+    console.print("[green]Logged out. Token cleared.[/green]")
+
+
+@auth_app.command("whoami")
+def auth_whoami():
+    """Show current user info."""
+    try:
+        stats = client.get("/api/stats")
+        console.print(f"[bold]User:[/bold] {stats.get('user_id', 'unknown')}")
+        if stats.get("email"):
+            console.print(f"[bold]Email:[/bold] {stats['email']}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@auth_app.command("keys")
+def auth_keys_list_alias():
+    """List API keys (alias for 'agentforge keys list')."""
+    keys_list()
+
+
 # --- Auth/utility commands ---
 
 
@@ -1011,6 +1167,19 @@ def runs_show(
     console.print()
 
 
+@runs_app.command("cancel")
+def runs_cancel(
+    run_id: str = typer.Argument(..., help="Run ID to cancel"),
+):
+    """Cancel an active run."""
+    try:
+        client.post(f"/api/runs/{run_id}/cancel")
+        console.print(f"[green]Cancelled run {run_id[:8]}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 blueprints_app = typer.Typer(help="Manage blueprints")
 app.add_typer(blueprints_app, name="blueprints")
 
@@ -1241,6 +1410,63 @@ def blueprints_run(
 
             except json.JSONDecodeError:
                 pass
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@blueprints_app.command("export")
+def blueprints_export(
+    blueprint_id: str = typer.Argument(..., help="Blueprint ID to export"),
+    output: str = typer.Option("", "--output", "-o", help="Output file path (default: stdout)"),
+):
+    """Export a blueprint as JSON for version control."""
+    try:
+        bp = client.get(f"/api/blueprints/{blueprint_id}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    export_data = {
+        "name": bp["name"],
+        "description": bp.get("description", ""),
+        "nodes": bp.get("nodes", []),
+        "edges": [],  # Derive from node dependencies
+        "context_config": bp.get("context_config", {}),
+        "tool_scope": bp.get("tool_scope", []),
+        "retry_policy": bp.get("retry_policy", {"max_retries": 0}),
+    }
+
+    # Build edges from node dependencies
+    for node in bp.get("nodes", []):
+        for dep in node.get("dependencies", []):
+            export_data["edges"].append({"from": dep, "to": node["id"]})
+
+    json_str = json.dumps(export_data, indent=2)
+    if output:
+        Path(output).write_text(json_str)
+        console.print(f"[green]Exported to {output}[/green]")
+    else:
+        console.print(json_str)
+
+
+@blueprints_app.command("import")
+def blueprints_import(
+    file_path: str = typer.Argument(..., help="JSON file to import"),
+):
+    """Import a blueprint from a JSON definition file."""
+    try:
+        data = json.loads(Path(file_path).read_text())
+    except FileNotFoundError:
+        console.print(f"[red]File not found: {file_path}[/red]")
+        raise typer.Exit(1)
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Invalid JSON: {e}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        bp = client.post("/api/blueprints", json=data)
+        console.print(f"[green]Imported blueprint: {bp['name']} (ID: {bp['id'][:8]})[/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
@@ -3216,6 +3442,285 @@ def trace(
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
+
+
+# --- Missing commands from spec (Fix 3) ---
+
+
+@evals_app.command("results")
+def evals_results(
+    run_id: str = typer.Argument(..., help="Eval run ID"),
+):
+    """Show results for an eval run."""
+    try:
+        run = client.get(f"/api/evals/runs/{run_id}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold]Eval Run {run['id'][:8]}[/bold]")
+    console.print(f"  Status: {run.get('status', '?')}")
+    console.print(f"  Pass rate: {(run.get('pass_rate', 0) or 0) * 100:.0f}%")
+    console.print(f"  Cases: {run.get('passed_cases', 0)}/{run.get('total_cases', 0)}")
+
+    results = run.get("results", [])
+    if results:
+        table = Table(title="Results")
+        table.add_column("Case", style="dim", max_width=8)
+        table.add_column("Passed")
+        table.add_column("Score", justify="right")
+        table.add_column("Tokens", justify="right")
+        table.add_column("Latency", justify="right")
+
+        for r in results:
+            passed = r.get("passed")
+            p_str = "[green]✓[/green]" if passed else "[red]✗[/red]" if passed is not None else "—"
+            score = f"{r.get('score', 0):.2f}" if r.get("score") is not None else "—"
+            table.add_row(
+                r.get("case_id", "")[:8],
+                p_str,
+                score,
+                str(r.get("tokens_used", 0)),
+                f"{r.get('latency_ms', 0)}ms" if r.get("latency_ms") else "—",
+            )
+        console.print(table)
+    console.print()
+
+
+@approvals_app.command("show")
+def approvals_show(
+    approval_id: str = typer.Argument(..., help="Approval ID"),
+):
+    """Show approval detail with context."""
+    try:
+        a = client.get(f"/api/approvals/{approval_id}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    status_val = a.get("status", "unknown")
+    color = {"pending": "yellow", "approved": "green", "rejected": "red"}.get(status_val, "white")
+    console.print(f"\n[bold]Approval {a['id'][:8]}[/bold]")
+    console.print(f"  Status: [{color}]{status_val}[/{color}]")
+    console.print(f"  Node: {a.get('node_id', '—')}")
+    console.print(f"  Blueprint Run: {a.get('blueprint_run_id', '—')[:8]}")
+    if a.get("context"):
+        console.print(Panel(json.dumps(a["context"], indent=2), title="Context"))
+    if a.get("feedback"):
+        console.print(f"  Feedback: {a['feedback']}")
+    console.print()
+
+
+@mcp_app.command("remove")
+def mcp_remove(
+    connection_id: str = typer.Argument(..., help="Connection ID to remove"),
+):
+    """Remove an MCP connection."""
+    typer.confirm(f"Remove MCP connection {connection_id[:8]}?", abort=True)
+    try:
+        client.delete(f"/api/mcp/connections/{connection_id}")
+        console.print(f"[green]Removed MCP connection {connection_id[:8]}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@triggers_app.command("fire")
+def triggers_fire(
+    trigger_id: str = typer.Argument(..., help="Trigger ID to fire"),
+    input_text: str = typer.Option("", "--input", "-i", help="Input text"),
+):
+    """Manually fire a trigger (for testing)."""
+    try:
+        result = client.post(f"/api/triggers/{trigger_id}/fire", json={"input": input_text})
+        console.print(f"[green]Trigger fired.[/green]")
+        if result.get("run_id"):
+            console.print(f"  Run ID: {result['run_id'][:8]}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@marketplace_app.command("search")
+def marketplace_search(
+    query: str = typer.Argument(..., help="Search query"),
+):
+    """Search the marketplace."""
+    try:
+        results = client.get("/api/marketplace/listings", params={"search": query})
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not results:
+        console.print("[dim]No results.[/dim]")
+        return
+
+    table = Table(title=f'Marketplace: "{query}"')
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Title", style="bold")
+    table.add_column("Category")
+    table.add_column("Rating", justify="right")
+    table.add_column("Forks", justify="right")
+
+    for item in results:
+        table.add_row(
+            item["id"][:8],
+            item["title"],
+            item.get("category", "—"),
+            f"{'★' * int(item.get('rating_avg', 0))}" if item.get("rating_avg") else "—",
+            str(item.get("fork_count", 0)),
+        )
+    console.print(table)
+
+
+@agents_app.command("history")
+def agents_history(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+):
+    """Show run history for an agent."""
+    try:
+        runs = client.get(f"/api/runs", params={"agent_id": agent_id, "limit": "20"})
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not runs:
+        console.print("[dim]No runs for this agent.[/dim]")
+        return
+
+    table = Table(title="Run History")
+    table.add_column("Run ID", style="dim", max_width=8)
+    table.add_column("Status")
+    table.add_column("Tokens", justify="right")
+    table.add_column("Cost", justify="right")
+    table.add_column("Duration", justify="right")
+    table.add_column("Created")
+
+    for r in runs:
+        status = r.get("status", "?")
+        color = {"completed": "green", "running": "yellow", "failed": "red"}.get(status, "white")
+        dur = f"{r.get('duration_ms', 0)}ms" if r.get("duration_ms") else "—"
+        table.add_row(
+            r["id"][:8],
+            f"[{color}]{status}[/{color}]",
+            f"{r.get('tokens_used', 0):,}",
+            f"${float(r.get('cost', 0)):.4f}",
+            dur,
+            r.get("created_at", "")[:16],
+        )
+    console.print(table)
+
+
+@cu_app.command("scroll")
+def cu_scroll(
+    direction: str = typer.Argument(..., help="Direction: up, down, left, right"),
+    amount: int = typer.Argument(3, help="Scroll amount (lines)"),
+    app_name: str = typer.Option("", "--app", help="Target app"),
+):
+    """Scroll in a direction."""
+    try:
+        result = client.post("/api/computer-use/execute", json={
+            "command": "scroll", "args": {"direction": direction, "amount": amount, "app": app_name}
+        })
+        console.print(f"[green]Scrolled {direction} {amount}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("focus")
+def cu_focus(
+    app_name: str = typer.Argument(..., help="App name to focus"),
+):
+    """Focus an application."""
+    try:
+        result = client.post("/api/computer-use/execute", json={
+            "command": "focus", "args": {"app": app_name}
+        })
+        console.print(f"[green]Focused {app_name}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("find")
+def cu_find(
+    text: str = typer.Argument(..., help="Text to find on screen"),
+):
+    """Find an element on screen by text (OCR match)."""
+    try:
+        result = client.post("/api/computer-use/execute", json={
+            "command": "find", "args": {"text": text}
+        })
+        if isinstance(result, dict):
+            matches = result.get("matches", [])
+            if matches:
+                for m in matches:
+                    console.print(f"  Found at ({m.get('x', '?')}, {m.get('y', '?')}): {m.get('text', '')}")
+            else:
+                console.print("[dim]No matches found.[/dim]")
+        else:
+            console.print(str(result))
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@cu_app.command("drag")
+def cu_drag(
+    x1: int = typer.Argument(..., help="Start X"),
+    y1: int = typer.Argument(..., help="Start Y"),
+    x2: int = typer.Argument(..., help="End X"),
+    y2: int = typer.Argument(..., help="End Y"),
+):
+    """Drag from one point to another."""
+    try:
+        client.post("/api/computer-use/execute", json={
+            "command": "drag", "args": {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+        })
+        console.print(f"[green]Dragged ({x1},{y1}) → ({x2},{y2})[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@backends_app.command("add")
+def backends_add(
+    name: str = typer.Option(..., "--name", "-n", help="Backend name"),
+    command: str = typer.Option(..., "--command", "-c", help="Command to execute the backend"),
+):
+    """Add a custom agent backend."""
+    try:
+        result = client.post("/api/computer-use/backends", json={"name": name, "command": command})
+        console.print(f"[green]Added backend: {name}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@models_app.command("compare")
+def models_compare(
+    prompt: str = typer.Option(..., "--prompt", "-p", help="Prompt to compare"),
+    models_str: str = typer.Option(..., "--models", "-m", help="Comma-separated model names"),
+):
+    """Compare responses across multiple models."""
+    model_list = [m.strip() for m in models_str.split(",")]
+    try:
+        result = client.post("/api/compare", json={"prompt": prompt, "models": model_list})
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    results = result.get("results", [])
+    for r in results:
+        console.print(f"\n[bold]{r['model']}[/bold] ({r.get('provider', '?')})")
+        console.print(f"  Tokens: {r.get('input_tokens', 0)} in / {r.get('output_tokens', 0)} out")
+        console.print(f"  Latency: {r.get('latency_ms', 0)}ms | Cost: ${r.get('cost', 0):.4f}")
+        if r.get("error"):
+            console.print(f"  [red]Error: {r['error']}[/red]")
+        else:
+            console.print(Panel(r.get("content", "")[:500], border_style="dim"))
 
 
 if __name__ == "__main__":
