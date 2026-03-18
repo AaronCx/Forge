@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.database import supabase as supabase_client
+from app.db import create_db_from_env, get_db, init_db
 from app.mcp.scheduler import cron_scheduler
 from app.routers import (
     agents,
@@ -45,18 +45,24 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Initialize pluggable database backend
+    db = create_db_from_env()
+    init_db(db)
+    await db.initialize()
+
     try:
-        await seed_templates(supabase_client)
+        await seed_templates(get_db())
     except Exception:
         logger.warning("Failed to seed templates — will retry on next startup", exc_info=True)
     try:
-        await seed_blueprint_templates(supabase_client)
+        await seed_blueprint_templates(get_db())
     except Exception:
         logger.warning("Failed to seed blueprint templates", exc_info=True)
     # Start cron scheduler for scheduled triggers
     cron_scheduler.start()
     yield
     cron_scheduler.stop()
+    await db.close()
 
 
 app = FastAPI(

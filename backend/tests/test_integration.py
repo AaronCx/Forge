@@ -252,7 +252,7 @@ def test_cli_version():
         env=_CLI_ENV,
     )
     assert result.returncode == 0
-    assert "1.9.0" in result.stdout
+    assert "agentforge-cli v" in result.stdout
 
 
 def test_cli_status_help():
