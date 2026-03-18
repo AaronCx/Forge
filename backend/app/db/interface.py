@@ -16,7 +16,7 @@ from typing import Any
 class QueryResult:
     """Unified query result returned by all backends."""
 
-    data: list[dict[str, Any]] | dict[str, Any] | None = field(default_factory=list)
+    data: Any = field(default_factory=list)
     count: int | None = None
 
 
