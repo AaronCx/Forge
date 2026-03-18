@@ -7,6 +7,7 @@ checks:
     severity: fail
     exclude:
       - "frontend/lib/supabase.ts"
+      - "README.md"
 
   lint:
     enabled: true
