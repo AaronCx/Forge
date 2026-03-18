@@ -4,8 +4,8 @@
 
 Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 44 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming.
 
-![Version](https://img.shields.io/badge/version-1.9.1-blue)
-![Tests](https://img.shields.io/badge/tests-515_passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.9.2-blue)
+![Tests](https://img.shields.io/badge/tests-641_passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
@@ -66,7 +66,7 @@ Distributed trace recording for all executions. Version prompts like code — di
 Publish, browse, fork, and rate blueprints. Organization support with member RBAC.
 
 ### Live Dashboard + CLI
-Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytics. Full CLI with 20+ command groups.
+Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytics. CLI-first experience with 35+ command groups covering the full platform — no browser required.
 
 ---
 
@@ -158,7 +158,7 @@ graph TB
 | CLI | Typer, Rich, httpx |
 | Database | PostgreSQL via Supabase (17 migrations with RLS) |
 | Auth | Supabase Auth (email + GitHub OAuth) |
-| Testing | pytest (515 tests), vitest + testing-library (21 tests) |
+| Testing | pytest (620 tests), vitest + testing-library (21 tests) |
 | Deployment | Vercel (frontend), Render (backend) |
 | CI/CD | GitHub Actions (Ruff, mypy, pytest, ESLint, tsc, vitest) |
 
@@ -303,27 +303,88 @@ Runs, Costs, Dashboard, Messages, Orchestration, Providers, Evals, Approvals, Tr
 
 ## CLI
 
+The CLI covers every action available in the web UI. A user who never opens a browser can set up, configure, create agents, build blueprints, run workflows, check costs, manage knowledge bases, run evals, and monitor everything from the terminal.
+
 ```bash
-agentforge status                           # Server health
+# Setup & lifecycle
+agentforge init                             # Create ~/.agentforge/config.toml
+agentforge up                               # Start backend + frontend
+agentforge down                             # Stop everything
+agentforge restart                          # Restart all services
+agentforge status                           # Quick health check
+agentforge health                           # Detailed system health
 agentforge dashboard                        # Live TUI dashboard
+
+# Auth
+agentforge auth signup --email e --password p   # Create account from CLI
+agentforge auth login --email e --password p    # Login, store token
+agentforge auth logout                          # Clear session
+agentforge auth whoami                          # Current user info
+
+# Configuration
+agentforge config show                      # Display config (keys masked)
+agentforge config set api-key <key>         # Set a config value
+agentforge config set-provider openai <key> # Configure provider (updates .env too)
+agentforge config set-default-model gpt-4o  # Set default model
+
+# Agents
 agentforge agents list                      # List agents
-agentforge agents run <id> --input "..."    # Run agent
+agentforge agents create --name "X" --prompt "..." --tools web_search
+agentforge agents run <id> --input "..."    # Run with streaming output
+agentforge agents history <id>              # Run history for an agent
+agentforge agents templates                 # List available templates
+
+# Blueprints
 agentforge blueprints list                  # List blueprints
-agentforge blueprints run <id> --input "..."# Run blueprint
-agentforge orchestrate "objective"          # Multi-agent orchestration
-agentforge costs --period week              # Cost analytics
-agentforge cu status                        # Computer use capabilities
+agentforge blueprints create --from-template research
+agentforge blueprints run <id> --input "..."# Run with node-by-node streaming
+agentforge blueprints export <id> -o bp.json# Export as JSON for version control
+agentforge blueprints import bp.json        # Import from JSON
+
+# Multi-agent orchestration
+agentforge orchestrate "objective text"     # Submit and stream
+
+# Cost tracking
+agentforge costs                            # Summary (today/week/month)
+agentforge costs --breakdown agent          # By agent, model, or provider
+agentforge costs --period month             # Monthly view
+
+# Models & providers
+agentforge models list                      # All models across providers
+agentforge models test anthropic            # Test provider connection
+agentforge models compare --prompt "..." --models "gpt-4o,claude-sonnet-4-20250514"
+
+# Evals
+agentforge evals create --name "Quality" --target agent:<id>
+agentforge evals add-case <suite> --input "X" --expected "Y"
+agentforge evals run <suite-id>             # Run eval suite
+agentforge evals results <run-id>           # Detailed results
+
+# Knowledge base
+agentforge knowledge create --name "Docs"
+agentforge knowledge upload <kb-id> ./docs/ # Upload directory
+agentforge knowledge search <kb-id> --query "text"
+
+# Computer use
+agentforge cu status                        # Capability report
 agentforge cu see                           # Take screenshot
 agentforge cu ocr                           # OCR screen text
 agentforge cu click 500 300                 # Click at coordinates
 agentforge cu type "hello"                  # Type text
-agentforge cu backends list                 # List agent backends
-agentforge targets list                     # List execution targets
-agentforge recordings list                  # List screen recordings
-agentforge evals list                       # List eval suites
-agentforge traces list                      # List execution traces
-agentforge knowledge list                   # List document collections
-agentforge marketplace browse               # Browse workflow marketplace
+agentforge cu focus Safari                  # Focus app
+agentforge cu find "Button Label"           # Find element by text
+
+# Additional command groups
+agentforge runs list                        # View agent runs
+agentforge triggers list                    # Manage event triggers
+agentforge approvals list                   # Human-in-the-loop inbox
+agentforge traces list                      # Execution traces
+agentforge prompts list <agent-id>          # Prompt versioning
+agentforge marketplace browse               # Browse blueprints
+agentforge mcp list                         # MCP connections
+agentforge targets list                     # Execution targets
+agentforge recordings list                  # Screen recordings
+agentforge keys list                        # API key management
 ```
 
 ---
@@ -331,12 +392,15 @@ agentforge marketplace browse               # Browse workflow marketplace
 ## Testing
 
 ```bash
-# Backend (515 tests)
+# Backend (620 tests)
 cd backend && source .venv/bin/activate
 pytest tests/ -v --cov=app
 
 # Frontend (21 tests)
-cd frontend && bun run test
+cd frontend && npx vitest run
+
+# Or use the Makefile
+make test
 ```
 
 ---
@@ -360,10 +424,12 @@ AgentForge/
 │   │           ├── drive/       # Terminal automation
 │   │           ├── linux/       # xdotool/tesseract fallback
 │   │           └── windows/     # pyautogui/PowerShell fallback
-│   └── tests/                   # 515 tests
-├── cli/                         # Typer + Rich CLI
+│   └── tests/                   # 620 tests
+├── cli/                         # Typer + Rich CLI (35+ command groups)
 ├── scripts/                     # Bootstrap, Steer/Drive CLIs, OCR helper
 ├── supabase/migrations/         # 17 SQL migrations with RLS
+├── setup.sh                     # One-command project setup
+├── Makefile                     # setup, up, down, test, lint targets
 ├── docs/                        # Test & security reports
 └── .github/workflows/           # CI + deployment
 ```
