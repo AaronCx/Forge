@@ -24,13 +24,24 @@ def get_config() -> dict:
     config = {
         "api_url": os.environ.get("AGENTFORGE_API_URL", "http://localhost:8000"),
         "api_key": os.environ.get("AGENTFORGE_API_KEY", ""),
+        "default_model": "",
     }
 
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE, "rb") as f:
             file_config = tomllib.load(f)
-            config["api_url"] = file_config.get("api_url", config["api_url"])
-            config["api_key"] = file_config.get("api_key", config["api_key"])
+            # Support both flat and nested config formats
+            if "api" in file_config:
+                api = file_config["api"]
+                config["api_url"] = api.get("url", config["api_url"])
+                config["api_key"] = api.get("key", config["api_key"])
+            else:
+                config["api_url"] = file_config.get("api_url", config["api_url"])
+                config["api_key"] = file_config.get("api_key", config["api_key"])
+            if "defaults" in file_config:
+                config["default_model"] = file_config["defaults"].get("model", "")
+            else:
+                config["default_model"] = file_config.get("default_model", "")
 
     _config = config
     return config

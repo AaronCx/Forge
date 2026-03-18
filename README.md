@@ -166,54 +166,42 @@ graph TB
 
 ## Quick Start
 
-### Prerequisites
-
-- [Bun](https://bun.sh) (frontend)
-- Python 3.12+
-- [Supabase](https://supabase.com) project
-- OpenAI API key (optionally Anthropic / Google)
-
-### 1. Clone & Setup Database
-
 ```bash
+# Clone and setup
 git clone https://github.com/AaronCx/AgentForge.git
 cd AgentForge
+./setup.sh
+
+# Add your API keys
+edit backend/.env              # Add OpenAI/Anthropic/Supabase keys
+edit frontend/.env.local       # Add Supabase keys
+
+# Start everything
+agentforge up
+
+# Open the dashboard
+agentforge dashboard           # Terminal TUI
+# or visit http://localhost:3000  # Web GUI
 ```
 
-Run the SQL migrations in your Supabase dashboard (SQL Editor), in order:
+That's the entire quick start. Four visible steps.
 
-```
-supabase/migrations/001_users.sql → 008_agent_messages.sql
-supabase/migrations/20260312_blueprints.sql → 20260312_execution_targets.sql
-```
+### Prerequisites
 
-### 2. Backend
+- Python 3.11+ (backend + CLI)
+- [Bun](https://bun.sh) or Node.js (frontend)
+- [Supabase](https://supabase.com) project (database + auth)
+- OpenAI API key (optionally Anthropic / Google)
+
+### Database Migrations
+
+`setup.sh` generates a combined migration file at `supabase/migrations/combined_all.sql`. Paste it into your Supabase SQL Editor, or use the Supabase CLI:
 
 ```bash
-cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env    # Edit with your API keys
-uvicorn app.main:app --reload
+npx supabase db push
 ```
 
-### 3. Frontend
-
-```bash
-cd frontend
-bun install
-cp .env.example .env.local    # Edit with your Supabase keys
-bun run dev
-```
-
-### 4. CLI (optional)
-
-```bash
-cd cli && pip install -e .
-agentforge init
-```
-
-### 5. Computer Use Setup (macOS)
+### Computer Use (macOS)
 
 ```bash
 ./scripts/bootstrap-macos.sh      # Installs deps, builds native CLIs, checks permissions
@@ -233,16 +221,22 @@ pip install pyautogui pytesseract pygetwindow pyperclip
 
 </details>
 
-### 6. Docker
+### Docker
 
 ```bash
 cp backend/.env.example .env
 docker-compose up --build
 ```
 
-### Demo Mode
+### Stack Management
 
-Visit `http://localhost:3000/dashboard?demo=true` to explore without authentication.
+```bash
+agentforge up          # Start backend + frontend
+agentforge down        # Stop everything
+agentforge restart     # Restart all services
+agentforge status      # Quick health check
+agentforge dashboard   # Live TUI monitor
+```
 
 ---
 

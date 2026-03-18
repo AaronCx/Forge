@@ -1,7 +1,13 @@
 """AgentForge CLI — main entry point."""
 
 import json
+import os
+import signal
+import subprocess
+import sys
 import time
+from pathlib import Path
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -13,6 +19,8 @@ from rich.text import Text
 from agentforge import __version__
 from agentforge import client
 from agentforge.config import ensure_config, get_api_url, get_api_key, get_config, CONFIG_FILE
+
+PIDS_FILE = Path.home() / ".agentforge" / "pids.json"
 
 app = typer.Typer(
     name="agentforge",
@@ -34,9 +42,203 @@ def version():
 @app.command()
 def init():
     """Initialize CLI configuration."""
-    ensure_config()
-    console.print("[green]Config created at ~/.agentforge/config.toml[/green]")
-    console.print("Set your api_url and api_key in the config file.")
+    import tomllib as _toml
+    config_dir = Path.home() / ".agentforge"
+    config_file = config_dir / "config.toml"
+    if config_file.exists():
+        console.print("[green]Config already exists.[/green] Run 'agentforge config show' to view.")
+        return
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(
+        '# AgentForge CLI Configuration\n\n'
+        '[api]\n'
+        'url = "http://localhost:8000"\n'
+        'key = ""\n\n'
+        '[providers]\n'
+        '# Uncomment and add your keys:\n'
+        '# openai_api_key = "sk-..."\n'
+        '# anthropic_api_key = "sk-ant-..."\n'
+        '# ollama_url = "http://localhost:11434"\n\n'
+        '[defaults]\n'
+        'model = "gpt-4o-mini"\n'
+    )
+    console.print(f"[green]Config created at {config_file}[/green] — edit to add your API keys.")
+
+
+def _find_project_root() -> Path | None:
+    """Walk up from cwd to find the AgentForge project root (has backend/ and frontend/)."""
+    check = Path.cwd()
+    for _ in range(10):
+        if (check / "backend" / "app").is_dir() and (check / "frontend" / "package.json").is_file():
+            return check
+        parent = check.parent
+        if parent == check:
+            break
+        check = parent
+    return None
+
+
+def _save_pids(pids: dict):
+    PIDS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PIDS_FILE.write_text(json.dumps(pids))
+
+
+def _load_pids() -> dict:
+    if PIDS_FILE.exists():
+        try:
+            return json.loads(PIDS_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def _is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _wait_for_health(url: str, timeout: int = 30) -> bool:
+    """Poll a URL until it returns 200 or timeout."""
+    import httpx
+    for _ in range(timeout):
+        try:
+            r = httpx.get(url, timeout=2)
+            if r.status_code == 200:
+                return True
+        except Exception:
+            pass
+        time.sleep(1)
+    return False
+
+
+@app.command()
+def up():
+    """Start the backend and frontend (full stack)."""
+    root = _find_project_root()
+    if not root:
+        console.print("[red]Could not find AgentForge project root.[/red]")
+        console.print("[dim]Run this from inside the AgentForge directory.[/dim]")
+        raise typer.Exit(1)
+
+    existing = _load_pids()
+
+    # Check if already running
+    if existing.get("backend") and _is_running(existing["backend"]):
+        console.print("[yellow]Backend already running[/yellow] (PID {})".format(existing["backend"]))
+    else:
+        # Check env file
+        env_file = root / "backend" / ".env"
+        if not env_file.exists():
+            console.print("[red]backend/.env not found.[/red] Run ./setup.sh first.")
+            raise typer.Exit(1)
+        env_content = env_file.read_text()
+        if "your-" in env_content or "your_" in env_content:
+            console.print("[yellow]Warning: backend/.env still has placeholder values — update your API keys.[/yellow]")
+
+        # Start backend
+        venv_uvicorn = root / "backend" / ".venv" / "bin" / "uvicorn"
+        if not venv_uvicorn.exists():
+            console.print("[red]Backend venv not found.[/red] Run ./setup.sh first.")
+            raise typer.Exit(1)
+
+        backend_proc = subprocess.Popen(
+            [str(venv_uvicorn), "app.main:app", "--reload", "--port", "8000"],
+            cwd=str(root / "backend"),
+            stdout=open(root / "backend" / "server.log", "a"),
+            stderr=subprocess.STDOUT,
+        )
+        existing["backend"] = backend_proc.pid
+        console.print(f"[green]Backend starting[/green] (PID {backend_proc.pid})")
+
+    if existing.get("frontend") and _is_running(existing["frontend"]):
+        console.print("[yellow]Frontend already running[/yellow] (PID {})".format(existing["frontend"]))
+    else:
+        # Start frontend
+        bun_path = "bun"
+        if not any((Path(p) / "bun").exists() for p in os.environ.get("PATH", "").split(":")):
+            # Try common bun location
+            home_bun = Path.home() / ".bun" / "bin" / "bun"
+            if home_bun.exists():
+                bun_path = str(home_bun)
+
+        frontend_proc = subprocess.Popen(
+            [bun_path, "run", "dev", "--port", "3000"],
+            cwd=str(root / "frontend"),
+            stdout=open(root / "frontend" / "server.log", "a"),
+            stderr=subprocess.STDOUT,
+        )
+        existing["frontend"] = frontend_proc.pid
+        console.print(f"[green]Frontend starting[/green] (PID {frontend_proc.pid})")
+
+    _save_pids(existing)
+
+    # Wait for health
+    console.print("[dim]Waiting for services...[/dim]")
+
+    backend_ok = _wait_for_health("http://localhost:8000/health", timeout=20)
+    frontend_ok = _wait_for_health("http://localhost:3000", timeout=20)
+
+    console.print()
+    if backend_ok:
+        console.print("[green]✓[/green] Backend running at http://localhost:8000")
+    else:
+        console.print("[yellow]⚠[/yellow]  Backend not yet healthy (check backend/server.log)")
+    if frontend_ok:
+        console.print("[green]✓[/green] Frontend running at http://localhost:3000")
+    else:
+        console.print("[yellow]⚠[/yellow]  Frontend not yet healthy (check frontend/server.log)")
+    if backend_ok:
+        console.print("[green]✓[/green] API docs at http://localhost:8000/docs")
+
+    console.print()
+    console.print("Run [bold]agentforge dashboard[/bold] to monitor.")
+    console.print("Run [bold]agentforge down[/bold] to stop everything.")
+
+
+@app.command()
+def down():
+    """Stop the backend and frontend."""
+    pids = _load_pids()
+    if not pids:
+        console.print("[dim]No running services found.[/dim]")
+        return
+
+    for name, pid in pids.items():
+        if pid and _is_running(pid):
+            try:
+                os.kill(pid, signal.SIGTERM)
+                console.print(f"[green]Stopped {name}[/green] (PID {pid})")
+            except OSError as e:
+                console.print(f"[red]Failed to stop {name} (PID {pid}): {e}[/red]")
+        else:
+            console.print(f"[dim]{name} not running[/dim]")
+
+    PIDS_FILE.unlink(missing_ok=True)
+    console.print("[green]All services stopped.[/green]")
+
+
+@app.command()
+def restart():
+    """Restart backend and frontend (down + up)."""
+    console.print("[bold]Stopping services...[/bold]")
+    # Inline down logic
+    pids = _load_pids()
+    for name, pid in pids.items():
+        if pid and _is_running(pid):
+            try:
+                os.kill(pid, signal.SIGTERM)
+                console.print(f"  Stopped {name}")
+            except OSError:
+                pass
+    PIDS_FILE.unlink(missing_ok=True)
+    time.sleep(1)
+
+    console.print("[bold]Starting services...[/bold]")
+    # Delegate to up() — typer invokes it
+    up()
 
 
 # --- Config commands ---
