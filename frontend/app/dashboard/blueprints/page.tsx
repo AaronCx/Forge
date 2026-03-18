@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 function BlueprintCard({ blueprint }: { blueprint: Blueprint }) {
   const demo = isDemoMode();
   const href = demo
-    ? `/dashboard/blueprints/${blueprint.id}?demo=true`
+    ? `/dashboard/blueprints/${blueprint.id}`
     : `/dashboard/blueprints/${blueprint.id}/edit`;
 
   return (

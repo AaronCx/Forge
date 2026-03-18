@@ -5,14 +5,12 @@ import { Agent } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { isDemoMode } from "@/lib/demo-data";
-
 interface AgentCardProps {
   agent: Agent;
 }
 
 export function AgentCard({ agent }: AgentCardProps) {
-  const demoSuffix = isDemoMode() ? "?demo=true" : "";
+  const demoSuffix = "";
 
   return (
     <Card>

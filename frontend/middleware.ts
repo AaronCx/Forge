@@ -5,22 +5,28 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get("sb-access-token")?.value;
   const { pathname } = request.nextUrl;
 
-  // Public routes
-  if (pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/auth/callback") || pathname.startsWith("/demo") || pathname.startsWith("/docs") || pathname === "/") {
+  // Public routes — always accessible
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/docs") ||
+    pathname === "/"
+  ) {
+    // Redirect authenticated users away from login/signup
     if (token && (pathname === "/login" || pathname === "/signup")) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     return NextResponse.next();
   }
 
-  // Demo mode bypass
-  if (pathname.startsWith("/dashboard") && request.nextUrl.searchParams.has("demo")) {
-    const response = NextResponse.next();
-    response.cookies.set("agentforge_demo", "1", { path: "/" });
-    return response;
+  // Legacy /demo route — redirect to dashboard (detection is automatic now)
+  if (pathname.startsWith("/demo")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Protected routes
+  // Protected routes — require auth token OR demo cookie (set by BackendProvider
+  // when backend is unreachable)
   if (!token && pathname.startsWith("/dashboard")) {
     const isDemo = request.cookies.get("agentforge_demo")?.value === "1";
     if (isDemo) {

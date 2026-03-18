@@ -1,6 +1,6 @@
 /**
  * Demo/mock data for the dashboard when running in demo mode.
- * Activated via ?demo=true query parameter.
+ * Demo mode activates automatically when the backend is unreachable.
  */
 
 export const DEMO_STATS = {
@@ -325,10 +325,13 @@ export const DEMO_COST_MONTH = {
   request_count: 1247,
 };
 
+/**
+ * Legacy check — used by components that haven't migrated to useBackendMode().
+ * Checks the demo cookie (set by BackendProvider when backend is unreachable)
+ * or the force-demo env var (Vercel deployment).
+ */
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
-  return (
-    new URLSearchParams(window.location.search).has("demo") ||
-    document.cookie.includes("agentforge_demo=1")
-  );
+  if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") return true;
+  return document.cookie.includes("agentforge_demo=1");
 }

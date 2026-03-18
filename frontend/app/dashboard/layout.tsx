@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { isDemoMode } from "@/lib/demo-data";
+import { useBackendMode } from "@/lib/backend-context";
 import { Menu } from "lucide-react";
 
 const navItems = [
@@ -38,13 +38,11 @@ const navItems = [
 function SidebarContent({
   pathname,
   userEmail,
-  demo,
   onLogout,
   onNavigate,
 }: {
   pathname: string;
   userEmail: string;
-  demo: boolean;
   onLogout: () => void;
   onNavigate?: () => void;
 }) {
@@ -52,7 +50,7 @@ function SidebarContent({
     <>
       <nav className="flex flex-col gap-1 p-4">
         {navItems.map((item) => {
-          const href = demo ? `${item.href}?demo=true` : item.href;
+          const href = item.href;
           return (
             <Link
               key={item.href}
@@ -99,11 +97,18 @@ export default function DashboardLayout({
   const [userEmail, setUserEmail] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { mode } = useBackendMode();
+  const demo = mode === "demo";
+
   useEffect(() => {
-    if (isDemoMode()) {
+    if (mode === "loading") return;
+    if (demo) {
       setUserEmail("demo@agentforge.dev");
+      // Set cookie so middleware allows access without auth
+      document.cookie = "agentforge_demo=1; path=/";
       return;
     }
+    // Live mode — require real auth
     supabase.auth
       .getUser()
       .then(({ data }) => {
@@ -116,13 +121,11 @@ export default function DashboardLayout({
       .catch(() => {
         router.push("/login");
       });
-  }, [router]);
+  }, [router, mode, demo]);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
-
-  const demo = isDemoMode();
 
   async function handleLogout() {
     document.cookie = "agentforge_demo=; max-age=0; path=/";
@@ -156,7 +159,6 @@ export default function DashboardLayout({
         <SidebarContent
           pathname={pathname}
           userEmail={userEmail}
-          demo={demo}
           onLogout={handleLogout}
         />
       </aside>
@@ -177,7 +179,6 @@ export default function DashboardLayout({
               <SidebarContent
                 pathname={pathname}
                 userEmail={userEmail}
-                demo={demo}
                 onLogout={handleLogout}
                 onNavigate={() => setMobileOpen(false)}
               />
@@ -190,6 +191,20 @@ export default function DashboardLayout({
             <span className="font-semibold">AgentForge</span>
           </div>
         </header>
+
+        {/* Demo mode banner */}
+        {demo && (
+          <div className="bg-yellow-900/50 border-b border-yellow-700 px-4 py-2 text-sm text-yellow-200 text-center">
+            Backend not detected. Showing demo mode. Run &apos;agentforge up&apos; to start the backend.
+          </div>
+        )}
+
+        {/* Loading state */}
+        {mode === "loading" && (
+          <div className="flex items-center justify-center p-8 text-muted-foreground text-sm">
+            Detecting backend...
+          </div>
+        )}
 
         {/* Main content */}
         <main className="flex-1 overflow-auto">
