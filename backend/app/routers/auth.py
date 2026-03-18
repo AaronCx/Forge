@@ -13,10 +13,7 @@ async def get_current_user(authorization: str = Header(...)):
     try:
         user_response = get_db().auth.get_user(token)
         # Supabase returns response.user, local auth returns user directly
-        if hasattr(user_response, "user"):
-            user = user_response.user
-        else:
-            user = user_response
+        user = user_response.user if hasattr(user_response, "user") else user_response
         if not user or not getattr(user, "id", None):
             raise HTTPException(status_code=401, detail="Invalid token")
         return user

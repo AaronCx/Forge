@@ -8,7 +8,6 @@ This module exists only for backward compatibility during migration.
 """
 
 import os
-import sys
 
 from dotenv import load_dotenv
 

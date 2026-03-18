@@ -7,7 +7,7 @@ For Supabase mode, auth is handled client-side via Supabase Auth.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -54,7 +54,7 @@ async def signup(req: AuthRequest):
     password_hash = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt()).decode()
 
     user_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     db.table("local_users").insert({
         "id": user_id,
@@ -109,6 +109,6 @@ async def login(req: AuthRequest):
 
 
 @router.get("/auth/me", response_model=UserInfo)
-async def me(user=Depends(get_current_user)):
+async def me(user=Depends(get_current_user)):  # noqa: B008
     """Return current user info."""
     return UserInfo(id=user.id, email=getattr(user, "email", ""))

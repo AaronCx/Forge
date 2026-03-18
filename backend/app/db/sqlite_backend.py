@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -321,7 +321,7 @@ class SQLiteQueryBuilder(QueryBuilder):
             elif isinstance(v, bool):
                 result[k] = int(v)
             elif v == "now()":
-                result[k] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                result[k] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             else:
                 result[k] = v
         return result
@@ -382,7 +382,7 @@ class SQLiteQueryBuilder(QueryBuilder):
         col_names = [desc[0] for desc in cursor.description] if cursor.description else []
 
         for raw in raw_rows:
-            row_dict = dict(zip(col_names, raw))
+            row_dict = dict(zip(col_names, raw, strict=False))
 
             # Nest join columns under their table name
             for join_table, join_cols in join_col_aliases.items():
@@ -422,7 +422,7 @@ class SQLiteQueryBuilder(QueryBuilder):
             if "id" not in data and "id" in table_cols:
                 data["id"] = str(uuid.uuid4())
             # Set timestamps only if table has them
-            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             if "created_at" in table_cols:
                 data.setdefault("created_at", now)
             if "updated_at" in table_cols:
@@ -452,10 +452,10 @@ class SQLiteQueryBuilder(QueryBuilder):
 
         data = dict(self._update_data)
         if "updated_at" in table_cols:
-            data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            data["updated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         serialized = self._serialize_json(data)
 
-        set_clauses = ", ".join(f"{k} = ?" for k in serialized.keys())
+        set_clauses = ", ".join(f"{k} = ?" for k in serialized)
         set_params = list(serialized.values())
 
         where_sql, where_params = self._build_where()
@@ -469,7 +469,7 @@ class SQLiteQueryBuilder(QueryBuilder):
         cursor = await db.execute(select_sql, where_params)
         rows = await cursor.fetchall()
         col_names = [desc[0] for desc in cursor.description] if cursor.description else []
-        result_rows = [self._deserialize_row(dict(zip(col_names, r))) for r in rows]
+        result_rows = [self._deserialize_row(dict(zip(col_names, r, strict=False))) for r in rows]
 
         return QueryResult(data=result_rows)
 
@@ -491,7 +491,7 @@ class SQLiteQueryBuilder(QueryBuilder):
         for data in data_list:
             if "id" not in data and "id" in table_cols:
                 data["id"] = str(uuid.uuid4())
-            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             if "created_at" in table_cols:
                 data.setdefault("created_at", now)
             if "updated_at" in table_cols:
@@ -504,7 +504,7 @@ class SQLiteQueryBuilder(QueryBuilder):
 
             if self._upsert_conflict:
                 conflict_cols = self._upsert_conflict
-                update_cols = [k for k in serialized.keys() if k not in conflict_cols.split(",")]
+                update_cols = [k for k in serialized if k not in conflict_cols.split(",")]
                 update_set = ", ".join(f"{k} = excluded.{k}" for k in update_cols)
                 sql = f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders}) ON CONFLICT({conflict_cols}) DO UPDATE SET {update_set}"
             else:
