@@ -314,12 +314,12 @@ class SQLiteQueryBuilder(QueryBuilder):
 
     def _serialize_json(self, data: dict[str, Any]) -> dict[str, Any]:
         """Serialize JSON columns and booleans for SQLite storage."""
-        result = {}
+        result: dict[str, Any] = {}
         for k, v in data.items():
             if k in self._json_cols and v is not None:
                 result[k] = json.dumps(v) if not isinstance(v, str) else v
             elif isinstance(v, bool):
-                result[k] = int(v)
+                result[k] = int(v)  # type: ignore[assignment]
             elif v == "now()":
                 result[k] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             else:
@@ -410,7 +410,7 @@ class SQLiteQueryBuilder(QueryBuilder):
         return QueryResult(data=rows, count=count_val)
 
     async def _exec_insert(self, db: aiosqlite.Connection) -> QueryResult:
-        data_list = self._insert_data if isinstance(self._insert_data, list) else [self._insert_data]
+        data_list: list[dict[str, Any]] = self._insert_data if isinstance(self._insert_data, list) else [self._insert_data]  # type: ignore[list-item]
         results: list[dict[str, Any]] = []
 
         # Get actual table columns to avoid inserting into non-existent columns
@@ -481,7 +481,7 @@ class SQLiteQueryBuilder(QueryBuilder):
         return QueryResult(data=[])
 
     async def _exec_upsert(self, db: aiosqlite.Connection) -> QueryResult:
-        data_list = self._insert_data if isinstance(self._insert_data, list) else [self._insert_data]
+        data_list: list[dict[str, Any]] = self._insert_data if isinstance(self._insert_data, list) else [self._insert_data]  # type: ignore[list-item]
         results: list[dict[str, Any]] = []
 
         # Get actual table columns

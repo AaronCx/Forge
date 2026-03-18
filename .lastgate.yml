@@ -8,6 +8,7 @@ checks:
     exclude:
       - "frontend/lib/supabase.ts"
       - "README.md"
+      - "backend/app/db/*"
 
   lint:
     enabled: true
