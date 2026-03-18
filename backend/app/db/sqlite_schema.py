@@ -13,6 +13,14 @@ SCHEMA = """\
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+-- ===================== local_users (local auth) =====================
+CREATE TABLE IF NOT EXISTS local_users (
+    id              TEXT PRIMARY KEY,
+    email           TEXT UNIQUE NOT NULL,
+    password_hash   TEXT NOT NULL,
+    created_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 -- ===================== 002_agents =====================
 CREATE TABLE IF NOT EXISTS agents (
     id                TEXT PRIMARY KEY,

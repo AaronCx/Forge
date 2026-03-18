@@ -15,6 +15,7 @@ from app.routers import (
     agents,
     api_keys,
     approvals,
+    auth_api,
     blueprints,
     compare,
     computer_use,
@@ -85,6 +86,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Webhook-Secret"],
 )
 
+app.include_router(auth_api.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(api_keys.router, prefix="/api")
