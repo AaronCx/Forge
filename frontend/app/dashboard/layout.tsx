@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getUser, logout as authLogout } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -109,14 +109,13 @@ export default function DashboardLayout({
       return;
     }
     // Live mode — require real auth
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (!data.user) {
+    getUser()
+      .then((user) => {
+        if (!user) {
           router.push("/login");
           return;
         }
-        setUserEmail(data.user.email || "");
+        setUserEmail(user.email || "");
       })
       .catch(() => {
         router.push("/login");
@@ -128,17 +127,7 @@ export default function DashboardLayout({
   }, [pathname]);
 
   async function handleLogout() {
-    document.cookie = "agentforge_demo=; max-age=0; path=/";
-    document.cookie = "sb-access-token=; max-age=0; path=/";
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // Continue with redirect even if signOut fails
-    }
-    // Clear any Supabase session data from localStorage
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith("sb-")) localStorage.removeItem(key);
-    }
+    await authLogout();
     window.location.href = "/login";
   }
 

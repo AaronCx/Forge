@@ -9,9 +9,36 @@ function getSupabaseClient(): SupabaseClient {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
-    );
+    // Local mode — no Supabase client available.
+    // Auth is handled via API endpoints instead.
+    // Return a no-op proxy that won't crash if accidentally imported.
+    return new Proxy({} as SupabaseClient, {
+      get(_target, prop) {
+        if (prop === "auth") {
+          return {
+            getSession: async () => ({ data: { session: null }, error: null }),
+            getUser: async () => ({ data: { user: null }, error: null }),
+            signInWithPassword: async () => ({
+              data: null,
+              error: { message: "Use API auth in local mode" },
+            }),
+            signUp: async () => ({
+              data: null,
+              error: { message: "Use API auth in local mode" },
+            }),
+            signOut: async () => ({ error: null }),
+            signInWithOAuth: async () => ({
+              data: null,
+              error: { message: "OAuth not available in local mode" },
+            }),
+            onAuthStateChange: () => ({
+              data: { subscription: { unsubscribe: () => {} } },
+            }),
+          };
+        }
+        return undefined;
+      },
+    });
   }
 
   _supabase = createClient(supabaseUrl, supabaseAnonKey);
