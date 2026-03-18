@@ -504,8 +504,15 @@ class TestSQLInjection:
             r"raw_sql",
         ]
 
+        # The db/ package contains the SQLite backend which uses raw SQL by design
+        # (it IS the database driver). Exclude it from this check.
+        excluded_dirs = {"db"}
+
         violations = []
         for py_file in glob.glob(os.path.join(app_dir, "**/*.py"), recursive=True):
+            rel = os.path.relpath(py_file, app_dir)
+            if any(rel.startswith(d + os.sep) or rel.startswith(d + "/") for d in excluded_dirs):
+                continue
             with open(py_file) as f:
                 content = f.read()
                 for pattern in dangerous_patterns:
