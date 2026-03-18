@@ -7,8 +7,8 @@ Build AI-powered workflows that chain LLM reasoning with deterministic logic, au
 ![Version](https://img.shields.io/badge/version-1.9.2-blue)
 ![Tests](https://img.shields.io/badge/tests-641_passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal?logo=fastapi)
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
