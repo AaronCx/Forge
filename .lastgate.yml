@@ -9,6 +9,8 @@ checks:
       - "frontend/lib/supabase.ts"
       - "README.md"
       - "backend/app/db/*"
+      - "frontend/components/workspace/*"
+      - "frontend/app/dashboard/workspace/**"
 
   lint:
     enabled: true
