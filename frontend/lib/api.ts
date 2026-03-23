@@ -369,6 +369,26 @@ export interface OrgMember {
   joined_at: string;
 }
 
+export interface Workspace {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  path: string;
+  status: string;
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceFile {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number | null;
+  children: WorkspaceFile[] | null;
+}
+
 export const api = {
   agents: {
     list: (token: string) => request<Agent[]>("/api/agents", { token }),
@@ -580,6 +600,25 @@ export const api = {
       request<Record<string, unknown>>(`/api/targets/${id}/health`, { method: "POST", token }),
     capabilities: (token: string) =>
       request<Record<string, unknown>>("/api/targets/capabilities", { token }),
+  },
+  workspaces: {
+    list: (token: string) => request<Workspace[]>("/api/workspaces", { token }),
+    get: (id: string, token: string) => request<Workspace>(`/api/workspaces/${id}`, { token }),
+    create: (data: { name: string; description?: string }, token: string) =>
+      request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(data), token }),
+    delete: (id: string, token: string) =>
+      request<void>(`/api/workspaces/${id}`, { method: "DELETE", token }),
+    files: (id: string, token: string) => request<WorkspaceFile[]>(`/api/workspaces/${id}/files`, { token }),
+    readFile: (id: string, path: string, token: string) =>
+      request<{ path: string; content: string; size: number }>(`/api/workspaces/${id}/files/${path}`, { token }),
+    writeFile: (id: string, path: string, content: string, token: string) =>
+      request<{ ok: boolean }>(`/api/workspaces/${id}/files/${path}`, { method: "PUT", body: JSON.stringify({ content }), token }),
+    deleteFile: (id: string, path: string, token: string) =>
+      request<{ ok: boolean }>(`/api/workspaces/${id}/files/${path}`, { method: "DELETE", token }),
+    search: (id: string, query: string, token: string) =>
+      request<{ path: string; line: number; content: string }[]>(`/api/workspaces/${id}/files/search`, { method: "POST", body: JSON.stringify({ query }), token }),
+    history: (id: string, token: string, path?: string) =>
+      request<Record<string, unknown>[]>(`/api/workspaces/${id}/history${path ? `?path=${encodeURIComponent(path)}` : ""}`, { token }),
   },
   organizations: {
     list: (token: string) =>

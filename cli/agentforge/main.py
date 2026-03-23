@@ -14,7 +14,9 @@ from rich.table import Table
 from rich.live import Live
 from rich.panel import Panel
 from rich.layout import Layout
+from rich.syntax import Syntax
 from rich.text import Text
+from rich.tree import Tree
 
 from agentforge import __version__
 from agentforge import client
@@ -3721,6 +3723,333 @@ def models_compare(
             console.print(f"  [red]Error: {r['error']}[/red]")
         else:
             console.print(Panel(r.get("content", "")[:500], border_style="dim"))
+
+
+# --- Workspace commands ---
+
+workspace_app = typer.Typer(help="Manage workspaces")
+app.add_typer(workspace_app, name="workspace")
+
+
+def _resolve_workspace(name: str) -> dict:
+    """Look up a workspace by name. Returns the workspace dict or exits."""
+    try:
+        workspaces = client.get("/api/workspaces")
+    except Exception as e:
+        console.print(f"[red]Error fetching workspaces: {e}[/red]")
+        raise typer.Exit(1)
+
+    for ws in workspaces:
+        if ws.get("name") == name:
+            return ws
+
+    console.print(f"[red]Workspace '{name}' not found.[/red]")
+    names = [ws.get("name", "?") for ws in workspaces]
+    if names:
+        console.print(f"[dim]Available: {', '.join(names)}[/dim]")
+    raise typer.Exit(1)
+
+
+@workspace_app.command("create")
+def workspace_create(
+    name: str = typer.Argument(..., help="Workspace name"),
+):
+    """Create a new workspace."""
+    try:
+        result = client.post("/api/workspaces", json={"name": name})
+        console.print(f"[green]Created workspace '{name}'[/green]")
+        if result.get("id"):
+            console.print(f"  ID: {result['id']}")
+        if result.get("path"):
+            console.print(f"  Path: {result['path']}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@workspace_app.command("list")
+def workspace_list():
+    """List all workspaces."""
+    try:
+        workspaces = client.get("/api/workspaces")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not workspaces:
+        console.print("[dim]No workspaces found.[/dim]")
+        return
+
+    table = Table(title="Workspaces")
+    table.add_column("Name", style="bold")
+    table.add_column("Path", style="dim")
+    table.add_column("Status")
+    table.add_column("Created")
+
+    for ws in workspaces:
+        status = ws.get("status", "unknown")
+        status_color = {"active": "green", "archived": "yellow", "error": "red"}.get(status, "white")
+        table.add_row(
+            ws.get("name", "?"),
+            ws.get("path", "?"),
+            f"[{status_color}]{status}[/{status_color}]",
+            ws.get("created", "?"),
+        )
+
+    console.print(table)
+
+
+@workspace_app.command("delete")
+def workspace_delete(
+    name: str = typer.Argument(..., help="Workspace name to delete"),
+):
+    """Delete a workspace by name."""
+    ws = _resolve_workspace(name)
+    typer.confirm(f"Delete workspace '{name}'?", abort=True)
+    try:
+        client.delete(f"/api/workspaces/{ws['id']}")
+        console.print(f"[green]Deleted workspace '{name}'[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+def _build_file_tree(files: list, tree: Tree, prefix: str = ""):
+    """Recursively build a Rich Tree from a flat list of file paths."""
+    # Group files by top-level directory component
+    dirs: dict[str, list] = {}
+    plain_files: list[str] = []
+
+    for f in files:
+        path = f.get("path", f) if isinstance(f, dict) else f
+        # Strip leading prefix
+        rel = path[len(prefix):].lstrip("/") if prefix and path.startswith(prefix) else path
+        if "/" in rel:
+            top, rest = rel.split("/", 1)
+            dirs.setdefault(top, []).append(rest)
+        else:
+            plain_files.append(rel)
+
+    for d in sorted(dirs.keys()):
+        branch = tree.add(f"[bold blue]{d}/[/bold blue]")
+        # Rebuild as simple path strings for recursion
+        child_files = [{"path": p} for p in dirs[d]]
+        _build_file_tree(child_files, branch)
+
+    for f in sorted(plain_files):
+        tree.add(f"[green]{f}[/green]")
+
+
+@workspace_app.command("files")
+def workspace_files(
+    name: str = typer.Argument(..., help="Workspace name"),
+    tree: bool = typer.Option(False, "--tree", "-t", help="Show as tree instead of flat list"),
+):
+    """List files in a workspace."""
+    ws = _resolve_workspace(name)
+    try:
+        files = client.get(f"/api/workspaces/{ws['id']}/files")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not files:
+        console.print("[dim]No files in workspace.[/dim]")
+        return
+
+    if tree:
+        rtree = Tree(f"[bold]{name}[/bold]")
+        _build_file_tree(files, rtree)
+        console.print(rtree)
+    else:
+        for f in files:
+            path = f.get("path", f) if isinstance(f, dict) else f
+            console.print(path)
+
+
+@workspace_app.command("read")
+def workspace_read(
+    name: str = typer.Argument(..., help="Workspace name"),
+    path: str = typer.Argument(..., help="File path within the workspace"),
+):
+    """Read a file from a workspace with syntax highlighting."""
+    ws = _resolve_workspace(name)
+    try:
+        result = client.get(f"/api/workspaces/{ws['id']}/files/{path}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    content = result.get("content", result) if isinstance(result, dict) else str(result)
+
+    # Detect language from file extension for syntax highlighting
+    ext = path.rsplit(".", 1)[-1] if "." in path else ""
+    lang_map = {
+        "py": "python", "js": "javascript", "ts": "typescript", "tsx": "tsx",
+        "jsx": "jsx", "json": "json", "yaml": "yaml", "yml": "yaml",
+        "toml": "toml", "md": "markdown", "sh": "bash", "bash": "bash",
+        "rs": "rust", "go": "go", "rb": "ruby", "sql": "sql",
+        "html": "html", "css": "css", "xml": "xml", "dockerfile": "dockerfile",
+    }
+    lang = lang_map.get(ext.lower(), "text")
+
+    syntax = Syntax(str(content), lang, theme="monokai", line_numbers=True)
+    console.print(syntax)
+
+
+@workspace_app.command("write")
+def workspace_write(
+    name: str = typer.Argument(..., help="Workspace name"),
+    path: str = typer.Argument(..., help="File path within the workspace"),
+    content: str = typer.Option("", "--content", "-c", help="Content to write (inline)"),
+    file: str = typer.Option("", "--file", "-f", help="Read content from a local file"),
+):
+    """Write a file to a workspace."""
+    if not content and not file:
+        console.print("[red]Provide --content or --file.[/red]")
+        raise typer.Exit(1)
+
+    if file:
+        source = Path(file)
+        if not source.exists():
+            console.print(f"[red]File not found: {file}[/red]")
+            raise typer.Exit(1)
+        content = source.read_text()
+
+    ws = _resolve_workspace(name)
+    try:
+        client.put(f"/api/workspaces/{ws['id']}/files/{path}", json={"content": content})
+        console.print(f"[green]Wrote {path} to workspace '{name}'[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@workspace_app.command("search")
+def workspace_search(
+    name: str = typer.Argument(..., help="Workspace name"),
+    query: str = typer.Argument(..., help="Search query"),
+):
+    """Search files in a workspace."""
+    ws = _resolve_workspace(name)
+    try:
+        results = client.post(f"/api/workspaces/{ws['id']}/files/search", json={"query": query})
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    matches = results if isinstance(results, list) else results.get("matches", results.get("results", []))
+    if not matches:
+        console.print("[dim]No matches found.[/dim]")
+        return
+
+    for match in matches:
+        if isinstance(match, dict):
+            filepath = match.get("path", match.get("file", "?"))
+            line = match.get("line", "")
+            snippet = match.get("snippet", match.get("content", ""))
+            loc = f"{filepath}:{line}" if line else filepath
+            console.print(f"[bold cyan]{loc}[/bold cyan]")
+            if snippet:
+                console.print(f"  {snippet.strip()}")
+        else:
+            console.print(str(match))
+
+
+@workspace_app.command("open")
+def workspace_open(
+    name: str = typer.Argument(..., help="Workspace name"),
+    tmux: bool = typer.Option(False, "--tmux", help="Open in a tmux session with 3 panes"),
+):
+    """Print workspace path or open in tmux session.
+
+    Usage:
+        cd $(agentforge workspace open myproject)
+        agentforge workspace open myproject --tmux
+    """
+    ws = _resolve_workspace(name)
+    ws_path = ws.get("path", "")
+
+    if not ws_path:
+        console.print("[red]Workspace has no path set.[/red]")
+        raise typer.Exit(1)
+
+    if tmux:
+        session_name = f"af-{name}"
+        # Create tmux session with 3 panes: editor + dashboard + shell
+        try:
+            # Create session with first pane (editor placeholder)
+            subprocess.run(
+                ["tmux", "new-session", "-d", "-s", session_name, "-c", ws_path],
+                check=True,
+            )
+            # Split horizontally for dashboard pane
+            subprocess.run(
+                ["tmux", "split-window", "-h", "-t", session_name, "-c", ws_path],
+                check=True,
+            )
+            # Split the right pane vertically for shell
+            subprocess.run(
+                ["tmux", "split-window", "-v", "-t", session_name, "-c", ws_path],
+                check=True,
+            )
+            # Select the first pane
+            subprocess.run(
+                ["tmux", "select-pane", "-t", f"{session_name}:0.0"],
+                check=True,
+            )
+            console.print(f"[green]tmux session '{session_name}' created with 3 panes.[/green]")
+            console.print(f"  Attach with: [bold]tmux attach -t {session_name}[/bold]")
+        except FileNotFoundError:
+            console.print("[red]tmux is not installed.[/red]")
+            raise typer.Exit(1)
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]tmux error: {e}[/red]")
+            raise typer.Exit(1)
+    else:
+        # Print path only (no Rich markup) so it works with cd $()
+        print(ws_path)
+
+
+@workspace_app.command("history")
+def workspace_history(
+    name: str = typer.Argument(..., help="Workspace name"),
+    path: str = typer.Option("", "--path", "-p", help="Filter history to a specific file"),
+):
+    """Show workspace history, optionally filtered by file path."""
+    ws = _resolve_workspace(name)
+    try:
+        params = {}
+        if path:
+            params["path"] = path
+        history = client.get(f"/api/workspaces/{ws['id']}/history", params=params)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    entries = history if isinstance(history, list) else history.get("entries", history.get("history", []))
+    if not entries:
+        console.print("[dim]No history found.[/dim]")
+        return
+
+    table = Table(title=f"History — {name}" + (f" ({path})" if path else ""))
+    table.add_column("Timestamp", style="dim")
+    table.add_column("Action", style="bold")
+    table.add_column("Path")
+    table.add_column("Details")
+
+    for entry in entries:
+        if isinstance(entry, dict):
+            table.add_row(
+                entry.get("timestamp", entry.get("created", "?")),
+                entry.get("action", entry.get("type", "?")),
+                entry.get("path", ""),
+                entry.get("details", entry.get("message", "")),
+            )
+        else:
+            table.add_row(str(entry), "", "", "")
+
+    console.print(table)
 
 
 if __name__ == "__main__":

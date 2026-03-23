@@ -32,6 +32,7 @@ const navItems = [
   { href: "/dashboard/knowledge", label: "Knowledge" },
   { href: "/dashboard/marketplace", label: "Marketplace" },
   { href: "/dashboard/team", label: "Team" },
+  { href: "/dashboard/workspace", label: "Workspace" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

@@ -325,6 +325,42 @@ export const DEMO_COST_MONTH = {
   request_count: 1247,
 };
 
+export const DEMO_WORKSPACES = [
+  {
+    id: "ws-demo-1",
+    user_id: "demo",
+    name: "My First Project",
+    description: "A starter workspace for experimenting with agents",
+    path: "/workspaces/my-first-project",
+    status: "active",
+    settings: {},
+    created_at: "2026-03-15T10:00:00Z",
+    updated_at: "2026-03-22T14:30:00Z",
+  },
+  {
+    id: "ws-demo-2",
+    user_id: "demo",
+    name: "Data Pipeline",
+    description: "ETL pipeline with agent-driven transformations",
+    path: "/workspaces/data-pipeline",
+    status: "active",
+    settings: {},
+    created_at: "2026-03-18T09:00:00Z",
+    updated_at: "2026-03-21T16:45:00Z",
+  },
+  {
+    id: "ws-demo-3",
+    user_id: "demo",
+    name: "Research Hub",
+    description: "Collaborative research workspace with web search agents",
+    path: "/workspaces/research-hub",
+    status: "active",
+    settings: {},
+    created_at: "2026-03-20T11:00:00Z",
+    updated_at: "2026-03-23T08:15:00Z",
+  },
+];
+
 /**
  * Legacy check — used by components that haven't migrated to useBackendMode().
  * Checks the demo cookie (set by BackendProvider when backend is unreachable)
