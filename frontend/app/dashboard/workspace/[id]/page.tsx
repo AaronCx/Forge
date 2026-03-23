@@ -1,100 +1,318 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { getToken } from "@/lib/auth-client";
-import { api, Workspace } from "@/lib/api";
+import { api, type Workspace } from "@/lib/api";
+import { isDemoMode } from "@/lib/demo-data";
+import { FileTree } from "@/components/workspace/FileTree";
+import { EditorTabs } from "@/components/workspace/EditorTabs";
+import { WorkspaceSocket, type FileChangeEvent } from "@/lib/workspace-ws";
 import { Button } from "@/components/ui/button";
-import { isDemoMode, DEMO_WORKSPACES } from "@/lib/demo-data";
+import { ArrowLeft, RefreshCw } from "lucide-react";
+
+// Dynamic import for CodeMirror (browser-only)
+const CodeEditor = dynamic(
+  () => import("@/components/workspace/CodeEditor").then((m) => m.CodeEditor),
+  { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-muted-foreground">Loading editor...</div> }
+);
+
+interface FileEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number | null;
+  children: FileEntry[] | null;
+}
+
+interface OpenFile {
+  path: string;
+  content: string;
+  originalContent: string;
+}
 
 export default function WorkspaceIDEPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const workspaceId = params.id as string;
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [files, setFiles] = useState<FileEntry[]>([]);
+  const [openFiles, setOpenFiles] = useState<Map<string, OpenFile>>(new Map());
+  const [activeFile, setActiveFile] = useState<string>("");
+  const [highlightedPaths, setHighlightedPaths] = useState<Set<string>>(new Set());
+  const [notification, setNotification] = useState<{ path: string; message: string } | null>(null);
+  const wsRef = useRef<WorkspaceSocket | null>(null);
 
+  // Load workspace and files
   useEffect(() => {
     if (isDemoMode()) {
-      const ws = (DEMO_WORKSPACES as Workspace[]).find((w) => w.id === id);
-      setWorkspace(ws || null);
-      setLoading(false);
+      setWorkspace({
+        id: workspaceId,
+        user_id: "demo",
+        name: "Demo Workspace",
+        description: "Demo workspace",
+        path: "/demo",
+        status: "active",
+        settings: {},
+        created_at: "2026-03-20T00:00:00Z",
+        updated_at: "2026-03-23T00:00:00Z",
+      });
+      setFiles([
+        { name: "README.md", path: "README.md", type: "file", size: 256, children: null },
+        { name: "main.py", path: "main.py", type: "file", size: 1024, children: null },
+        {
+          name: "src",
+          path: "src",
+          type: "directory",
+          size: null,
+          children: [
+            { name: "app.py", path: "src/app.py", type: "file", size: 512, children: null },
+            { name: "config.json", path: "src/config.json", type: "file", size: 128, children: null },
+          ],
+        },
+      ]);
       return;
     }
+
     async function load() {
       const token = await getToken();
       if (!token) return;
       try {
-        const ws = await api.workspaces.get(id, token);
+        const [ws, fileTree] = await Promise.all([
+          api.workspaces.get(workspaceId, token),
+          api.workspaces.files(workspaceId, token),
+        ]);
         setWorkspace(ws);
+        setFiles(fileTree as FileEntry[]);
       } catch {
-        setWorkspace(null);
-      } finally {
-        setLoading(false);
+        router.push("/dashboard/workspace");
       }
     }
     load();
-  }, [id]);
+  }, [workspaceId, router]);
 
-  if (loading) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center text-muted-foreground">
-        Loading workspace...
-      </div>
-    );
+  // WebSocket connection
+  useEffect(() => {
+    if (isDemoMode()) return;
+
+    const socket = new WorkspaceSocket();
+    wsRef.current = socket;
+
+    async function connect() {
+      const token = await getToken();
+      if (token) socket.connect(workspaceId, token);
+    }
+    connect();
+
+    const unsub = socket.onFileChange((event: FileChangeEvent) => {
+      refreshFiles();
+
+      // Highlight changed file briefly
+      setHighlightedPaths((prev) => { const next = new Set(prev); next.add(event.path); return next; });
+      setTimeout(() => {
+        setHighlightedPaths((prev) => {
+          const next = new Set(prev);
+          next.delete(event.path);
+          return next;
+        });
+      }, 2000);
+
+      // Update open file content
+      if (event.type !== "file_deleted" && event.content !== undefined) {
+        setOpenFiles((prev) => {
+          const existing = prev.get(event.path);
+          if (!existing) return prev;
+          const isModified = existing.content !== existing.originalContent;
+          if (isModified) {
+            setNotification({ path: event.path, message: `"${event.path}" was modified externally.` });
+            return prev;
+          }
+          const next = new Map(prev);
+          next.set(event.path, { path: event.path, content: event.content!, originalContent: event.content! });
+          return next;
+        });
+      }
+
+      if (event.type === "file_deleted") {
+        setOpenFiles((prev) => {
+          const next = new Map(prev);
+          next.delete(event.path);
+          return next;
+        });
+      }
+    });
+
+    return () => {
+      unsub();
+      socket.disconnect();
+      wsRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
+
+  const refreshFiles = useCallback(async () => {
+    if (isDemoMode()) return;
+    const token = await getToken();
+    if (!token) return;
+    try {
+      const fileTree = await api.workspaces.files(workspaceId, token);
+      setFiles(fileTree as FileEntry[]);
+    } catch { /* ignore */ }
+  }, [workspaceId]);
+
+  async function openFile(path: string) {
+    if (openFiles.has(path)) {
+      setActiveFile(path);
+      return;
+    }
+
+    if (isDemoMode()) {
+      const content = `# Demo file: ${path}\n\nThis is a demo workspace file.\nEdit it and see real-time sync in action.`;
+      setOpenFiles((prev) => {
+        const next = new Map(prev);
+        next.set(path, { path, content, originalContent: content });
+        return next;
+      });
+      setActiveFile(path);
+      return;
+    }
+
+    const token = await getToken();
+    if (!token) return;
+    try {
+      const result = await api.workspaces.readFile(workspaceId, path, token);
+      setOpenFiles((prev) => {
+        const next = new Map(prev);
+        next.set(path, { path, content: result.content, originalContent: result.content });
+        return next;
+      });
+      setActiveFile(path);
+    } catch { /* file not found */ }
   }
 
-  if (!workspace) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Workspace not found.</p>
-        <Button variant="outline" onClick={() => router.push("/dashboard/workspace")}>
-          Back to Workspaces
-        </Button>
-      </div>
-    );
+  function closeFile(path: string) {
+    setOpenFiles((prev) => {
+      const next = new Map(prev);
+      next.delete(path);
+      return next;
+    });
+    if (activeFile === path) {
+      const remaining = Array.from(openFiles.keys()).filter((p) => p !== path);
+      setActiveFile(remaining[remaining.length - 1] ?? "");
+    }
   }
+
+  function handleEditorChange(content: string) {
+    if (!activeFile) return;
+    setOpenFiles((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(activeFile);
+      if (existing) next.set(activeFile, { ...existing, content });
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    if (!activeFile) return;
+    const file = openFiles.get(activeFile);
+    if (!file) return;
+
+    if (isDemoMode()) {
+      setOpenFiles((prev) => {
+        const next = new Map(prev);
+        next.set(activeFile, { ...file, originalContent: file.content });
+        return next;
+      });
+      return;
+    }
+
+    const token = await getToken();
+    if (!token) return;
+    try {
+      await api.workspaces.writeFile(workspaceId, activeFile, file.content, token);
+      wsRef.current?.sendFileSave(activeFile, file.content);
+      setOpenFiles((prev) => {
+        const next = new Map(prev);
+        next.set(activeFile, { ...file, originalContent: file.content });
+        return next;
+      });
+    } catch { /* save failed */ }
+  }
+
+  const activeOpenFile = activeFile ? openFiles.get(activeFile) : null;
+  const tabs = Array.from(openFiles.entries()).map(([path, file]) => ({
+    path,
+    modified: file.content !== file.originalContent,
+  }));
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col -mx-4 md:-mx-8 -mt-4 md:-mt-8">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/dashboard/workspace")}
-        >
-          &larr; Back
+      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1.5">
+        <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/workspace")}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back
         </Button>
-        <div className="h-4 w-px bg-border" />
-        <span className="text-sm font-semibold">{workspace.name}</span>
-        <span className="text-xs text-muted-foreground">{workspace.path}</span>
+        <span className="text-sm font-medium">{workspace?.name ?? "Loading..."}</span>
+        <span className="text-xs text-muted-foreground truncate">{workspace?.path}</span>
+        <div className="ml-auto">
+          <Button variant="ghost" size="sm" onClick={refreshFiles}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
-      {/* Three-panel layout */}
+      {/* Notification banner */}
+      {notification && (
+        <div className="flex items-center gap-2 bg-yellow-900/50 border-b border-yellow-700 px-3 py-1.5 text-sm text-yellow-200">
+          <span>{notification.message}</span>
+          <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => { setNotification(null); openFile(notification.path); }}>
+            Reload
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setNotification(null)}>
+            Keep
+          </Button>
+        </div>
+      )}
+
+      {/* Main IDE area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar - File Tree */}
-        <div className="flex w-[250px] shrink-0 flex-col border-r border-border bg-card">
-          <div className="border-b border-border px-3 py-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              File Tree
-            </span>
+        {/* File tree sidebar */}
+        <div className="w-[250px] shrink-0 border-r border-border overflow-y-auto bg-card">
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Files
           </div>
-          <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
-            File explorer will appear here
-          </div>
+          <FileTree
+            files={files}
+            selectedPath={activeFile}
+            onSelect={openFile}
+            highlightedPaths={highlightedPaths}
+          />
         </div>
 
-        {/* Center - Editor */}
-        <div className="flex flex-1 flex-col bg-background">
-          <div className="border-b border-border px-3 py-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Editor
-            </span>
-          </div>
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            Select a file to edit
+        {/* Editor area */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <EditorTabs tabs={tabs} activeTab={activeFile} onSelect={setActiveFile} onClose={closeFile} />
+
+          <div className="flex-1 overflow-hidden">
+            {activeOpenFile ? (
+              <CodeEditor
+                content={activeOpenFile.content}
+                filename={activeFile}
+                onChange={handleEditorChange}
+                onSave={handleSave}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <p className="text-lg">Select a file to edit</p>
+                  <p className="mt-1 text-sm">Click a file in the tree to open it</p>
+                  <p className="mt-4 text-xs">Cmd+S to save | Real-time sync with agents and Neovim</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
