@@ -595,6 +595,38 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_agent  ON prompt_versions(agent_id, version_number);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_user   ON prompt_versions(user_id);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_active ON prompt_versions(agent_id, is_active);
+
+-- ===================== workspaces =====================
+CREATE TABLE IF NOT EXISTS workspaces (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    description     TEXT DEFAULT '',
+    path            TEXT NOT NULL,
+    status          TEXT DEFAULT 'active' CHECK (status IN ('active','archived','deleted')),
+    settings        TEXT DEFAULT '{}',
+    created_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspaces_user   ON workspaces(user_id);
+CREATE INDEX IF NOT EXISTS idx_workspaces_name   ON workspaces(user_id, name);
+
+-- ===================== workspace_changes =====================
+CREATE TABLE IF NOT EXISTS workspace_changes (
+    id              TEXT PRIMARY KEY,
+    workspace_id    TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    file_path       TEXT NOT NULL,
+    change_type     TEXT NOT NULL CHECK (change_type IN ('create','modify','delete','rename')),
+    content_before  TEXT,
+    content_after   TEXT,
+    attribution     TEXT DEFAULT 'user:web',
+    created_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ws_changes_workspace ON workspace_changes(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_ws_changes_file      ON workspace_changes(workspace_id, file_path);
+CREATE INDEX IF NOT EXISTS idx_ws_changes_time      ON workspace_changes(created_at);
 """
 
 # ---------------------------------------------------------------------------
@@ -623,6 +655,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "trigger_history":         {"payload"},
     "comparison_runs":         {"models", "results"},
     "traces":                  {"metadata"},
+    "workspaces":              {"settings"},
 }
 
 # ---------------------------------------------------------------------------
@@ -678,4 +711,6 @@ FK_MAP: dict[tuple[str, str], tuple[str, str]] = {
     # Note: marketplace_forks has source_blueprint_id AND forked_blueprint_id → blueprints
     # Only one key per (src, tgt) pair is possible; store the first.
     ("marketplace_forks", "blueprints"):         ("source_blueprint_id", "id"),
+    # workspaces
+    ("workspace_changes", "workspaces"):         ("workspace_id", "id"),
 }

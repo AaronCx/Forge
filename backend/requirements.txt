@@ -17,5 +17,7 @@ croniter==5.0.1
 aiosqlite>=0.20.0
 PyJWT>=2.8.0
 bcrypt>=4.1.0
+# Workspace file watching
+watchdog>=4.0.0
 # Optional: Supabase backend (install with: pip install supabase)
 supabase==2.11.0

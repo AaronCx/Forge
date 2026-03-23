@@ -34,8 +34,11 @@ from app.routers import (
     targets,
     traces,
     triggers,
+    workspaces,
+    ws_workspace,
 )
 from app.services.blueprint_templates import seed_blueprint_templates
+from app.services.file_watcher import watcher_manager
 from app.services.rate_limiter import limiter
 from app.services.templates import seed_templates
 
@@ -59,10 +62,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await seed_blueprint_templates(get_db())
     except Exception:
         logger.warning("Failed to seed blueprint templates", exc_info=True)
+    # Initialize file watcher event loop
+    import asyncio
+    watcher_manager.set_event_loop(asyncio.get_running_loop())
+
     # Start cron scheduler for scheduled triggers
     cron_scheduler.start()
     yield
     cron_scheduler.stop()
+    watcher_manager.stop_all()
     await db.close()
 
 
@@ -108,6 +116,8 @@ app.include_router(marketplace.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(computer_use.router, prefix="/api")
 app.include_router(targets.router, prefix="/api")
+app.include_router(workspaces.router, prefix="/api")
+app.include_router(ws_workspace.router)  # WebSocket (no /api prefix)
 
 
 @app.get("/")
