@@ -9,13 +9,19 @@ import { isDemoMode } from "@/lib/demo-data";
 import { FileTree } from "@/components/workspace/FileTree";
 import { EditorTabs } from "@/components/workspace/EditorTabs";
 import { WorkspaceSocket, type FileChangeEvent } from "@/lib/workspace-ws";
+import { AgentPanel } from "@/components/workspace/AgentPanel";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw, TerminalSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
+import "@xterm/xterm/css/xterm.css";
 
-// Dynamic import for CodeMirror (browser-only)
+// Dynamic imports for browser-only components
 const CodeEditor = dynamic(
   () => import("@/components/workspace/CodeEditor").then((m) => m.CodeEditor),
   { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-muted-foreground">Loading editor...</div> }
+);
+const TerminalPanel = dynamic(
+  () => import("@/components/workspace/Terminal").then((m) => m.TerminalPanel),
+  { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-muted-foreground">Loading terminal...</div> }
 );
 
 interface FileEntry {
@@ -43,6 +49,10 @@ export default function WorkspaceIDEPage() {
   const [activeFile, setActiveFile] = useState<string>("");
   const [highlightedPaths, setHighlightedPaths] = useState<Set<string>>(new Set());
   const [notification, setNotification] = useState<{ path: string; message: string } | null>(null);
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [showActivityPanel, setShowActivityPanel] = useState(true);
+  const [recentChanges, setRecentChanges] = useState<FileChangeEvent[]>([]);
+  const [currentToken, setCurrentToken] = useState("");
   const wsRef = useRef<WorkspaceSocket | null>(null);
 
   // Load workspace and files
@@ -102,12 +112,18 @@ export default function WorkspaceIDEPage() {
 
     async function connect() {
       const token = await getToken();
-      if (token) socket.connect(workspaceId, token);
+      if (token) {
+        setCurrentToken(token);
+        socket.connect(workspaceId, token);
+      }
     }
     connect();
 
     const unsub = socket.onFileChange((event: FileChangeEvent) => {
       refreshFiles();
+
+      // Track for agent panel
+      setRecentChanges((prev) => [event, ...prev].slice(0, 10));
 
       // Highlight changed file briefly
       setHighlightedPaths((prev) => { const next = new Set(prev); next.add(event.path); return next; });
@@ -257,8 +273,14 @@ export default function WorkspaceIDEPage() {
         </Button>
         <span className="text-sm font-medium">{workspace?.name ?? "Loading..."}</span>
         <span className="text-xs text-muted-foreground truncate">{workspace?.path}</span>
-        <div className="ml-auto">
-          <Button variant="ghost" size="sm" onClick={refreshFiles}>
+        <div className="ml-auto flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setShowTerminal(!showTerminal)} title="Toggle terminal">
+            <TerminalSquare className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowActivityPanel(!showActivityPanel)} title="Toggle activity panel">
+            {showActivityPanel ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={refreshFiles} title="Refresh files">
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -292,7 +314,7 @@ export default function WorkspaceIDEPage() {
           />
         </div>
 
-        {/* Editor area */}
+        {/* Center: Editor + Terminal */}
         <div className="flex flex-1 flex-col overflow-hidden">
           <EditorTabs tabs={tabs} activeTab={activeFile} onSelect={setActiveFile} onClose={closeFile} />
 
@@ -314,7 +336,21 @@ export default function WorkspaceIDEPage() {
               </div>
             )}
           </div>
+
+          {/* Terminal panel */}
+          {showTerminal && currentToken && (
+            <div className="h-[200px] shrink-0 border-t border-border">
+              <TerminalPanel workspaceId={workspaceId} token={currentToken} />
+            </div>
+          )}
         </div>
+
+        {/* Right sidebar: Agent activity */}
+        {showActivityPanel && (
+          <div className="w-[260px] shrink-0 border-l border-border overflow-y-auto bg-card">
+            <AgentPanel workspaceId={workspaceId} recentChanges={recentChanges} />
+          </div>
+        )}
       </div>
     </div>
   );

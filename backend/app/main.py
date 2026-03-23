@@ -119,6 +119,13 @@ app.include_router(targets.router, prefix="/api")
 app.include_router(workspaces.router, prefix="/api")
 app.include_router(ws_workspace.router)  # WebSocket (no /api prefix)
 
+# Terminal WebSocket (only available on Unix-like systems)
+try:
+    from app.routers import ws_terminal
+    app.include_router(ws_terminal.router)
+except ImportError:
+    pass  # pty not available on Windows
+
 
 @app.get("/")
 async def root():
