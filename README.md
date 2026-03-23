@@ -4,7 +4,7 @@
 
 Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 44 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming. Runs fully local with SQLite (zero external accounts) or scales to cloud with Supabase.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![Tests](https://img.shields.io/badge/tests-641_passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal)
@@ -65,12 +65,15 @@ Distributed trace recording for all executions. Version prompts like code — di
 ### Workflow Marketplace
 Publish, browse, fork, and rate blueprints. Organization support with member RBAC.
 
+### Workspace IDE
+Integrated development environment with CodeMirror 6 web editor, file tree, editor tabs, integrated terminal (xterm.js), and agent activity panel. Real-time file sync via WebSocket — when an agent modifies a file, you see it instantly. Workspace blueprint nodes (workspace_read, workspace_write, workspace_list, workspace_search) let agents operate directly on your files.
+
 ### Live Dashboard + CLI
 Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytics. CLI-first experience with 35+ command groups covering the full platform — no browser required.
 
 ---
 
-## Node Types (44)
+## Node Types (48)
 
 | Category | Count | Nodes |
 |----------|-------|-------|
@@ -83,6 +86,7 @@ Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytic
 | Terminal (Drive) | 6 | drive_session, drive_run, drive_send, drive_logs, drive_poll, drive_fanout |
 | CU Agent | 4 | cu_planner, cu_analyzer, cu_verifier, cu_error_handler |
 | Agent Control | 6 | agent_spawn, agent_prompt, agent_monitor, agent_wait, agent_stop, agent_result |
+| Workspace | 4 | workspace_read, workspace_write, workspace_list, workspace_search |
 
 ---
 
