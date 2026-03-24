@@ -254,7 +254,7 @@ forge dashboard   # Live TUI monitor
 - **Auth:** Supabase Auth (email + GitHub OAuth)
 - **Setup:** Create Supabase project, configure keys, deploy to Vercel + Render
 
-### Showcase (forge.vercel.app)
+### Showcase (forge-theta-teal.vercel.app)
 - Demo mode with simulated data
 - Optional BYOK for live LLM calls
 - No account required
