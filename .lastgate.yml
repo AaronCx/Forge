@@ -11,6 +11,8 @@ checks:
       - "backend/app/db/*"
       - "frontend/components/workspace/*"
       - "frontend/app/dashboard/workspace/**"
+      - "frontend/app/docs/*"
+      - "cli/forge/*"
 
   lint:
     enabled: true
