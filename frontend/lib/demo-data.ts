@@ -369,5 +369,5 @@ export const DEMO_WORKSPACES = [
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
   if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") return true;
-  return document.cookie.includes("agentforge_demo=1");
+  return document.cookie.includes("forge_demo=1");
 }

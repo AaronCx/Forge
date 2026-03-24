@@ -1,5 +1,5 @@
 #!/bin/bash
-# AgentForge Computer Use — Quick Verification
+# Forge Computer Use — Quick Verification
 # Runs smoke tests for all Steer and Drive commands.
 set -uo pipefail
 
@@ -50,7 +50,7 @@ fi
 
 # These need accessibility
 if command -v cliclick &>/dev/null; then
-    check "steer_clipboard (write)" steer clipboard write "agentforge-test"
+    check "steer_clipboard (write)" steer clipboard write "forge-test"
     check "steer_clipboard (read)" steer clipboard read
     check "steer_apps" steer apps
 else

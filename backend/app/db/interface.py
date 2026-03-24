@@ -1,4 +1,4 @@
-"""Abstract database interface for AgentForge.
+"""Abstract database interface for Forge.
 
 Defines the contract that all database backends (Supabase, SQLite, etc.) must implement.
 Uses a fluent query builder pattern that mirrors the supabase-py API so that existing

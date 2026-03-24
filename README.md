@@ -1,4 +1,4 @@
-# AgentForge
+# Forge
 
 **Agentic AI orchestration platform — design workflows visually, automate GUIs and terminals, and coordinate agents across machines.**
 
@@ -172,18 +172,18 @@ graph TB
 
 ```bash
 # Clone and setup
-git clone https://github.com/AaronCx/AgentForge.git
-cd AgentForge
+git clone https://github.com/AaronCx/Forge.git
+cd Forge
 ./setup.sh
 
 # Add an LLM provider key
 edit backend/.env              # Add OpenAI, Anthropic, or use Ollama for local models
 
 # Start everything
-agentforge up
+forge up
 
 # Open the dashboard
-agentforge dashboard           # Terminal TUI
+forge dashboard           # Terminal TUI
 # or visit http://localhost:3000  # Web GUI
 ```
 
@@ -227,11 +227,11 @@ docker-compose up --build
 ### Stack Management
 
 ```bash
-agentforge up          # Start backend + frontend
-agentforge down        # Stop everything
-agentforge restart     # Restart all services
-agentforge status      # Quick health check
-agentforge dashboard   # Live TUI monitor
+forge up          # Start backend + frontend
+forge down        # Stop everything
+forge restart     # Restart all services
+forge status      # Quick health check
+forge dashboard   # Live TUI monitor
 ```
 
 ---
@@ -241,7 +241,7 @@ agentforge dashboard   # Live TUI monitor
 ### Local (recommended for personal use)
 - **Database:** SQLite (zero config, auto-created)
 - **Auth:** Local JWT (auto-configured)
-- **Setup:** `./setup.sh && agentforge up`
+- **Setup:** `./setup.sh && forge up`
 - **External accounts:** None required
 
 ### Docker (self-hosted)
@@ -254,7 +254,7 @@ agentforge dashboard   # Live TUI monitor
 - **Auth:** Supabase Auth (email + GitHub OAuth)
 - **Setup:** Create Supabase project, configure keys, deploy to Vercel + Render
 
-### Showcase (agentforge.vercel.app)
+### Showcase (forge.vercel.app)
 - Demo mode with simulated data
 - Optional BYOK for live LLM calls
 - No account required
@@ -331,84 +331,84 @@ The CLI covers every action available in the web UI. A user who never opens a br
 
 ```bash
 # Setup & lifecycle
-agentforge init                             # Create ~/.agentforge/config.toml
-agentforge up                               # Start backend + frontend
-agentforge down                             # Stop everything
-agentforge restart                          # Restart all services
-agentforge status                           # Quick health check
-agentforge health                           # Detailed system health
-agentforge dashboard                        # Live TUI dashboard
+forge init                             # Create ~/.forge/config.toml
+forge up                               # Start backend + frontend
+forge down                             # Stop everything
+forge restart                          # Restart all services
+forge status                           # Quick health check
+forge health                           # Detailed system health
+forge dashboard                        # Live TUI dashboard
 
 # Auth
-agentforge auth signup --email e --password p   # Create account from CLI
-agentforge auth login --email e --password p    # Login, store token
-agentforge auth logout                          # Clear session
-agentforge auth whoami                          # Current user info
+forge auth signup --email e --password p   # Create account from CLI
+forge auth login --email e --password p    # Login, store token
+forge auth logout                          # Clear session
+forge auth whoami                          # Current user info
 
 # Configuration
-agentforge config show                      # Display config (keys masked)
-agentforge config set api-key <key>         # Set a config value
-agentforge config set-provider openai <key> # Configure provider (updates .env too)
-agentforge config set-default-model gpt-4o  # Set default model
+forge config show                      # Display config (keys masked)
+forge config set api-key <key>         # Set a config value
+forge config set-provider openai <key> # Configure provider (updates .env too)
+forge config set-default-model gpt-4o  # Set default model
 
 # Agents
-agentforge agents list                      # List agents
-agentforge agents create --name "X" --prompt "..." --tools web_search
-agentforge agents run <id> --input "..."    # Run with streaming output
-agentforge agents history <id>              # Run history for an agent
-agentforge agents templates                 # List available templates
+forge agents list                      # List agents
+forge agents create --name "X" --prompt "..." --tools web_search
+forge agents run <id> --input "..."    # Run with streaming output
+forge agents history <id>              # Run history for an agent
+forge agents templates                 # List available templates
 
 # Blueprints
-agentforge blueprints list                  # List blueprints
-agentforge blueprints create --from-template research
-agentforge blueprints run <id> --input "..."# Run with node-by-node streaming
-agentforge blueprints export <id> -o bp.json# Export as JSON for version control
-agentforge blueprints import bp.json        # Import from JSON
+forge blueprints list                  # List blueprints
+forge blueprints create --from-template research
+forge blueprints run <id> --input "..."# Run with node-by-node streaming
+forge blueprints export <id> -o bp.json# Export as JSON for version control
+forge blueprints import bp.json        # Import from JSON
 
 # Multi-agent orchestration
-agentforge orchestrate "objective text"     # Submit and stream
+forge orchestrate "objective text"     # Submit and stream
 
 # Cost tracking
-agentforge costs                            # Summary (today/week/month)
-agentforge costs --breakdown agent          # By agent, model, or provider
-agentforge costs --period month             # Monthly view
+forge costs                            # Summary (today/week/month)
+forge costs --breakdown agent          # By agent, model, or provider
+forge costs --period month             # Monthly view
 
 # Models & providers
-agentforge models list                      # All models across providers
-agentforge models test anthropic            # Test provider connection
-agentforge models compare --prompt "..." --models "gpt-4o,claude-sonnet-4-20250514"
+forge models list                      # All models across providers
+forge models test anthropic            # Test provider connection
+forge models compare --prompt "..." --models "gpt-4o,claude-sonnet-4-20250514"
 
 # Evals
-agentforge evals create --name "Quality" --target agent:<id>
-agentforge evals add-case <suite> --input "X" --expected "Y"
-agentforge evals run <suite-id>             # Run eval suite
-agentforge evals results <run-id>           # Detailed results
+forge evals create --name "Quality" --target agent:<id>
+forge evals add-case <suite> --input "X" --expected "Y"
+forge evals run <suite-id>             # Run eval suite
+forge evals results <run-id>           # Detailed results
 
 # Knowledge base
-agentforge knowledge create --name "Docs"
-agentforge knowledge upload <kb-id> ./docs/ # Upload directory
-agentforge knowledge search <kb-id> --query "text"
+forge knowledge create --name "Docs"
+forge knowledge upload <kb-id> ./docs/ # Upload directory
+forge knowledge search <kb-id> --query "text"
 
 # Computer use
-agentforge cu status                        # Capability report
-agentforge cu see                           # Take screenshot
-agentforge cu ocr                           # OCR screen text
-agentforge cu click 500 300                 # Click at coordinates
-agentforge cu type "hello"                  # Type text
-agentforge cu focus Safari                  # Focus app
-agentforge cu find "Button Label"           # Find element by text
+forge cu status                        # Capability report
+forge cu see                           # Take screenshot
+forge cu ocr                           # OCR screen text
+forge cu click 500 300                 # Click at coordinates
+forge cu type "hello"                  # Type text
+forge cu focus Safari                  # Focus app
+forge cu find "Button Label"           # Find element by text
 
 # Additional command groups
-agentforge runs list                        # View agent runs
-agentforge triggers list                    # Manage event triggers
-agentforge approvals list                   # Human-in-the-loop inbox
-agentforge traces list                      # Execution traces
-agentforge prompts list <agent-id>          # Prompt versioning
-agentforge marketplace browse               # Browse blueprints
-agentforge mcp list                         # MCP connections
-agentforge targets list                     # Execution targets
-agentforge recordings list                  # Screen recordings
-agentforge keys list                        # API key management
+forge runs list                        # View agent runs
+forge triggers list                    # Manage event triggers
+forge approvals list                   # Human-in-the-loop inbox
+forge traces list                      # Execution traces
+forge prompts list <agent-id>          # Prompt versioning
+forge marketplace browse               # Browse blueprints
+forge mcp list                         # MCP connections
+forge targets list                     # Execution targets
+forge recordings list                  # Screen recordings
+forge keys list                        # API key management
 ```
 
 ---
@@ -432,7 +432,7 @@ make test
 ## Project Structure
 
 ```
-AgentForge/
+Forge/
 ├── frontend/                    # Next.js 14 + TypeScript + Tailwind + shadcn/ui
 │   ├── app/dashboard/           # 15+ dashboard routes
 │   ├── components/              # Blueprint editor, dashboard, UI primitives

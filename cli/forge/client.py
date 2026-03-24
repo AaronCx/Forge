@@ -1,7 +1,7 @@
-"""HTTP client for AgentForge API."""
+"""HTTP client for Forge API."""
 
 import httpx
-from agentforge.config import get_api_url, get_api_key
+from forge.config import get_api_url, get_api_key
 
 
 def _headers() -> dict[str, str]:

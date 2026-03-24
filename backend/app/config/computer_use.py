@@ -24,7 +24,7 @@ class ComputerUseConfig:
     command_blocklist: list[str] = None  # type: ignore[assignment]
 
     # Screenshot settings
-    screenshot_dir: str = os.getenv("CU_SCREENSHOT_DIR", "/tmp/agentforge-screenshots")
+    screenshot_dir: str = os.getenv("CU_SCREENSHOT_DIR", "/tmp/forge-screenshots")
     redact_screenshots: bool = os.getenv("CU_REDACT_SCREENSHOTS", "false").lower() == "true"
 
     # Dry-run mode for testing

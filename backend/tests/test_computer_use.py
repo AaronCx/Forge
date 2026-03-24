@@ -414,18 +414,18 @@ def test_cu_templates_use_cu_nodes():
 
 def test_cli_cu_commands():
     """CLI computer-use command group is registered with subcommands."""
-    if not os.path.exists(str(__import__("pathlib").Path(__file__).parent.parent / ".venv" / "bin" / "agentforge")):
-        pytest.skip("agentforge CLI not installed")
+    if not os.path.exists(str(__import__("pathlib").Path(__file__).parent.parent / ".venv" / "bin" / "forge")):
+        pytest.skip("forge CLI not installed")
 
     import pathlib
     import subprocess
 
-    agentforge = str(pathlib.Path(__file__).parent.parent / ".venv" / "bin" / "agentforge")
+    agentforge = str(pathlib.Path(__file__).parent.parent / ".venv" / "bin" / "forge")
     cli_dir = str(pathlib.Path(__file__).parent.parent.parent / "cli")
     env = {**os.environ, "PYTHONPATH": cli_dir}
 
     result = subprocess.run(
-        [agentforge, "computer-use", "--help"],
+        [agentforge, "computer-use", "--help"],  # variable name kept for clarity
         capture_output=True, text=True, timeout=10, env=env,
     )
     assert result.returncode == 0

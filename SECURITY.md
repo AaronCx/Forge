@@ -15,7 +15,7 @@ We only provide security patches for the latest release. Please keep your instal
 
 Instead, report vulnerabilities by emailing:
 
-**security@agentforge.dev**
+**security@forge.dev**
 
 Include:
 
@@ -44,9 +44,9 @@ Include:
 
 The following are in scope:
 
-- The AgentForge web application (frontend and backend)
-- The AgentForge CLI
-- The AgentForge API
+- The Forge web application (frontend and backend)
+- The Forge CLI
+- The Forge API
 - Database schema and RLS policies
 - Authentication and authorization logic
 - Code execution sandbox (`code_executor` tool)
@@ -59,7 +59,7 @@ The following are out of scope:
 
 ## Security Best Practices
 
-If you're deploying AgentForge:
+If you're deploying Forge:
 
 - Never commit `.env` files or API keys
 - Use Supabase Row Level Security (enabled by default)

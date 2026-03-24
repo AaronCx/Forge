@@ -2,4 +2,4 @@
 
 import os
 
-os.environ.setdefault("AGENTFORGE_TESTING", "1")
+os.environ.setdefault("FORGE_TESTING", "1")

@@ -23,7 +23,7 @@ from app.services import workspace_service
 
 router = APIRouter(tags=["workspaces"])
 
-WORKSPACES_BASE = Path.home() / ".agentforge" / "workspaces"
+WORKSPACES_BASE = Path.home() / ".forge" / "workspaces"
 
 
 # --- Workspace CRUD ---

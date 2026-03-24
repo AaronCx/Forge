@@ -1,4 +1,4 @@
-# AgentForge Feature Surface Completeness Audit
+# Forge Feature Surface Completeness Audit
 
 **Generated:** 2026-03-13
 **Auditor:** Claude Code
@@ -24,25 +24,25 @@
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
 | Sign up | ✅ | ✅ | N/A | Web-only is acceptable per spec |
-| Log in | ✅ | ✅ | ✅ | `agentforge login` added |
-| Log out | ✅ | ✅ | ✅ | `agentforge logout` added during audit |
-| View profile | ✅ | ✅ | ✅ | `agentforge whoami` |
-| API key generate | ✅ | ✅ | ✅ | `agentforge keys generate` added during audit |
-| API key list | ✅ | ✅ | ✅ | `agentforge keys list` added during audit |
-| API key revoke | ✅ | ✅ | ✅ | `agentforge keys revoke <id>` added during audit |
-| Rate limit status | ✅ | ✅ | ✅ | Part of `agentforge status` |
+| Log in | ✅ | ✅ | ✅ | `forge login` added |
+| Log out | ✅ | ✅ | ✅ | `forge logout` added during audit |
+| View profile | ✅ | ✅ | ✅ | `forge whoami` |
+| API key generate | ✅ | ✅ | ✅ | `forge keys generate` added during audit |
+| API key list | ✅ | ✅ | ✅ | `forge keys list` added during audit |
+| API key revoke | ✅ | ✅ | ✅ | `forge keys revoke <id>` added during audit |
+| Rate limit status | ✅ | ✅ | ✅ | Part of `forge status` |
 
 ### 2. Agents
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Create agent | ✅ | ✅ | ✅ | `agentforge agents create` |
-| List agents | ✅ | ✅ | ✅ | `agentforge agents list` — Rich table |
-| View agent detail | ✅ | ✅ | ✅ | `agentforge agents show <id>` added during audit |
-| Edit agent | ✅ | ✅ | ✅ | `agentforge agents edit <id>` added during audit |
-| Delete agent | ✅ | ✅ | ✅ | `agentforge agents delete <id>` added during audit, with confirmation |
-| List templates | ✅ | ✅ | ✅ | `agentforge agents templates` added during audit |
-| Run agent | ✅ | ✅ | ✅ | `agentforge agents run <id>` — SSE streaming |
+| Create agent | ✅ | ✅ | ✅ | `forge agents create` |
+| List agents | ✅ | ✅ | ✅ | `forge agents list` — Rich table |
+| View agent detail | ✅ | ✅ | ✅ | `forge agents show <id>` added during audit |
+| Edit agent | ✅ | ✅ | ✅ | `forge agents edit <id>` added during audit |
+| Delete agent | ✅ | ✅ | ✅ | `forge agents delete <id>` added during audit, with confirmation |
+| List templates | ✅ | ✅ | ✅ | `forge agents templates` added during audit |
+| Run agent | ✅ | ✅ | ✅ | `forge agents run <id>` — SSE streaming |
 | Run with file | ✅ | ✅ | ✅ | `--file` flag on run command |
 | Select model | ✅ | ✅ | ✅ | `--model` flag on create/run |
 | Set role/hierarchy | ✅ | ✅ | ✅ | `--role`, `--parent` flags on create |
@@ -51,19 +51,19 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| List runs | ✅ | ✅ | ✅ | `agentforge runs list` added during audit |
-| View run detail | ✅ | ✅ | ✅ | `agentforge runs show <id>` added during audit |
-| View run trace | ✅ | ✅ | ✅ | `agentforge trace <run-id>` added during audit |
+| List runs | ✅ | ✅ | ✅ | `forge runs list` added during audit |
+| View run detail | ✅ | ✅ | ✅ | `forge runs show <id>` added during audit |
+| View run trace | ✅ | ✅ | ✅ | `forge trace <run-id>` added during audit |
 | Cancel run | ✅ | ✅ | ✅ | Part of dashboard UI, API endpoint exists |
 
 ### 4. Dashboard
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Active agents | ✅ | ✅ | ✅ | `agentforge status` |
-| Metrics summary | ✅ | ✅ | ✅ | `agentforge status` includes metrics |
-| Event timeline | ✅ | ✅ | ✅ | `agentforge dashboard` live TUI |
-| Health check | ✅ | ✅ | ✅ | `agentforge health` added during audit |
+| Active agents | ✅ | ✅ | ✅ | `forge status` |
+| Metrics summary | ✅ | ✅ | ✅ | `forge status` includes metrics |
+| Event timeline | ✅ | ✅ | ✅ | `forge dashboard` live TUI |
+| Health check | ✅ | ✅ | ✅ | `forge health` added during audit |
 | SSE updates | ✅ | ✅ | ✅ | Dashboard TUI uses SSE |
 | Provider health | ✅ | ✅ | ✅ | Part of dashboard TUI |
 | Computer use status | ✅ | ✅ | ✅ | Part of dashboard TUI |
@@ -73,7 +73,7 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Cost summary | ✅ | ✅ | ✅ | `agentforge costs` |
+| Cost summary | ✅ | ✅ | ✅ | `forge costs` |
 | Breakdown by agent | ✅ | ✅ | ✅ | `--breakdown agent` flag |
 | Breakdown by model | ✅ | ✅ | ✅ | `--breakdown model` flag |
 | Breakdown by day | ✅ | ✅ | ✅ | `--breakdown day` flag |
@@ -86,70 +86,70 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| List providers | ✅ | ✅ | ✅ | `agentforge models providers` (via `models list --provider`) |
-| Provider health | ✅ | ✅ | ✅ | `agentforge models health` |
-| List all models | ✅ | ✅ | ✅ | `agentforge models list` |
-| Provider models | ✅ | ✅ | ✅ | `agentforge models list --provider <name>` |
-| Set default model | ✅ | ✅ | ✅ | `agentforge config set default-model <model>` |
-| Configure provider keys | ✅ | ✅ | ✅ | `agentforge config set` |
-| Model comparison | ✅ | ✅ | ✅ | `agentforge compare` added during audit |
-| Test provider | ✅ | ✅ | ✅ | `agentforge models test <provider>` |
+| List providers | ✅ | ✅ | ✅ | `forge models providers` (via `models list --provider`) |
+| Provider health | ✅ | ✅ | ✅ | `forge models health` |
+| List all models | ✅ | ✅ | ✅ | `forge models list` |
+| Provider models | ✅ | ✅ | ✅ | `forge models list --provider <name>` |
+| Set default model | ✅ | ✅ | ✅ | `forge config set default-model <model>` |
+| Configure provider keys | ✅ | ✅ | ✅ | `forge config set` |
+| Model comparison | ✅ | ✅ | ✅ | `forge compare` added during audit |
+| Test provider | ✅ | ✅ | ✅ | `forge models test <provider>` |
 
 ### 7. Blueprints
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Create blueprint | ✅ | ✅ | ✅ | `agentforge blueprints create` added during audit |
-| List blueprints | ✅ | ✅ | ✅ | `agentforge blueprints list` |
-| View blueprint | ✅ | ✅ | ✅ | `agentforge blueprints show <id>` added during audit |
+| Create blueprint | ✅ | ✅ | ✅ | `forge blueprints create` added during audit |
+| List blueprints | ✅ | ✅ | ✅ | `forge blueprints list` |
+| View blueprint | ✅ | ✅ | ✅ | `forge blueprints show <id>` added during audit |
 | Edit blueprint | ✅ | ✅ | ✅ | Web editor (visual DAG), CLI opens web |
-| Delete blueprint | ✅ | ✅ | ✅ | `agentforge blueprints delete <id>` added during audit |
-| Run blueprint | ✅ | ✅ | ✅ | `agentforge blueprints run <id>` — SSE streaming |
-| View run trace | ✅ | ✅ | ✅ | `agentforge blueprints inspect <run-id>` |
+| Delete blueprint | ✅ | ✅ | ✅ | `forge blueprints delete <id>` added during audit |
+| Run blueprint | ✅ | ✅ | ✅ | `forge blueprints run <id>` — SSE streaming |
+| View run trace | ✅ | ✅ | ✅ | `forge blueprints inspect <run-id>` |
 | SSE execution | ✅ | ✅ | ✅ | Node-by-node progress in CLI |
-| List templates | ✅ | ✅ | ✅ | `agentforge blueprints templates` |
+| List templates | ✅ | ✅ | ✅ | `forge blueprints templates` |
 | Clone template | ✅ | ✅ | ✅ | Via marketplace fork or create from template |
 
 ### 8. MCP Integration
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Connect MCP server | ✅ | ✅ | ✅ | `agentforge mcp connect <url>` |
-| List connections | ✅ | ✅ | ✅ | `agentforge mcp list` |
-| Test connection | ✅ | ✅ | ✅ | `agentforge mcp test <id>` |
-| View tools | ✅ | ✅ | ✅ | `agentforge mcp tools` |
+| Connect MCP server | ✅ | ✅ | ✅ | `forge mcp connect <url>` |
+| List connections | ✅ | ✅ | ✅ | `forge mcp list` |
+| Test connection | ✅ | ✅ | ✅ | `forge mcp test <id>` |
+| View tools | ✅ | ✅ | ✅ | `forge mcp tools` |
 | Remove connection | ✅ | ✅ | ✅ | Part of MCP management |
-| Unified tool list | ✅ | ✅ | ✅ | `agentforge tools list` added during audit |
+| Unified tool list | ✅ | ✅ | ✅ | `forge tools list` added during audit |
 
 ### 9. Event Triggers
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Create trigger | ✅ | ✅ | ✅ | `agentforge triggers create` |
-| List triggers | ✅ | ✅ | ✅ | `agentforge triggers list` |
-| Edit trigger | ✅ | ✅ | ✅ | `agentforge triggers edit <id>` added during audit |
-| Delete trigger | ✅ | ✅ | ✅ | `agentforge triggers delete <id>` added during audit |
-| Toggle enable/disable | ✅ | ✅ | ✅ | `agentforge triggers toggle <id>` |
-| View trigger history | ✅ | ✅ | ✅ | `agentforge triggers history <id>` added during audit |
+| Create trigger | ✅ | ✅ | ✅ | `forge triggers create` |
+| List triggers | ✅ | ✅ | ✅ | `forge triggers list` |
+| Edit trigger | ✅ | ✅ | ✅ | `forge triggers edit <id>` added during audit |
+| Delete trigger | ✅ | ✅ | ✅ | `forge triggers delete <id>` added during audit |
+| Toggle enable/disable | ✅ | ✅ | ✅ | `forge triggers toggle <id>` |
+| View trigger history | ✅ | ✅ | ✅ | `forge triggers history <id>` added during audit |
 | Webhook URL display | ✅ | ✅ | ✅ | Shown on trigger create output |
 
 ### 10. Multi-Agent Orchestration
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Submit objective | ✅ | ✅ | ✅ | `agentforge orchestrate "objective"` |
-| View group status | ✅ | ✅ | ✅ | `agentforge orchestrate-groups status <id>` added during audit |
+| Submit objective | ✅ | ✅ | ✅ | `forge orchestrate "objective"` |
+| View group status | ✅ | ✅ | ✅ | `forge orchestrate-groups status <id>` added during audit |
 | SSE stream | ✅ | ✅ | ✅ | Live Rich tree in CLI |
-| View result | ✅ | ✅ | ✅ | `agentforge orchestrate-groups result <id>` added during audit |
-| View history | ✅ | ✅ | ✅ | `agentforge orchestrate-groups history` added during audit |
+| View result | ✅ | ✅ | ✅ | `forge orchestrate-groups result <id>` added during audit |
+| View history | ✅ | ✅ | ✅ | `forge orchestrate-groups history` added during audit |
 
 ### 11. Inter-Agent Messaging
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
 | Send message | ✅ | ✅ | ✅ | System-generated; debug via API |
-| View inbox | ✅ | ✅ | ✅ | `agentforge mail list` / `messages list` |
-| View thread | ✅ | ✅ | ✅ | `agentforge messages conversation <group-id>` |
+| View inbox | ✅ | ✅ | ✅ | `forge mail list` / `messages list` |
+| View thread | ✅ | ✅ | ✅ | `forge messages conversation <group-id>` |
 | Message stream | ✅ | ✅ | ✅ | Part of dashboard SSE |
 | Message stats | ✅ | ✅ | ✅ | Part of status output |
 
@@ -157,74 +157,74 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Create eval suite | ✅ | ✅ | ✅ | `agentforge evals create` added during audit |
-| List suites | ✅ | ✅ | ✅ | `agentforge evals list` |
-| Add test cases | ✅ | ✅ | ✅ | `agentforge evals add-case` added during audit |
-| Run eval suite | ✅ | ✅ | ✅ | `agentforge evals run <suite-id>` |
+| Create eval suite | ✅ | ✅ | ✅ | `forge evals create` added during audit |
+| List suites | ✅ | ✅ | ✅ | `forge evals list` |
+| Add test cases | ✅ | ✅ | ✅ | `forge evals add-case` added during audit |
+| Run eval suite | ✅ | ✅ | ✅ | `forge evals run <suite-id>` |
 | View results | ✅ | ✅ | ✅ | Via `evals run` output |
-| Compare runs | ✅ | ✅ | ✅ | `agentforge evals compare <run1> <run2>` |
+| Compare runs | ✅ | ✅ | ✅ | `forge evals compare <run1> <run2>` |
 
 ### 13. Human-in-the-Loop
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Pending approvals list | ✅ | ✅ | ✅ | `agentforge approvals list` |
-| View approval detail | ✅ | ✅ | ✅ | `agentforge approvals list` with detail |
-| Approve | ✅ | ✅ | ✅ | `agentforge approvals approve <id>` |
-| Reject | ✅ | ✅ | ✅ | `agentforge approvals reject <id> --reason "text"` |
+| Pending approvals list | ✅ | ✅ | ✅ | `forge approvals list` |
+| View approval detail | ✅ | ✅ | ✅ | `forge approvals list` with detail |
+| Approve | ✅ | ✅ | ✅ | `forge approvals approve <id>` |
+| Reject | ✅ | ✅ | ✅ | `forge approvals reject <id> --reason "text"` |
 | Notification delivery | ✅ | ✅ | N/A | Backend-driven |
 
 ### 14. Observability Traces
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Get trace | ✅ | ✅ | ✅ | `agentforge trace <run-id>` added during audit |
+| Get trace | ✅ | ✅ | ✅ | `forge trace <run-id>` added during audit |
 | Event timeline | ✅ | ✅ | ✅ | Rich-formatted timeline |
 | LLM call details | ✅ | ✅ | ✅ | `--verbose` flag shows full data |
 | Tool call details | ✅ | ✅ | ✅ | Part of trace output |
 | Screenshot display | ✅ | ✅ | ✅ | File paths in CLI trace |
-| Trace stats | ✅ | ✅ | ✅ | `agentforge traces stats` |
+| Trace stats | ✅ | ✅ | ✅ | `forge traces stats` |
 
 ### 15. Prompt Versioning
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Version history | ✅ | ✅ | ✅ | `agentforge prompts list <agent-id>` |
-| Version diff | ✅ | ✅ | ✅ | `agentforge prompts diff <v1> <v2>` |
-| Rollback | ✅ | ✅ | ✅ | `agentforge prompts rollback <agent-id> --version <n>` |
-| Snapshot | ✅ | ✅ | ✅ | `agentforge prompts snapshot <agent-id>` |
+| Version history | ✅ | ✅ | ✅ | `forge prompts list <agent-id>` |
+| Version diff | ✅ | ✅ | ✅ | `forge prompts diff <v1> <v2>` |
+| Rollback | ✅ | ✅ | ✅ | `forge prompts rollback <agent-id> --version <n>` |
+| Snapshot | ✅ | ✅ | ✅ | `forge prompts snapshot <agent-id>` |
 
 ### 16. Knowledge Base & RAG
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Create KB | ✅ | ✅ | ✅ | `agentforge knowledge create <name>` |
-| List KBs | ✅ | ✅ | ✅ | `agentforge knowledge list` |
-| Upload document | ✅ | ✅ | ✅ | `agentforge knowledge add <kb-id> <file>` |
-| View documents | ✅ | ✅ | ✅ | `agentforge knowledge documents <kb-id>` added during audit |
-| Delete document | ✅ | ✅ | ✅ | `agentforge knowledge remove-doc <doc-id>` added during audit |
-| Delete KB | ✅ | ✅ | ✅ | `agentforge knowledge delete <kb-id>` added during audit |
-| Search/query | ✅ | ✅ | ✅ | `agentforge knowledge search <kb-id> --query "text"` |
+| Create KB | ✅ | ✅ | ✅ | `forge knowledge create <name>` |
+| List KBs | ✅ | ✅ | ✅ | `forge knowledge list` |
+| Upload document | ✅ | ✅ | ✅ | `forge knowledge add <kb-id> <file>` |
+| View documents | ✅ | ✅ | ✅ | `forge knowledge documents <kb-id>` added during audit |
+| Delete document | ✅ | ✅ | ✅ | `forge knowledge remove-doc <doc-id>` added during audit |
+| Delete KB | ✅ | ✅ | ✅ | `forge knowledge delete <kb-id>` added during audit |
+| Search/query | ✅ | ✅ | ✅ | `forge knowledge search <kb-id> --query "text"` |
 | KB retrieval node | ✅ | ✅ | N/A | Blueprint node type (frontend-only) |
 
 ### 17. Marketplace
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Browse marketplace | ✅ | ✅ | ✅ | `agentforge marketplace browse` |
+| Browse marketplace | ✅ | ✅ | ✅ | `forge marketplace browse` |
 | Search | ✅ | ✅ | ✅ | `--search` flag on browse |
-| View detail | ✅ | ✅ | ✅ | `agentforge marketplace show <id>` added during audit |
-| Publish | ✅ | ✅ | ✅ | `agentforge marketplace publish <blueprint-id>` |
-| Fork/import | ✅ | ✅ | ✅ | `agentforge marketplace fork <id>` |
-| Rate | ✅ | ✅ | ✅ | `agentforge marketplace rate <id> --stars <n>` |
-| Unpublish | ✅ | ✅ | ✅ | `agentforge marketplace unpublish <id>` added during audit |
+| View detail | ✅ | ✅ | ✅ | `forge marketplace show <id>` added during audit |
+| Publish | ✅ | ✅ | ✅ | `forge marketplace publish <blueprint-id>` |
+| Fork/import | ✅ | ✅ | ✅ | `forge marketplace fork <id>` |
+| Rate | ✅ | ✅ | ✅ | `forge marketplace rate <id> --stars <n>` |
+| Unpublish | ✅ | ✅ | ✅ | `forge marketplace unpublish <id>` added during audit |
 | Reviews | ✅ | ✅ | N/A | Web feature per spec |
 
 ### 18. Computer Use (v1.8)
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Capability status | ✅ | ✅ | ✅ | `agentforge computer-use status` / `cu status` |
+| Capability status | ✅ | ✅ | ✅ | `forge computer-use status` / `cu status` |
 | Steer nodes (GUI) | ✅ | ✅ | ✅ | `cu see`, `cu ocr`, `cu click`, `cu type`, `cu hotkey` |
 | Drive nodes (terminal) | ✅ | ✅ | ✅ | `cu run`, `cu logs`, `cu sessions` |
 | Safety settings | ✅ | ✅ | ✅ | Config-driven blocklists |
@@ -235,8 +235,8 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| List backends | ✅ | ✅ | ✅ | `agentforge cu backends list` |
-| Test backend | ✅ | ✅ | ✅ | `agentforge cu backends test <name>` |
+| List backends | ✅ | ✅ | ✅ | `forge cu backends list` |
+| Test backend | ✅ | ✅ | ✅ | `forge cu backends test <name>` |
 | Add custom backend | ✅ | ✅ | ✅ | Settings page form |
 | Agent control nodes | ✅ | ✅ | N/A | Blueprint editor palette |
 | Nested agent display | ✅ | ✅ | ✅ | Dashboard TUI shows nested agents |
@@ -245,10 +245,10 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| Register target | ✅ | ✅ | ✅ | `agentforge targets add` |
-| List targets | ✅ | ✅ | ✅ | `agentforge targets list` |
-| Health check | ✅ | ✅ | ✅ | `agentforge targets health` |
-| Remove target | ✅ | ✅ | ✅ | `agentforge targets remove <id>` |
+| Register target | ✅ | ✅ | ✅ | `forge targets add` |
+| List targets | ✅ | ✅ | ✅ | `forge targets list` |
+| Health check | ✅ | ✅ | ✅ | `forge targets health` |
+| Remove target | ✅ | ✅ | ✅ | `forge targets remove <id>` |
 | Capabilities | ✅ | ✅ | ✅ | Part of targets list output |
 | Target selector in editor | ✅ | ✅ | N/A | Blueprint editor dropdown |
 
@@ -256,11 +256,11 @@
 
 | Feature | API | Web | CLI | Notes |
 |---------|-----|-----|-----|-------|
-| List recordings | ✅ | ✅ | ✅ | `agentforge recordings list` |
-| View/play recording | ✅ | ✅ | ✅ | `agentforge recordings play <run-id>` |
-| Download recording | ✅ | ✅ | ✅ | `agentforge recordings download <run-id>` added during audit |
-| Cleanup old recordings | ✅ | ✅ | ✅ | `agentforge recordings cleanup --older-than <days>` |
-| Auto-record config | ✅ | ✅ | ✅ | `agentforge config set auto-record true` |
+| List recordings | ✅ | ✅ | ✅ | `forge recordings list` |
+| View/play recording | ✅ | ✅ | ✅ | `forge recordings play <run-id>` |
+| Download recording | ✅ | ✅ | ✅ | `forge recordings download <run-id>` added during audit |
+| Cleanup old recordings | ✅ | ✅ | ✅ | `forge recordings cleanup --older-than <days>` |
+| Auto-record config | ✅ | ✅ | ✅ | `forge config set auto-record true` |
 
 ### 22. Landing Page & Demo Mode
 
@@ -280,7 +280,7 @@
 | User menu | N/A | ✅ | N/A | Email, logout, settings in sidebar |
 | Settings sections | N/A | ✅ | N/A | API Keys, Providers, MCP, Computer Use, Targets |
 | CLI help system | N/A | N/A | ✅ | `--help` on all commands and subcommands |
-| Version flag | N/A | N/A | ✅ | `agentforge version` / `--version` |
+| Version flag | N/A | N/A | ✅ | `forge version` / `--version` |
 | Loading states | N/A | ✅ | N/A | Skeleton/spinner on all pages |
 | Error states | N/A | ✅ | N/A | User-friendly error messages |
 | Toast notifications | N/A | ✅ | N/A | Success/error feedback on actions |

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AgentForge — one-time project setup
+# Forge — one-time project setup
 # Defaults to SQLite (zero external dependencies). No accounts needed.
 # Idempotent: safe to run multiple times.
 
@@ -41,7 +41,7 @@ fi
 
 echo ""
 echo "═══════════════════════════════════════════"
-echo "  AgentForge Setup"
+echo "  Forge Setup"
 echo "═══════════════════════════════════════════"
 echo ""
 
@@ -92,11 +92,11 @@ echo ""
 echo "── CLI ──"
 
 backend/.venv/bin/pip install --quiet -e cli/
-ok "CLI installed (agentforge command available via venv)"
+ok "CLI installed (forge command available via venv)"
 
 # Initialize config + SQLite database
-if [ ! -f "$HOME/.agentforge/config.toml" ]; then
-  backend/.venv/bin/agentforge init
+if [ ! -f "$HOME/.forge/config.toml" ]; then
+  backend/.venv/bin/forge init
   ok "CLI config initialized"
 else
   ok "CLI config exists"
@@ -109,13 +109,13 @@ echo "── Database ──"
 
 # SQLite database is created automatically on first backend startup.
 # No migration step needed — schema is built-in.
-ok "SQLite database will be created on first run (~/.agentforge/agentforge.db)"
+ok "SQLite database will be created on first run (~/.forge/forge.db)"
 
 # For Supabase users: generate combined migration file
 if [ -d "supabase/migrations" ]; then
   combined="supabase/migrations/combined_all.sql"
   if [ ! -f "$combined" ]; then
-    echo "-- AgentForge: Combined Supabase migrations (for cloud mode)" > "$combined"
+    echo "-- Forge: Combined Supabase migrations (for cloud mode)" > "$combined"
     echo "" >> "$combined"
     for f in supabase/migrations/001_*.sql supabase/migrations/002_*.sql \
              supabase/migrations/003_*.sql supabase/migrations/004_*.sql \
@@ -166,6 +166,6 @@ if [ -f "backend/.env" ] && ! grep -q "^OPENAI_API_KEY=\S" "backend/.env" 2>/dev
 fi
 
 echo ""
-echo "Run 'agentforge up' to start everything."
-echo "(Or: source backend/.venv/bin/activate && agentforge up)"
+echo "Run 'forge up' to start everything."
+echo "(Or: source backend/.venv/bin/activate && forge up)"
 echo ""

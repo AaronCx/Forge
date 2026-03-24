@@ -1,4 +1,4 @@
-"""AgentForge CLI — main entry point."""
+"""Forge CLI — main entry point."""
 
 import json
 import os
@@ -18,15 +18,15 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.tree import Tree
 
-from agentforge import __version__
-from agentforge import client
-from agentforge.config import ensure_config, get_api_url, get_api_key, get_config, CONFIG_FILE
+from forge import __version__
+from forge import client
+from forge.config import ensure_config, get_api_url, get_api_key, get_config, CONFIG_FILE
 
-PIDS_FILE = Path.home() / ".agentforge" / "pids.json"
+PIDS_FILE = Path.home() / ".forge" / "pids.json"
 
 app = typer.Typer(
-    name="agentforge",
-    help="AgentForge CLI — manage and monitor AI agents from the terminal.",
+    name="forge",
+    help="Forge CLI — manage and monitor AI agents from the terminal.",
     no_args_is_help=True,
 )
 console = Console()
@@ -38,21 +38,21 @@ app.add_typer(agents_app, name="agents")
 @app.command()
 def version():
     """Show CLI version."""
-    console.print(f"agentforge-cli v{__version__}")
+    console.print(f"forge-cli v{__version__}")
 
 
 @app.command()
 def init():
     """Initialize CLI configuration."""
     import tomllib as _toml
-    config_dir = Path.home() / ".agentforge"
+    config_dir = Path.home() / ".forge"
     config_file = config_dir / "config.toml"
     if config_file.exists():
-        console.print("[green]Config already exists.[/green] Run 'agentforge config show' to view.")
+        console.print("[green]Config already exists.[/green] Run 'forge config show' to view.")
         return
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file.write_text(
-        '# AgentForge CLI Configuration\n\n'
+        '# Forge CLI Configuration\n\n'
         '[api]\n'
         'url = "http://localhost:8000"\n'
         'key = ""\n\n'
@@ -68,7 +68,7 @@ def init():
 
 
 def _find_project_root() -> Path | None:
-    """Walk up from cwd to find the AgentForge project root (has backend/ and frontend/)."""
+    """Walk up from cwd to find the Forge project root (has backend/ and frontend/)."""
     check = Path.cwd()
     for _ in range(10):
         if (check / "backend" / "app").is_dir() and (check / "frontend" / "package.json").is_file():
@@ -121,8 +121,8 @@ def up():
     """Start the backend and frontend (full stack)."""
     root = _find_project_root()
     if not root:
-        console.print("[red]Could not find AgentForge project root.[/red]")
-        console.print("[dim]Run this from inside the AgentForge directory.[/dim]")
+        console.print("[red]Could not find Forge project root.[/red]")
+        console.print("[dim]Run this from inside the Forge directory.[/dim]")
         raise typer.Exit(1)
 
     existing = _load_pids()
@@ -196,8 +196,8 @@ def up():
         console.print("[green]✓[/green] API docs at http://localhost:8000/docs")
 
     console.print()
-    console.print("Run [bold]agentforge dashboard[/bold] to monitor.")
-    console.print("Run [bold]agentforge down[/bold] to stop everything.")
+    console.print("Run [bold]forge dashboard[/bold] to monitor.")
+    console.print("Run [bold]forge down[/bold] to stop everything.")
 
 
 @app.command()
@@ -257,7 +257,7 @@ def config_show():
         key = cfg.get("api_key", "")
         masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else "***" if key else "(not set)"
         console.print()
-        console.print("[bold]AgentForge CLI Configuration[/bold]")
+        console.print("[bold]Forge CLI Configuration[/bold]")
         console.print(f"  api_url:       {cfg.get('api_url', '(not set)')}")
         console.print(f"  api_key:       {masked}")
         console.print(f"  default_model: {cfg.get('default_model', '(not set)')}")
@@ -459,7 +459,7 @@ def auth_whoami():
 
 @auth_app.command("keys")
 def auth_keys_list_alias():
-    """List API keys (alias for 'agentforge keys list')."""
+    """List API keys (alias for 'forge keys list')."""
     keys_list()
 
 
@@ -671,7 +671,7 @@ def dashboard(
             metrics = client.get("/api/dashboard/metrics")
             timeline = client.get("/api/dashboard/timeline", params={"limit": 10})
         except Exception as e:
-            return Panel(f"[red]Error: {e}[/red]", title="AgentForge Dashboard")
+            return Panel(f"[red]Error: {e}[/red]", title="Forge Dashboard")
 
         # Build metrics line
         metrics_text = (
@@ -724,7 +724,7 @@ def dashboard(
             Layout(Text.from_markup(f"[bold]Events[/bold]\n{events_text}"), name="events"),
         )
 
-        return Panel(layout, title="AgentForge Dashboard", subtitle="Ctrl+C to quit")
+        return Panel(layout, title="Forge Dashboard", subtitle="Ctrl+C to quit")
 
     try:
         with Live(build_display(), refresh_per_second=1, console=console) as live:
@@ -1896,7 +1896,7 @@ def triggers_create(
         })
         console.print(f"[green]Created trigger:[/green] {result['id'][:8]} ({trigger_type})")
         if trigger_type == "webhook":
-            from agentforge.config import get_api_url
+            from forge.config import get_api_url
             console.print(f"  Webhook URL: {get_api_url()}/api/webhooks/{result['id']}")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -3137,7 +3137,7 @@ def backends_list():
 def backends_test(name: str = typer.Argument(..., help="Backend name to test")):
     """Verify a backend CLI is installed and working."""
     import shutil
-    from agentforge import client as _  # noqa
+    from forge import client as _  # noqa
 
     backend_commands = {
         "claude-code": "claude",
@@ -3251,7 +3251,7 @@ app.add_typer(recordings_app, name="recordings")
 def recordings_list():
     """List available recordings."""
     import os
-    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/forge-recordings")
     if not os.path.exists(storage):
         console.print("[yellow]No recordings directory found.[/yellow]")
         return
@@ -3280,7 +3280,7 @@ def recordings_play(run_id: str = typer.Argument(..., help="Run ID")):
     """Open a recording in the system video player."""
     import os
     import subprocess
-    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/forge-recordings")
     for f in os.listdir(storage) if os.path.exists(storage) else []:
         if run_id in f:
             path = os.path.join(storage, f)
@@ -3294,7 +3294,7 @@ def recordings_play(run_id: str = typer.Argument(..., help="Run ID")):
 def recordings_cleanup(older_than: int = typer.Option(30, "--older-than", help="Days")):
     """Delete recordings older than N days."""
     import os
-    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/forge-recordings")
     if not os.path.exists(storage):
         console.print("[yellow]No recordings directory.[/yellow]")
         return
@@ -3318,7 +3318,7 @@ def recordings_download(
     import os
     import shutil
 
-    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+    storage = os.getenv("AF_RECORDING_STORAGE", "/tmp/forge-recordings")
     source = None
     if os.path.exists(storage):
         for f in os.listdir(storage):
@@ -3964,8 +3964,8 @@ def workspace_open(
     """Print workspace path or open in tmux session.
 
     Usage:
-        cd $(agentforge workspace open myproject)
-        agentforge workspace open myproject --tmux
+        cd $(forge workspace open myproject)
+        forge workspace open myproject --tmux
     """
     ws = _resolve_workspace(name)
     ws_path = ws.get("path", "")

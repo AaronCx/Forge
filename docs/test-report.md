@@ -1,4 +1,4 @@
-# AgentForge Test Report
+# Forge Test Report
 
 Generated: 2026-03-12
 Tester: Claude Code
@@ -21,7 +21,7 @@ Version: v1.7.0
 - [PASS] 0.2 Backend starts — uvicorn starts, GET /docs returns OpenAPI spec, GET /health returns 200
 - [PASS] 0.3 Frontend starts — `next build` succeeds, `next dev` starts without errors
 - [PASS] 0.4 Database — Supabase migrations exist and numbered in order (001-017)
-- [PASS] 0.5 CLI starts — `agentforge --help` works, 18 command groups registered (status, dashboard, agents, blueprints, costs, models, mcp, triggers, evals, approvals, traces, prompts, knowledge, marketplace, teams, messages, orchestrate, version)
+- [PASS] 0.5 CLI starts — `forge --help` works, 18 command groups registered (status, dashboard, agents, blueprints, costs, models, mcp, triggers, evals, approvals, traces, prompts, knowledge, marketplace, teams, messages, orchestrate, version)
   - Note: CLI has `messages` not `mail` — see issue #8
 
 ### 1. Authentication and User Management
@@ -58,8 +58,8 @@ Version: v1.7.0
 - [PASS] 4.3 Dashboard SSE stream — requires auth token, rejects invalid tokens (tested via `test_dashboard_sse_requires_token`, `test_dashboard_sse_rejects_invalid_token`)
 - [PASS] 4.4 Stalled detection — heartbeat service has detect_stalled method (tested via `test_stalled_detection_logic`)
 - [PASS] 4.5 Web dashboard page — `frontend/app/dashboard/page.tsx` exists with metrics display
-- [PASS] 4.6 CLI dashboard — `agentforge dashboard --help` works (tested via `test_cli_dashboard_help`)
-- [PASS] 4.7 CLI status — `agentforge status --help` works (tested via `test_cli_status_help`)
+- [PASS] 4.6 CLI dashboard — `forge dashboard --help` works (tested via `test_cli_dashboard_help`)
+- [PASS] 4.7 CLI status — `forge status --help` works (tested via `test_cli_status_help`)
 
 ### 5. Cost and Token Tracking
 
@@ -67,7 +67,7 @@ Version: v1.7.0
 - [PASS] 5.2 Cost API endpoints — GET /costs/summary, /costs/breakdown, /costs/projection return 200 (tested via `test_cost_summary`, `test_cost_breakdown`, `test_cost_projection`)
 - [PASS] 5.3 Multi-provider cost tracking — cost breakdown supports provider dimension
 - [PASS] 5.4 Analytics page — `frontend/app/dashboard/analytics/page.tsx` exists
-- [PASS] 5.5 CLI costs — `agentforge costs --help` works (tested via `test_cli_costs_help`)
+- [PASS] 5.5 CLI costs — `forge costs --help` works (tested via `test_cli_costs_help`)
 
 ### 6. Multi-Model Provider System
 
@@ -130,7 +130,7 @@ Version: v1.7.0
 - [PASS] 11.4 Broadcast — broadcast capability in message service
 - [PASS] 11.5 Message SSE stream — SSE endpoint exists, messaging service functional
 - [PASS] 11.6 Message feed — messages visible in dashboard
-- [PASS] 11.7 CLI mail — `agentforge mail` alias added for `messages` command group — fixed in issue #8
+- [PASS] 11.7 CLI mail — `forge mail` alias added for `messages` command group — fixed in issue #8
 
 ### 12. Eval Framework
 
@@ -235,15 +235,15 @@ Version: v1.7.0
 10. **fix(e2e): correct prompt version status code** — 201 → 200
 11. **fix(e2e): use AsyncMock for async services** — `MagicMock` → `AsyncMock` for awaited methods
 12. **fix(frontend): add ESLint disable for tailwind require** — suppress `@typescript-eslint/no-require-imports` warning
-13. **fix(cli): add `mail` alias** — `app.add_typer(messages_app, name="mail")` so `agentforge mail` works alongside `agentforge messages`
+13. **fix(cli): add `mail` alias** — `app.add_typer(messages_app, name="mail")` so `forge mail` works alongside `forge messages`
 14. **fix(frontend): add `/demo` route** — redirects to `/dashboard?demo=true` with cookie, no auth required
 15. **fix(frontend): add `/docs` page** — documentation page with Getting Started, Agents, Blueprints, CLI Usage, and API Reference sections
 
 ## Issues Created
 
-- [#8](https://github.com/AaronCx/AgentForge/issues/8): [QA] Missing CLI 'mail' command group — **RESOLVED**
-- [#9](https://github.com/AaronCx/AgentForge/issues/9): [QA] Missing demo mode page (/demo) — **RESOLVED**
-- [#10](https://github.com/AaronCx/AgentForge/issues/10): [QA] Missing frontend documentation page — **RESOLVED**
+- [#8](https://github.com/AaronCx/Forge/issues/8): [QA] Missing CLI 'mail' command group — **RESOLVED**
+- [#9](https://github.com/AaronCx/Forge/issues/9): [QA] Missing demo mode page (/demo) — **RESOLVED**
+- [#10](https://github.com/AaronCx/Forge/issues/10): [QA] Missing frontend documentation page — **RESOLVED**
 
 ## Test Infrastructure
 
@@ -460,7 +460,7 @@ Versions: v1.8.0 (Computer Use Extension), v1.9.0 (Advanced Computer Use & Cross
 
 ## Fixes Applied During Testing
 
-1. **fix(test): CLI import path** — Tests importing `from cli.agentforge.main` failed with `ModuleNotFoundError` because the `cli/` directory wasn't on `sys.path` when running from `backend/`. Fixed by adding project root and `cli/` to `sys.path` at top of test file.
+1. **fix(test): CLI import path** — Tests importing `from cli.forge.main` failed with `ModuleNotFoundError` because the `cli/` directory wasn't on `sys.path` when running from `backend/`. Fixed by adding project root and `cli/` to `sys.path` at top of test file.
 
 ## Platform Coverage
 

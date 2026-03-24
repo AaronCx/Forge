@@ -1,6 +1,6 @@
-# Contributing to AgentForge
+# Contributing to Forge
 
-Thank you for your interest in contributing to AgentForge! This guide will help you get started.
+Thank you for your interest in contributing to Forge! This guide will help you get started.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to AgentForge! This guide will help 
 ### 1. Fork and clone
 
 ```bash
-git clone https://github.com/<your-username>/AgentForge.git
-cd AgentForge
+git clone https://github.com/<your-username>/Forge.git
+cd Forge
 ```
 
 ### 2. Database
@@ -65,7 +65,7 @@ bun run dev
 ```bash
 cd cli
 pip install -e .
-agentforge init
+forge init
 ```
 
 ### 6. Run tests

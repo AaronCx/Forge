@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-03-23
+
+### Changed
+
+- **Renamed from AgentForge to Forge** — project name, CLI command (`agentforge` → `forge`), package name (`agentforge-cli` → `forge-cli`), config directory (`~/.agentforge` → `~/.forge`), environment variables (`AGENTFORGE_*` → `FORGE_*`), and all documentation updated throughout.
+
 ## [1.9.1] - 2026-03-15
 
 ### Added
@@ -90,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Blueprint Editor** — new "GUI (Steer)" and "Terminal (Drive)" categories with green/amber color coding, config panels for all 22 node types
 - **5 Blueprint Templates** — Browser Research Pipeline, Terminal Task Runner, Cross-App Workflow, Self-Healing App Automation, Multi-Terminal Parallel Tasks
 - **Eval Grading Methods** — screenshot_match (perceptual hash comparison) and ocr_contains (OCR text verification)
-- **CLI Commands** — `agentforge cu status/see/ocr/click/type/hotkey/run/logs/sessions/apps/remote`
+- **CLI Commands** — `forge cu status/see/ocr/click/type/hotkey/run/logs/sessions/apps/remote`
 - **Computer Use Settings** — settings page shows component status with green/red indicators and install instructions
 - **Dry-run Mode** — CU_DRY_RUN=true for testing without executing real GUI/terminal actions
 - **Database Migration** — computer_use_audit_log table with RLS policies
@@ -183,9 +189,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dashboard API: active agents, metrics, event timeline, SSE stream
 - Live Monitor page with MetricsBar, AgentStatusGrid, EventTimeline
 - SSE-powered real-time updates with auto-reconnect
-- CLI client (`agentforge`) with typer + rich + httpx
+- CLI client (`forge`) with typer + rich + httpx
 - CLI commands: status, dashboard (live TUI), agents list/run/create
-- CLI config from ~/.agentforge/config.toml or environment variables
+- CLI config from ~/.forge/config.toml or environment variables
 - Dashboard and CLI tests (14 new tests)
 
 ### Changed

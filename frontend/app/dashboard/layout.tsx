@@ -104,9 +104,9 @@ export default function DashboardLayout({
   useEffect(() => {
     if (mode === "loading") return;
     if (demo) {
-      setUserEmail("demo@agentforge.dev");
+      setUserEmail("demo@forge.dev");
       // Set cookie so middleware allows access without auth
-      document.cookie = "agentforge_demo=1; path=/";
+      document.cookie = "forge_demo=1; path=/";
       return;
     }
     // Live mode — require real auth
@@ -137,7 +137,7 @@ export default function DashboardLayout({
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
         AF
       </div>
-      <span className="text-lg font-bold">AgentForge</span>
+      <span className="text-lg font-bold">Forge</span>
     </div>
   );
 
@@ -178,14 +178,14 @@ export default function DashboardLayout({
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xs">
               AF
             </div>
-            <span className="font-semibold">AgentForge</span>
+            <span className="font-semibold">Forge</span>
           </div>
         </header>
 
         {/* Demo mode banner */}
         {demo && (
           <div className="bg-yellow-900/50 border-b border-yellow-700 px-4 py-2 text-sm text-yellow-200 text-center">
-            Backend not detected. Showing demo mode. Run &apos;agentforge up&apos; to start the backend.
+            Backend not detected. Showing demo mode. Run &apos;forge up&apos; to start the backend.
           </div>
         )}
 

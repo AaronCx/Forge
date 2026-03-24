@@ -1,4 +1,4 @@
-"""SQLite database backend for AgentForge.
+"""SQLite database backend for Forge.
 
 Implements the same fluent query builder API as the Supabase wrapper,
 allowing all existing call sites to work without changes.
@@ -522,7 +522,7 @@ class SQLiteAuthBackend(AuthBackend):
 
     def __init__(self, db_path: str, jwt_secret: str = "") -> None:
         self._db_path = db_path
-        self._jwt_secret = jwt_secret or "agentforge-local-dev-secret"
+        self._jwt_secret = jwt_secret or "forge-local-dev-secret"
 
     def get_user(self, token: str) -> Any:
         """Verify a local JWT and return a user-like object."""

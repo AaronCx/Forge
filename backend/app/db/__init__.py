@@ -1,4 +1,4 @@
-"""Pluggable database layer for AgentForge.
+"""Pluggable database layer for Forge.
 
 Usage:
     from app.db import get_db
@@ -41,16 +41,16 @@ def create_db_from_env() -> DatabaseBackend:
     """Create the appropriate database backend based on environment/config.
 
     Checks in order:
-    1. AGENTFORGE_DB_BACKEND env var ("sqlite" or "supabase")
-    2. ~/.agentforge/config.toml [database] backend setting
+    1. FORGE_DB_BACKEND env var ("sqlite" or "supabase")
+    2. ~/.forge/config.toml [database] backend setting
     3. If SUPABASE_URL and SUPABASE_SERVICE_KEY are set → supabase
     4. Default → sqlite
     """
-    backend_type = os.environ.get("AGENTFORGE_DB_BACKEND", "").lower()
+    backend_type = os.environ.get("FORGE_DB_BACKEND", "").lower()
 
     if not backend_type:
         # Try config file
-        config_file = Path.home() / ".agentforge" / "config.toml"
+        config_file = Path.home() / ".forge" / "config.toml"
         if config_file.exists():
             try:
                 import tomllib
@@ -83,11 +83,11 @@ def create_db_from_env() -> DatabaseBackend:
 
         # Default path
         db_path = os.environ.get(
-            "AGENTFORGE_SQLITE_PATH",
-            str(Path.home() / ".agentforge" / "agentforge.db"),
+            "FORGE_SQLITE_PATH",
+            str(Path.home() / ".forge" / "forge.db"),
         )
         # Check config for custom path
-        config_file = Path.home() / ".agentforge" / "config.toml"
+        config_file = Path.home() / ".forge" / "config.toml"
         if config_file.exists():
             try:
                 import tomllib

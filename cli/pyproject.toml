@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentforge-cli"
+name = "forge-cli"
 version = "1.0.0"
-description = "CLI client for AgentForge — AI workflow agent platform"
+description = "CLI client for Forge — AI workflow agent platform"
 readme = "../README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agentforge = "agentforge.main:app"
+forge = "forge.main:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agentforge"]
+packages = ["forge"]

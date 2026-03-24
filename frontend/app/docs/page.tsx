@@ -19,7 +19,7 @@ const sections = [
       },
       {
         heading: "4. Install the CLI",
-        text: 'pip install agentforge-cli, then run "agentforge init" to configure your API URL and key. Use "agentforge status" for a quick overview.',
+        text: 'pip install forge-cli, then run "forge init" to configure your API URL and key. Use "forge status" for a quick overview.',
       },
     ],
   },
@@ -62,15 +62,15 @@ const sections = [
     items: [
       {
         heading: "Core commands",
-        text: "agentforge status — active runs overview. agentforge dashboard — live TUI. agentforge costs — token usage and spend. agentforge agents list/create — manage agents.",
+        text: "forge status — active runs overview. forge dashboard — live TUI. forge costs — token usage and spend. forge agents list/create — manage agents.",
       },
       {
         heading: "Feature commands",
-        text: "agentforge blueprints, evals, triggers, approvals, traces, prompts, knowledge, marketplace, teams, mail — each manages its respective feature.",
+        text: "forge blueprints, evals, triggers, approvals, traces, prompts, knowledge, marketplace, teams, mail — each manages its respective feature.",
       },
       {
         heading: "Configuration",
-        text: 'Run "agentforge init" to create ~/.agentforge/config.toml. Set api_url (your backend URL) and api_key (your API key starting with af_).',
+        text: 'Run "forge init" to create ~/.forge/config.toml. Set api_url (your backend URL) and api_key (your API key starting with af_).',
       },
     ],
   },
@@ -103,7 +103,7 @@ export default function DocsPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
                 AF
               </div>
-              <span className="text-xl font-bold">AgentForge</span>
+              <span className="text-xl font-bold">Forge</span>
             </Link>
             <span className="text-muted-foreground ml-2">/ Docs</span>
           </div>
@@ -122,7 +122,7 @@ export default function DocsPage() {
         <h1 className="text-4xl font-bold mb-2">Documentation</h1>
         <p className="text-muted-foreground mb-10">
           Everything you need to build, deploy, and monitor AI agent workflows
-          with AgentForge.
+          with Forge.
         </p>
 
         <div className="space-y-12">
@@ -167,7 +167,7 @@ export default function DocsPage() {
       </main>
 
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        AgentForge — Open source AI agent platform
+        Forge — Open source AI agent platform
       </footer>
     </div>
   );

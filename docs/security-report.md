@@ -1,4 +1,4 @@
-# AgentForge Security Audit Report
+# Forge Security Audit Report
 
 **Version:** 1.9.0
 **Date:** 2026-03-12
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-A comprehensive security audit was conducted across all 19 categories of the AgentForge security testing specification. The audit identified **12 vulnerabilities** across SSRF, webhook authentication, input validation, XSS, code execution sandbox, and query injection vectors. All vulnerabilities have been remediated with fixes committed and verified by automated tests.
+A comprehensive security audit was conducted across all 19 categories of the Forge security testing specification. The audit identified **12 vulnerabilities** across SSRF, webhook authentication, input validation, XSS, code execution sandbox, and query injection vectors. All vulnerabilities have been remediated with fixes committed and verified by automated tests.
 
 **Key findings:**
 - **Critical (2):** SSRF in blueprint fetch nodes and MCP client — no URL validation allowed requests to internal networks and cloud metadata services
@@ -234,7 +234,7 @@ All 12 issues have been fixed and verified.
 | `app/services/security/url_validator.py` | SSRF protection — URL validation with IP blocklist |
 | `app/services/security/sanitizer.py` | XSS and path traversal sanitization utilities |
 | `tests/test_security.py` | 105 security tests covering all 19 audit sections |
-| `conftest.py` | Root test configuration (sets AGENTFORGE_TESTING env) |
+| `conftest.py` | Root test configuration (sets FORGE_TESTING env) |
 
 ---
 
@@ -279,5 +279,5 @@ All checks passed!
 
 ---
 
-**Auditor:** Automated security testing via AgentForge Security Spec v1.9
+**Auditor:** Automated security testing via Forge Security Spec v1.9
 **Status:** All vulnerabilities remediated and verified

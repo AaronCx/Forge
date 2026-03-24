@@ -1,4 +1,4 @@
-"""Comprehensive security & prompt injection testing for AgentForge v1.9.
+"""Comprehensive security & prompt injection testing for Forge v1.9.
 
 Covers all 19 sections of the security audit spec:
 1. Prompt Injection — Agent System Prompts
@@ -31,7 +31,7 @@ from unittest.mock import patch
 import pytest
 
 # Ensure test mode is set
-os.environ["AGENTFORGE_TESTING"] = "1"
+os.environ["FORGE_TESTING"] = "1"
 
 
 # ────────────────────────────────────────────────────────────────

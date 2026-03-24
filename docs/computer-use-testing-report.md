@@ -37,8 +37,8 @@ Platform: macOS 26.2 (arm64)
 
 ### Known Limitation
 macOS restricts `screencapture` and `osascript` System Events calls to console sessions. Over SSH/tmux these APIs return errors even with permissions granted. The Steer GUI commands will work when:
-- The AgentForge backend runs as a local process (e.g. launched from Terminal.app on the console)
-- Commands are dispatched through the AgentForge API/blueprint engine
+- The Forge backend runs as a local process (e.g. launched from Terminal.app on the console)
+- Commands are dispatched through the Forge API/blueprint engine
 - A user is logged in to the GUI session
 
 ### Verification Results (via SSH)
