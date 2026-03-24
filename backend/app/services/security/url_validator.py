@@ -28,7 +28,7 @@ _ALLOWED_SCHEMES = {"http", "https"}
 
 def _is_testing() -> bool:
     """Check if running in test environment."""
-    return os.environ.get("AGENTFORGE_TESTING", "").lower() in ("1", "true")
+    return os.environ.get("FORGE_TESTING", "").lower() in ("1", "true")
 
 
 class SSRFError(ValueError):

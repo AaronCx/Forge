@@ -9,7 +9,7 @@ from typing import Any
 
 @dataclass
 class AgentBackend:
-    """Definition of an external coding agent that AgentForge can spawn and control."""
+    """Definition of an external coding agent that Forge can spawn and control."""
 
     name: str
     command: str

@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
   // Protected routes — require auth token OR demo cookie (set by BackendProvider
   // when backend is unreachable)
   if (!token && pathname.startsWith("/dashboard")) {
-    const isDemo = request.cookies.get("agentforge_demo")?.value === "1";
+    const isDemo = request.cookies.get("forge_demo")?.value === "1";
     if (isDemo) {
       return NextResponse.next();
     }

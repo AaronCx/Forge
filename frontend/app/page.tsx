@@ -56,7 +56,7 @@ export default function Home() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
               AF
             </div>
-            <span className="text-xl font-bold">AgentForge</span>
+            <span className="text-xl font-bold">Forge</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -157,7 +157,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        AgentForge — Open source AI agent platform
+        Forge — Open source AI agent platform
       </footer>
     </div>
   );

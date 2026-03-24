@@ -1,12 +1,12 @@
 #!/bin/bash
-# AgentForge macOS Computer Use Bootstrap
+# Forge macOS Computer Use Bootstrap
 # Run this once on a new Mac to set up computer use capabilities.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "🔧 AgentForge Computer Use Bootstrap"
+echo "🔧 Forge Computer Use Bootstrap"
 echo "======================================"
 echo ""
 

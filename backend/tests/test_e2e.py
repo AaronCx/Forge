@@ -1,4 +1,4 @@
-"""End-to-end tests covering all AgentForge features v1.0 through v1.7.
+"""End-to-end tests covering all Forge features v1.0 through v1.7.
 
 Tests API endpoints as a real user would exercise them, verifying routes exist,
 return correct status codes, and handle auth correctly.
@@ -60,7 +60,7 @@ def test_root_endpoint(client):
     """0.2 — Root endpoint returns version info."""
     response = client.get("/")
     data = response.json()
-    assert data["name"] == "AgentForge API"
+    assert data["name"] == "Forge API"
     assert data["version"] == "1.9.0"
     assert data["status"] == "running"
 

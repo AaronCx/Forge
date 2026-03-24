@@ -1,4 +1,4 @@
-"""Configuration loader for AgentForge CLI."""
+"""Configuration loader for Forge CLI."""
 
 import os
 from pathlib import Path
@@ -9,21 +9,21 @@ except ImportError:
     import tomli as tomllib
 
 
-CONFIG_DIR = Path.home() / ".agentforge"
+CONFIG_DIR = Path.home() / ".forge"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 
 _config: dict | None = None
 
 
 def get_config() -> dict:
-    """Load config from ~/.agentforge/config.toml or env vars."""
+    """Load config from ~/.forge/config.toml or env vars."""
     global _config
     if _config is not None:
         return _config
 
     config = {
-        "api_url": os.environ.get("AGENTFORGE_API_URL", "http://localhost:8000"),
-        "api_key": os.environ.get("AGENTFORGE_API_KEY", ""),
+        "api_url": os.environ.get("FORGE_API_URL", "http://localhost:8000"),
+        "api_key": os.environ.get("FORGE_API_KEY", ""),
         "default_model": "",
     }
 
@@ -60,7 +60,7 @@ def ensure_config():
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if not CONFIG_FILE.exists():
         CONFIG_FILE.write_text(
-            '# AgentForge CLI Configuration\n'
+            '# Forge CLI Configuration\n'
             'api_url = "http://localhost:8000"\n'
             'api_key = ""\n'
         )

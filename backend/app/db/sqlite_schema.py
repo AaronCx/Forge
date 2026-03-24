@@ -1,5 +1,5 @@
 """
-SQLite-compatible schema for AgentForge.
+SQLite-compatible schema for Forge.
 
 Translated from Supabase/Postgres migrations (001–008, 20260312_*).
 All UUIDs are generated in Python (uuid4). Timestamps stored as ISO-8601 TEXT.

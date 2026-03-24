@@ -38,7 +38,7 @@ export default function LoginPage() {
   }
 
   function fillDemo() {
-    setEmail("demo@agentforge.dev");
+    setEmail("demo@forge.dev");
     setPassword("demo1234");
   }
 
@@ -56,14 +56,14 @@ export default function LoginPage() {
                 Click to fill demo credentials — no signup needed
               </p>
             </div>
-            <span className="text-xs text-muted-foreground">demo@agentforge.dev</span>
+            <span className="text-xs text-muted-foreground">demo@forge.dev</span>
           </div>
         </button>
 
         <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>Sign in to your AgentForge account</CardDescription>
+          <CardDescription>Sign in to your Forge account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">

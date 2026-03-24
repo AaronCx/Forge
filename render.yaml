@@ -1,8 +1,8 @@
 services:
   - type: web
-    name: agentforge-api
+    name: forge-api
     runtime: python
-    repo: https://github.com/AaronCx/AgentForge
+    repo: https://github.com/AaronCx/Forge
     branch: main
     rootDir: backend
     plan: free
@@ -20,4 +20,4 @@ services:
       - key: SERPAPI_KEY
         sync: false
       - key: FRONTEND_URL
-        value: https://agentforge-six.vercel.app
+        value: https://forge-six.vercel.app

@@ -1,8 +1,8 @@
-"""Tests for AgentForge CLI commands."""
+"""Tests for Forge CLI commands."""
 
 from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
-from agentforge.main import app
+from forge.main import app
 
 runner = CliRunner()
 
@@ -10,26 +10,26 @@ runner = CliRunner()
 def test_version():
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "agentforge-cli" in result.output
+    assert "forge-cli" in result.output
 
 
 def test_init(tmp_path):
-    with patch("agentforge.config.CONFIG_DIR", tmp_path / ".agentforge"):
-        with patch("agentforge.config.CONFIG_FILE", tmp_path / ".agentforge" / "config.toml"):
+    with patch("forge.config.CONFIG_DIR", tmp_path / ".forge"):
+        with patch("forge.config.CONFIG_FILE", tmp_path / ".forge" / "config.toml"):
             result = runner.invoke(app, ["init"])
             assert result.exit_code == 0
             assert "config.toml" in result.output.lower() or "Config" in result.output
 
 
 def test_status_connection_error():
-    with patch("agentforge.client.get", side_effect=Exception("Connection refused")):
+    with patch("forge.client.get", side_effect=Exception("Connection refused")):
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 1
         assert "Error" in result.output
 
 
 def test_status_no_active():
-    with patch("agentforge.client.get") as mock_get:
+    with patch("forge.client.get") as mock_get:
         mock_get.side_effect = lambda path, **kw: {
             "/api/dashboard/active": [],
             "/api/dashboard/metrics": {
@@ -46,7 +46,7 @@ def test_status_no_active():
 
 
 def test_agents_list():
-    with patch("agentforge.client.get") as mock_get:
+    with patch("forge.client.get") as mock_get:
         mock_get.return_value = [
             {
                 "id": "abc12345-1234-1234-1234-123456789012",
@@ -63,7 +63,7 @@ def test_agents_list():
 
 
 def test_agents_create():
-    with patch("agentforge.client.post") as mock_post:
+    with patch("forge.client.post") as mock_post:
         mock_post.return_value = {
             "id": "new-agent-id-1234",
             "name": "My Agent",
@@ -79,7 +79,7 @@ def test_agents_create():
 
 
 def test_agents_list_error():
-    with patch("agentforge.client.get", side_effect=Exception("Unauthorized")):
+    with patch("forge.client.get", side_effect=Exception("Unauthorized")):
         result = runner.invoke(app, ["agents", "list"])
         assert result.exit_code == 1
         assert "Error" in result.output

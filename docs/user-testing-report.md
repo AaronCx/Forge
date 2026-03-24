@@ -1,9 +1,9 @@
-# AgentForge User Testing Report
+# Forge User Testing Report
 
 **Date:** 2026-03-14
 **Tester:** Claude Code (autonomous user simulation)
-**Frontend:** https://agentforge-six.vercel.app
-**Backend:** https://agentforge-api.onrender.com (v1.9.0)
+**Frontend:** https://forge-six.vercel.app
+**Backend:** https://forge-api.onrender.com (v1.9.0)
 **Method:** Playwright browser automation against live deployment
 
 ---
@@ -29,7 +29,7 @@
 - **Evals page** — New Suite button, description text
 - **Compare page** — Model selection (0/5), system prompt, user prompt, temperature/max tokens controls, Compare Models button
 - **Runs page** — Run history with empty state guidance
-- **CLI** — 35 commands covering agents, blueprints, runs, costs, evals, triggers, knowledge, marketplace, teams, orchestration, MCP, computer-use, recordings, targets, tools. `agentforge --help` and `agentforge version` work
+- **CLI** — 35 commands covering agents, blueprints, runs, costs, evals, triggers, knowledge, marketplace, teams, orchestration, MCP, computer-use, recordings, targets, tools. `forge --help` and `forge version` work
 - **API docs** — Swagger UI loads at /docs with 126 endpoints across 101 path groups
 
 ## What Was Broken and Fixed
@@ -56,7 +56,7 @@
 - **Knowledge base RAG** — Upload and embedding generation require backend processing with an embedding model
 - **Marketplace publishing** — No existing marketplace listings to test fork/install flow
 - **Computer Use** — Requires macOS GUI tools (Steer, Drive) which are not installed; server-side detection shows Linux deps instead of macOS
-- **CLI remote commands** — CLI defaults to localhost; needs `agentforge init` with Render URL to work against deployed backend
+- **CLI remote commands** — CLI defaults to localhost; needs `forge init` with Render URL to work against deployed backend
 
 ## Missing Features
 
@@ -80,7 +80,7 @@
 1. **Add demo data to remaining pages** — Runs, Marketplace, Evals, Knowledge, and Prompts pages should show demo data like the rest of the app for a consistent demo experience
 2. **Fix Node Palette z-index** — The palette overlay blocking sidebar navigation is a usability issue that affects all blueprint editing sessions
 3. **Fix Computer Use platform detection** — Should detect the user's actual platform (client-side) rather than the server platform
-4. **Add CLI init guidance** — Show a helpful message on first CLI command pointing users to `agentforge init` with instructions for configuring the API URL
+4. **Add CLI init guidance** — Show a helpful message on first CLI command pointing users to `forge init` with instructions for configuring the API URL
 5. **Add empty state CTAs** — Pages like Runs ("No runs yet") should link directly to the agent creation or agent run page to reduce friction
 
 ---

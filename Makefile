@@ -4,13 +4,13 @@ setup:
 	./setup.sh
 
 up:
-	agentforge up
+	forge up
 
 down:
-	agentforge down
+	forge down
 
 restart:
-	agentforge restart
+	forge restart
 
 test:
 	cd backend && .venv/bin/pytest tests/ -v && cd ../frontend && bun test

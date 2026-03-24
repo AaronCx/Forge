@@ -14,8 +14,8 @@ const isSupabaseMode = !!(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const TOKEN_KEY = "agentforge_token";
-const USER_KEY = "agentforge_user";
+const TOKEN_KEY = "forge_token";
+const USER_KEY = "forge_user";
 
 export interface AuthUser {
   id: string;
@@ -155,7 +155,7 @@ export async function logout(): Promise<void> {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     document.cookie = "sb-access-token=; max-age=0; path=/";
-    document.cookie = "agentforge_demo=; max-age=0; path=/";
+    document.cookie = "forge_demo=; max-age=0; path=/";
     // Clear Supabase session data
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith("sb-")) localStorage.removeItem(key);

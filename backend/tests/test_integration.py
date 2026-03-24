@@ -20,7 +20,7 @@ import pytest
 
 # Path to the installed CLI binary and CLI source
 _VENV_BIN = pathlib.Path(__file__).parent.parent / ".venv" / "bin"
-_AGENTFORGE = str(_VENV_BIN / "agentforge")
+_FORGE = str(_VENV_BIN / "forge")
 _CLI_DIR = str(pathlib.Path(__file__).parent.parent.parent / "cli")
 _CLI_ENV = {**os.environ, "PYTHONPATH": _CLI_DIR}
 
@@ -226,41 +226,41 @@ CLI_COMMANDS = [
 @pytest.mark.parametrize("group,subcommands", CLI_COMMANDS)
 def test_cli_command_group_help(group, subcommands):
     """CLI command groups show help without errors."""
-    if not os.path.exists(_AGENTFORGE):
-        pytest.skip("agentforge CLI not installed in backend venv")
+    if not os.path.exists(_FORGE):
+        pytest.skip("forge CLI not installed in backend venv")
     result = subprocess.run(
-        [_AGENTFORGE, group, "--help"],
+        [_FORGE, group, "--help"],
         capture_output=True,
         text=True,
         timeout=10,
         env=_CLI_ENV,
     )
-    assert result.returncode == 0, f"agentforge {group} --help failed: {result.stderr}"
+    assert result.returncode == 0, f"forge {group} --help failed: {result.stderr}"
     for sub in subcommands:
-        assert sub in result.stdout.lower(), f"Subcommand '{sub}' not found in 'agentforge {group} --help'"
+        assert sub in result.stdout.lower(), f"Subcommand '{sub}' not found in 'forge {group} --help'"
 
 
 def test_cli_version():
     """CLI version command works."""
-    if not os.path.exists(_AGENTFORGE):
-        pytest.skip("agentforge CLI not installed in backend venv")
+    if not os.path.exists(_FORGE):
+        pytest.skip("forge CLI not installed in backend venv")
     result = subprocess.run(
-        [_AGENTFORGE, "version"],
+        [_FORGE, "version"],
         capture_output=True,
         text=True,
         timeout=10,
         env=_CLI_ENV,
     )
     assert result.returncode == 0
-    assert "agentforge-cli v" in result.stdout
+    assert "forge-cli v" in result.stdout
 
 
 def test_cli_status_help():
     """4.7 — CLI status command exists."""
-    if not os.path.exists(_AGENTFORGE):
-        pytest.skip("agentforge CLI not installed in backend venv")
+    if not os.path.exists(_FORGE):
+        pytest.skip("forge CLI not installed in backend venv")
     result = subprocess.run(
-        [_AGENTFORGE, "status", "--help"],
+        [_FORGE, "status", "--help"],
         capture_output=True,
         text=True,
         timeout=10,
@@ -271,10 +271,10 @@ def test_cli_status_help():
 
 def test_cli_dashboard_help():
     """4.6 — CLI dashboard command exists."""
-    if not os.path.exists(_AGENTFORGE):
-        pytest.skip("agentforge CLI not installed in backend venv")
+    if not os.path.exists(_FORGE):
+        pytest.skip("forge CLI not installed in backend venv")
     result = subprocess.run(
-        [_AGENTFORGE, "dashboard", "--help"],
+        [_FORGE, "dashboard", "--help"],
         capture_output=True,
         text=True,
         timeout=10,
@@ -285,10 +285,10 @@ def test_cli_dashboard_help():
 
 def test_cli_costs_help():
     """5.5 — CLI costs command exists."""
-    if not os.path.exists(_AGENTFORGE):
-        pytest.skip("agentforge CLI not installed in backend venv")
+    if not os.path.exists(_FORGE):
+        pytest.skip("forge CLI not installed in backend venv")
     result = subprocess.run(
-        [_AGENTFORGE, "costs", "--help"],
+        [_FORGE, "costs", "--help"],
         capture_output=True,
         text=True,
         timeout=10,

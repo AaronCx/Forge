@@ -26,7 +26,7 @@ class RecorderService:
 
     def __init__(self) -> None:
         self._active_recordings: dict[str, dict[str, Any]] = {}
-        self._storage_path = os.getenv("AF_RECORDING_STORAGE", "/tmp/agentforge-recordings")
+        self._storage_path = os.getenv("AF_RECORDING_STORAGE", "/tmp/forge-recordings")
 
     async def start_recording(
         self,

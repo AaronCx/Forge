@@ -8,7 +8,7 @@ import { BackendProvider } from "@/lib/backend-context";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "AgentForge",
+  title: "Forge",
   description:
     "AI workflow agent platform — build, configure, and run multi-step AI agents with tool use.",
 };

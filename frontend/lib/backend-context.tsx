@@ -39,7 +39,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           setMode("live");
           // Clear any stale demo cookie when backend is available
-          document.cookie = "agentforge_demo=; max-age=0; path=/";
+          document.cookie = "forge_demo=; max-age=0; path=/";
         } else {
           setMode("demo");
         }
