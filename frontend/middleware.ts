@@ -25,9 +25,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Protected routes — require auth token OR demo cookie (set by BackendProvider
-  // when backend is unreachable)
+  // Protected routes — require auth token OR demo mode
   if (!token && pathname.startsWith("/dashboard")) {
+    // Allow access if force-demo is enabled (Vercel showcase deployment)
+    if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") {
+      return NextResponse.next();
+    }
+    // Allow access if demo cookie is set (backend unreachable detection)
     const isDemo = request.cookies.get("forge_demo")?.value === "1";
     if (isDemo) {
       return NextResponse.next();
