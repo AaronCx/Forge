@@ -12,6 +12,8 @@ checks:
       - "frontend/components/workspace/*"
       - "frontend/app/dashboard/workspace/**"
       - "frontend/app/docs/*"
+      - "frontend/app/page.tsx"
+      - "frontend/app/(auth)/*"
       - "cli/forge/*"
 
   lint:

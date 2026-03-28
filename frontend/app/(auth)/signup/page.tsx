@@ -16,6 +16,16 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // In force-demo mode (Vercel showcase), skip signup entirely
+  if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") {
+    router.replace("/dashboard");
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading demo...</p>
+      </div>
+    );
+  }
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
