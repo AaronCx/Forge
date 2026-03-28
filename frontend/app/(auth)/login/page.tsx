@@ -16,6 +16,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // In force-demo mode (Vercel showcase), skip login entirely
+  if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") {
+    router.replace("/dashboard");
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading demo...</p>
+      </div>
+    );
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);

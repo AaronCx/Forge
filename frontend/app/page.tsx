@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+const isDemo = process.env.NEXT_PUBLIC_FORCE_DEMO === "true";
+
 const features = [
   {
     title: "Agent Builder",
@@ -59,11 +61,11 @@ export default function Home() {
             <span className="text-xl font-bold">Forge</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/login">
-              <Button variant="ghost">Log in</Button>
+            <Link href={isDemo ? "/dashboard" : "/login"}>
+              <Button variant="ghost">{isDemo ? "Dashboard" : "Log in"}</Button>
             </Link>
-            <Link href="/signup">
-              <Button>Get Started</Button>
+            <Link href={isDemo ? "/dashboard" : "/signup"}>
+              <Button>{isDemo ? "Try Demo" : "Get Started"}</Button>
             </Link>
           </div>
         </div>
@@ -82,12 +84,12 @@ export default function Home() {
             all through a clean web interface, CLI, or API.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
-            <Link href="/signup">
+            <Link href={isDemo ? "/dashboard" : "/signup"}>
               <Button size="lg" className="text-base px-8">
-                Start Building
+                {isDemo ? "Explore Demo" : "Start Building"}
               </Button>
             </Link>
-            <Link href="/demo">
+            <Link href="/dashboard">
               <Button variant="outline" size="lg" className="text-base px-8">
                 Try Demo
               </Button>
