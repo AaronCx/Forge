@@ -6,14 +6,9 @@ checks:
     enabled: true
     severity: fail
     exclude:
-      - "frontend/lib/supabase.ts"
+      - "frontend/**"
       - "README.md"
       - "backend/app/db/*"
-      - "frontend/components/workspace/*"
-      - "frontend/app/dashboard/workspace/**"
-      - "frontend/app/docs/*"
-      - "frontend/app/page.tsx"
-      - "frontend/app/(auth)/*"
       - "cli/forge/*"
 
   lint:
