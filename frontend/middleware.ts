@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function isDemoDeployment(request: NextRequest): boolean {
+  const host = request.headers.get("host") || "";
+  // Vercel deployments (no local backend available) → demo mode
+  return host.includes("vercel.app");
+}
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("sb-access-token")?.value;
   const { pathname } = request.nextUrl;
+  const forceDemo = isDemoDeployment(request);
 
   // Public routes — always accessible
   if (
@@ -13,25 +20,32 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/docs") ||
     pathname === "/"
   ) {
-    // Redirect authenticated users away from login/signup
+    // In demo mode, redirect login/signup straight to dashboard
+    if (forceDemo && (pathname === "/login" || pathname === "/signup")) {
+      const response = NextResponse.redirect(new URL("/dashboard", request.url));
+      response.cookies.set("forge_demo", "1", { path: "/" });
+      return response;
+    }
     if (token && (pathname === "/login" || pathname === "/signup")) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     return NextResponse.next();
   }
 
-  // Legacy /demo route — redirect to dashboard (detection is automatic now)
+  // Legacy /demo route — redirect to dashboard
   if (pathname.startsWith("/demo")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const response = NextResponse.redirect(new URL("/dashboard", request.url));
+    response.cookies.set("forge_demo", "1", { path: "/" });
+    return response;
   }
 
-  // Protected routes — require auth token OR demo mode
+  // Protected routes — require auth OR demo mode
   if (!token && pathname.startsWith("/dashboard")) {
-    // Allow access if force-demo is enabled (Vercel showcase deployment)
-    if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") {
-      return NextResponse.next();
+    if (forceDemo) {
+      const response = NextResponse.next();
+      response.cookies.set("forge_demo", "1", { path: "/" });
+      return response;
     }
-    // Allow access if demo cookie is set (backend unreachable detection)
     const isDemo = request.cookies.get("forge_demo")?.value === "1";
     if (isDemo) {
       return NextResponse.next();
