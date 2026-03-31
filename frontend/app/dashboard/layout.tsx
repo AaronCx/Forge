@@ -128,8 +128,9 @@ export default function DashboardLayout({
   }, [pathname]);
 
   async function handleLogout() {
+    document.cookie = "forge_demo=; max-age=0; path=/";
     await authLogout();
-    window.location.href = "/login";
+    window.location.href = "/";
   }
 
   const logo = (
