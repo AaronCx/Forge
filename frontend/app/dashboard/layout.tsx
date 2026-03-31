@@ -31,8 +31,8 @@ const navItems = [
   { href: "/dashboard/prompts", label: "Prompts" },
   { href: "/dashboard/knowledge", label: "Knowledge" },
   { href: "/dashboard/marketplace", label: "Marketplace" },
-  { href: "/dashboard/team", label: "Team" },
   { href: "/dashboard/workspace", label: "Workspace" },
+  { href: "/dashboard/team", label: "Team" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
@@ -48,8 +48,8 @@ function SidebarContent({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
+    <div className="flex h-full flex-col">
+      <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto min-h-0">
         {navItems.map((item) => {
           const href = item.href;
           return (
@@ -58,7 +58,7 @@ function SidebarContent({
               href={href}
               onClick={onNavigate}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 (item.href === "/dashboard"
                   ? pathname === "/dashboard"
                   : pathname.startsWith(item.href))
@@ -71,7 +71,7 @@ function SidebarContent({
           );
         })}
       </nav>
-      <div className="mt-auto border-t border-border p-4">
+      <div className="shrink-0 border-t border-border p-4">
         <p className="truncate text-xs text-muted-foreground" title={userEmail}>
           {userEmail}
         </p>
@@ -105,11 +105,9 @@ export default function DashboardLayout({
     if (mode === "loading") return;
     if (demo) {
       setUserEmail("demo@forge.dev");
-      // Set cookie so middleware allows access without auth
       document.cookie = "forge_demo=1; path=/";
       return;
     }
-    // Live mode — require real auth
     getUser()
       .then((user) => {
         if (!user) {
@@ -129,20 +127,25 @@ export default function DashboardLayout({
 
   async function handleLogout() {
     await authLogout();
-    window.location.href = "/login";
+    // In demo mode, go to landing page (login would redirect back to dashboard)
+    if (demo) {
+      window.location.href = "/";
+    } else {
+      window.location.href = "/login";
+    }
   }
 
   const logo = (
-    <div className="flex h-16 items-center gap-2 border-b border-border px-6">
+    <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-        AF
+        F
       </div>
       <span className="text-lg font-bold">Forge</span>
     </div>
   );
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 md:flex-col border-r border-border bg-card">
         {logo}
@@ -154,8 +157,8 @@ export default function DashboardLayout({
       </aside>
 
       {/* Mobile Header + Sheet */}
-      <div className="flex flex-1 flex-col">
-        <header className="flex md:hidden h-14 items-center gap-3 border-b border-border bg-card px-4">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex md:hidden h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0">
@@ -163,7 +166,7 @@ export default function DashboardLayout({
                 <span className="sr-only">Toggle menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="w-64 p-0 flex flex-col h-full">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               {logo}
               <SidebarContent
@@ -176,23 +179,23 @@ export default function DashboardLayout({
           </Sheet>
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xs">
-              AF
+              F
             </div>
             <span className="font-semibold">Forge</span>
           </div>
         </header>
 
-        {/* Demo mode banner */}
+        {/* Demo mode banner — friendly message for Vercel showcase */}
         {demo && (
-          <div className="bg-yellow-900/50 border-b border-yellow-700 px-4 py-2 text-sm text-yellow-200 text-center">
-            Backend not detected. Showing demo mode. Run &apos;forge up&apos; to start the backend.
+          <div className="shrink-0 bg-primary/10 border-b border-primary/20 px-4 py-2 text-sm text-primary text-center">
+            Exploring demo mode with simulated data
           </div>
         )}
 
         {/* Loading state */}
         {mode === "loading" && (
           <div className="flex items-center justify-center p-8 text-muted-foreground text-sm">
-            Detecting backend...
+            Loading...
           </div>
         )}
 
