@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
-const isDemo = process.env.NEXT_PUBLIC_FORCE_DEMO === "true";
+import { LandingHeader } from "@/components/LandingHeader";
 
 const features = [
   {
@@ -52,24 +51,7 @@ const templates = [
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-              AF
-            </div>
-            <span className="text-xl font-bold">Forge</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href={isDemo ? "/dashboard" : "/login"}>
-              <Button variant="ghost">{isDemo ? "Dashboard" : "Log in"}</Button>
-            </Link>
-            <Link href={isDemo ? "/dashboard" : "/signup"}>
-              <Button>{isDemo ? "Try Demo" : "Get Started"}</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <LandingHeader />
 
       <main className="flex flex-1 flex-col items-center px-6">
         {/* Hero */}
@@ -84,9 +66,9 @@ export default function Home() {
             all through a clean web interface, CLI, or API.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
-            <Link href={isDemo ? "/dashboard" : "/signup"}>
+            <Link href="/dashboard">
               <Button size="lg" className="text-base px-8">
-                {isDemo ? "Explore Demo" : "Start Building"}
+                Start Building
               </Button>
             </Link>
             <Link href="/dashboard">
@@ -142,7 +124,7 @@ export default function Home() {
               "FastAPI",
               "LangChain",
               "OpenAI",
-              "Supabase",
+              "SQLite / Supabase",
               "TypeScript",
               "Python 3.12",
               "Tailwind CSS",

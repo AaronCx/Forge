@@ -23,8 +23,11 @@ export function BackendProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<AppMode>("loading");
 
   useEffect(() => {
-    // If NEXT_PUBLIC_FORCE_DEMO is set (Vercel deployment), skip detection
-    if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") {
+    // If NEXT_PUBLIC_FORCE_DEMO is set or we're on vercel.app, skip health check entirely
+    if (
+      process.env.NEXT_PUBLIC_FORCE_DEMO === "true" ||
+      window.location.hostname.includes("vercel.app")
+    ) {
       setMode("demo");
       return;
     }

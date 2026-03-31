@@ -132,6 +132,92 @@ export const DEMO_TIMELINE = [
   },
 ];
 
+export const DEMO_RUNS = [
+  {
+    id: "run-demo-1",
+    agent_id: "demo-1",
+    user_id: "demo",
+    input_text: "Research the latest developments in AI agent architectures and multi-agent coordination patterns",
+    input_file_url: null,
+    status: "completed" as const,
+    output: "Found 12 relevant sources on AI agent architectures...",
+    step_logs: [
+      { step: 1, result: "Searched for AI agent architectures", duration_ms: 3200 },
+      { step: 2, result: "Synthesized findings from 12 sources", duration_ms: 5100 },
+      { step: 3, result: "Generated final report", duration_ms: 4100 },
+    ],
+    tokens_used: 3420,
+    duration_ms: 12400,
+    created_at: "2026-03-12T12:30:00Z",
+  },
+  {
+    id: "run-demo-2",
+    agent_id: "demo-2",
+    user_id: "demo",
+    input_text: "Extract all company names and revenue figures from the Q4 earnings report",
+    input_file_url: null,
+    status: "completed" as const,
+    output: "Extracted 24 entities from input document.",
+    step_logs: [
+      { step: 1, result: "Parsed input document", duration_ms: 1200 },
+      { step: 2, result: "Extracted 24 entities", duration_ms: 1800 },
+      { step: 3, result: "Formatted output as JSON", duration_ms: 1200 },
+    ],
+    tokens_used: 890,
+    duration_ms: 4200,
+    created_at: "2026-03-12T12:25:00Z",
+  },
+  {
+    id: "run-demo-3",
+    agent_id: "demo-3",
+    user_id: "demo",
+    input_text: "Review the authentication module for security vulnerabilities and suggest improvements",
+    input_file_url: null,
+    status: "running" as const,
+    output: null,
+    step_logs: [
+      { step: 1, result: "Analyzing code structure", duration_ms: 2100 },
+    ],
+    tokens_used: 450,
+    duration_ms: null,
+    created_at: "2026-03-12T12:31:00Z",
+  },
+  {
+    id: "run-demo-4",
+    agent_id: "demo-1",
+    user_id: "demo",
+    input_text: "Summarize the top 5 trending topics in machine learning this week",
+    input_file_url: null,
+    status: "completed" as const,
+    output: "Top 5 ML trends: 1) Multi-modal agents...",
+    step_logs: [
+      { step: 1, result: "Searched ML news sources", duration_ms: 2800 },
+      { step: 2, result: "Ranked trending topics", duration_ms: 3200 },
+      { step: 3, result: "Generated summary", duration_ms: 2700 },
+    ],
+    tokens_used: 2100,
+    duration_ms: 8700,
+    created_at: "2026-03-12T11:00:00Z",
+  },
+  {
+    id: "run-demo-5",
+    agent_id: "demo-2",
+    user_id: "demo",
+    input_text: "Parse the CSV upload and extract structured JSON records for each customer entry",
+    input_file_url: null,
+    status: "completed" as const,
+    output: "Extracted 156 customer records.",
+    step_logs: [
+      { step: 1, result: "Parsed CSV headers", duration_ms: 800 },
+      { step: 2, result: "Extracted 156 records", duration_ms: 3200 },
+      { step: 3, result: "Validated and formatted JSON", duration_ms: 1300 },
+    ],
+    tokens_used: 1560,
+    duration_ms: 5300,
+    created_at: "2026-03-12T10:15:00Z",
+  },
+];
+
 export const DEMO_COST_SUMMARY = {
   period: "today",
   total_input_tokens: 18_200,
@@ -369,5 +455,6 @@ export const DEMO_WORKSPACES = [
 export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
   if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") return true;
+  if (window.location.hostname.includes("vercel.app")) return true;
   return document.cookie.includes("forge_demo=1");
 }
