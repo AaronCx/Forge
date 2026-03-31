@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { api, Run } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_RUNS } from "@/lib/demo-data";
 
 export function RunHistory() {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -12,6 +12,7 @@ export function RunHistory() {
 
   useEffect(() => {
     if (isDemoMode()) {
+      setRuns(DEMO_RUNS);
       setLoading(false);
       return;
     }
