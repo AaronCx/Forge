@@ -18,12 +18,14 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     if (isDemoMode()) {
-      const demo = DEMO_AGENTS.find((a) => a.id === params.id) as Agent | undefined;
-      setAgent(demo || null);
-      if (!demo) setError("Agent not found");
+      setDemo(true);
+      const found = DEMO_AGENTS.find((a) => a.id === params.id) as Agent | undefined;
+      setAgent(found || null);
+      if (!found) setError("Agent not found");
       setLoading(false);
       return;
     }
@@ -43,8 +45,6 @@ export default function AgentDetailPage() {
     }
     load();
   }, [params.id]);
-
-  const demo = isDemoMode();
 
   async function handleDelete() {
     if (!agent || demo) return;

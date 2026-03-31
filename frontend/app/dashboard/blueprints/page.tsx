@@ -61,10 +61,12 @@ export default function BlueprintsPage() {
   const [templates, setTemplates] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     if (isDemoMode()) {
+      setDemo(true);
       setLoading(false);
       return;
     }
@@ -125,7 +127,7 @@ export default function BlueprintsPage() {
             Visual DAG workflows with deterministic and AI-powered nodes
           </p>
         </div>
-        {!isDemoMode() && (
+        {!demo && (
           <Link href="/dashboard/blueprints/new">
             <Button>New Blueprint</Button>
           </Link>
@@ -177,7 +179,7 @@ export default function BlueprintsPage() {
                           </span>
                         ))}
                       </div>
-                      {!isDemoMode() && (
+                      {!demo && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -200,7 +202,7 @@ export default function BlueprintsPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Create your first blueprint to build visual workflows.
               </p>
-              {!isDemoMode() && (
+              {!demo && (
                 <Link href="/dashboard/blueprints/new">
                   <Button className="mt-4">New Blueprint</Button>
                 </Link>
