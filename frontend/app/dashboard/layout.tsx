@@ -48,8 +48,8 @@ function SidebarContent({
   onNavigate?: () => void;
 }) {
   return (
-    <>
-      <nav className="flex flex-col gap-1 p-4">
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
         {navItems.map((item) => {
           const href = item.href;
           return (
@@ -84,7 +84,7 @@ function SidebarContent({
           Sign out
         </Button>
       </div>
-    </>
+    </div>
   );
 }
 
