@@ -135,7 +135,7 @@ export default function DashboardLayout({
   const logo = (
     <div className="flex h-16 items-center gap-2 border-b border-border px-6">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-        AF
+        F
       </div>
       <span className="text-lg font-bold">Forge</span>
     </div>
@@ -163,7 +163,7 @@ export default function DashboardLayout({
                 <span className="sr-only">Toggle menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="w-64 p-0 flex flex-col overflow-y-auto">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               {logo}
               <SidebarContent
@@ -176,7 +176,7 @@ export default function DashboardLayout({
           </Sheet>
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xs">
-              AF
+              F
             </div>
             <span className="font-semibold">Forge</span>
           </div>
@@ -185,7 +185,7 @@ export default function DashboardLayout({
         {/* Demo mode banner */}
         {demo && (
           <div className="bg-yellow-900/50 border-b border-yellow-700 px-4 py-2 text-sm text-yellow-200 text-center">
-            Backend not detected. Showing demo mode. Run &apos;forge up&apos; to start the backend.
+            Exploring demo mode with simulated data
           </div>
         )}
 
