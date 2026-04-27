@@ -61,3 +61,26 @@ jobs:
       - run: ruff check app/ --config ../ruff.toml
       - run: mypy app/ --config-file mypy.ini
       - run: pytest tests/ -v --cov=app
+
+  frontend-e2e:
+    name: Demo Parity Smoke Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_PUBLIC_FORCE_DEMO: "true"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.x"
+      - uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: bun-${{ hashFiles('frontend/bun.lock') }}
+      - run: bun install --frozen-lockfile
+      - run: bun run test:e2e:install
+      - run: bun run build
+      - run: bun run test:e2e
