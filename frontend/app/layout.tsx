@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AuthSync } from "@/components/AuthSync";
 import { BackendProvider } from "@/lib/backend-context";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         <BackendProvider>
           <AuthSync />
           {children}
+          <Toaster theme="dark" position="bottom-right" />
         </BackendProvider>
       </body>
     </html>
