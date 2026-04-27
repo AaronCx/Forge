@@ -22,9 +22,9 @@ async def cost_summary(
 @router.get("/costs/breakdown")
 async def cost_breakdown(
     user=Depends(get_current_user),  # noqa: B008
-    group_by: Literal["agent", "model"] = Query("agent"),
+    group_by: Literal["agent", "model", "provider"] = Query("agent"),
 ):
-    """Get cost breakdown by agent or model."""
+    """Get cost breakdown by agent, model, or provider."""
     return token_tracker.get_breakdown(user.id, group_by)
 
 
@@ -56,5 +56,6 @@ async def all_cost_data(
         "month": token_tracker.get_summary(user.id, "month"),
         "by_agent": token_tracker.get_breakdown(user.id, "agent"),
         "by_model": token_tracker.get_breakdown(user.id, "model"),
+        "by_provider": token_tracker.get_breakdown(user.id, "provider"),
         "projection": token_tracker.get_projection(user.id),
     }

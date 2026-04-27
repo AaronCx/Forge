@@ -49,6 +49,19 @@ def test_cost_breakdown(auth_client):
         assert response.status_code == 200
 
 
+def test_cost_breakdown_by_provider(auth_client):
+    with patch("app.db._db") as mock_db:
+        mock_result = MagicMock()
+        mock_result.data = []
+        mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_result
+
+        response = auth_client.get(
+            "/api/costs/breakdown?group_by=provider",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code == 200
+
+
 def test_cost_projection(auth_client):
     with patch("app.db._db") as mock_db:
         mock_result = MagicMock()
@@ -79,6 +92,9 @@ def test_cost_all(auth_client):
         data = response.json()
         assert "today" in data
         assert "projection" in data
+        assert "by_agent" in data
+        assert "by_model" in data
+        assert "by_provider" in data
 
 
 def test_calculate_cost():
