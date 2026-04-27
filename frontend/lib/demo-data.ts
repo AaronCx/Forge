@@ -20,6 +20,21 @@ export {
   findDemoFile,
 } from "@/lib/demo/workspace-fs";
 
+export {
+  DEMO_CU_CAPABILITY,
+  DEMO_CU_SESSIONS,
+  DEMO_CU_AUDIT,
+  DEMO_CU_SAFETY,
+  DEMO_CU_SCREENSHOTS,
+  DEMO_PROVIDERS,
+  DEMO_MODEL_CATALOG,
+  DEMO_MCP_SERVERS,
+  DEMO_MCP_LOGS,
+  DEMO_TARGETS,
+  DEMO_RECORDINGS,
+  DEMO_API_KEYS_DETAILED,
+} from "@/lib/demo/seed";
+
 export const DEMO_STATS = {
   total_agents: 8,
   total_runs: 147,
@@ -307,29 +322,6 @@ export const DEMO_CU_AUDIT_LOG = [
     result: "All 42 tests passed",
     success: true,
     created_at: "2026-03-12T12:30:10Z",
-  },
-];
-
-export const DEMO_TARGETS = [
-  {
-    id: "local",
-    name: "Local Machine",
-    type: "local",
-    platform: "macos",
-    listen_url: "",
-    capabilities: { steer_available: true, drive_available: true, tmux_available: true },
-    status: "healthy",
-    last_health_check: "2026-03-12T12:00:00Z",
-  },
-  {
-    id: "demo-target-1",
-    name: "Linux Build Server",
-    type: "remote",
-    platform: "linux",
-    listen_url: "http://build-server.tailnet:7600",
-    capabilities: { steer_available: true, drive_available: true, xdotool_available: true },
-    status: "healthy",
-    last_health_check: "2026-03-12T12:00:00Z",
   },
 ];
 

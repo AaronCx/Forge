@@ -30,6 +30,7 @@ from app.routers import (
     organizations,
     prompt_versions,
     providers,
+    recordings,
     runs,
     targets,
     traces,
@@ -116,6 +117,7 @@ app.include_router(marketplace.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(computer_use.router, prefix="/api")
 app.include_router(targets.router, prefix="/api")
+app.include_router(recordings.router, prefix="/api")
 app.include_router(workspaces.router, prefix="/api")
 app.include_router(ws_workspace.router)  # WebSocket (no /api prefix)
 
