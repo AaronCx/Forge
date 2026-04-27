@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 function isDemoDeployment(request: NextRequest): boolean {
+  // Build-time opt-in (used by the e2e smoke test and local demo runs)
+  if (process.env.NEXT_PUBLIC_FORCE_DEMO === "true") return true;
   const host = request.headers.get("host") || "";
   // Vercel deployments (no local backend available) → demo mode
   return host.includes("vercel.app");
