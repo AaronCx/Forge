@@ -3,6 +3,13 @@
  * Demo mode activates automatically when the backend is unreachable.
  */
 
+export {
+  DEMO_BLUEPRINTS,
+  DEMO_NODE_TYPES,
+  DEMO_STARTER_BLUEPRINT,
+  findDemoBlueprint,
+} from "@/lib/demo/blueprints";
+
 export const DEMO_STATS = {
   total_agents: 8,
   total_runs: 147,
