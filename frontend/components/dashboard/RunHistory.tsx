@@ -6,13 +6,13 @@ import { api, Run } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { isDemoMode, DEMO_RUNS } from "@/lib/demo-data";
 
-export function RunHistory() {
+export function RunHistory({ limit }: { limit?: number } = {}) {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isDemoMode()) {
-      setRuns(DEMO_RUNS);
+      setRuns(limit ? DEMO_RUNS.slice(0, limit) : DEMO_RUNS);
       setLoading(false);
       return;
     }
@@ -22,7 +22,7 @@ export function RunHistory() {
 
       try {
         const r = await api.runs.list(data.session.access_token);
-        setRuns(r);
+        setRuns(limit ? r.slice(0, limit) : r);
       } catch {
         // API may not be running
       } finally {
@@ -30,7 +30,7 @@ export function RunHistory() {
       }
     }
     loadRuns();
-  }, []);
+  }, [limit]);
 
   if (loading) {
     return <p className="mt-4 text-sm text-muted-foreground">Loading runs...</p>;
