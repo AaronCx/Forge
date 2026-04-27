@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/auth-client";
 import { api } from "@/lib/api";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_RECENT_AGENT_ACTIVITY } from "@/lib/demo-data";
 import type { FileChangeEvent } from "@/lib/workspace-ws";
 import { Clock, FileEdit, FileOutput, Cpu } from "lucide-react";
 
@@ -25,11 +25,15 @@ export function AgentPanel({ workspaceId, recentChanges = [] }: AgentPanelProps)
 
   useEffect(() => {
     if (isDemoMode()) {
-      setHistory([
-        { id: "1", type: "modify", path: "src/app.py", attribution: "agent:research-bot", timestamp: "2 min ago" },
-        { id: "2", type: "create", path: "output/report.md", attribution: "agent:doc-writer", timestamp: "5 min ago" },
-        { id: "3", type: "modify", path: "config.json", attribution: "user:web", timestamp: "10 min ago" },
-      ]);
+      setHistory(
+        DEMO_RECENT_AGENT_ACTIVITY.map((entry) => ({
+          id: entry.id,
+          type: entry.type,
+          path: entry.path,
+          attribution: "agent:research-bot",
+          timestamp: formatTime(entry.timestamp),
+        }))
+      );
       return;
     }
 

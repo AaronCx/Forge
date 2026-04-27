@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/auth-client";
 import { api, Workspace } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isDemoMode, DEMO_WORKSPACES } from "@/lib/demo-data";
+import { isDemoMode, DEMO_WORKSPACE, DEMO_WORKSPACE_ID } from "@/lib/demo-data";
 
 export default function WorkspacesPage() {
+  const router = useRouter();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,7 +38,9 @@ export default function WorkspacesPage() {
 
   useEffect(() => {
     if (isDemoMode()) {
-      setWorkspaces(DEMO_WORKSPACES as Workspace[]);
+      // Demo has a single seeded workspace — drop the visitor straight into the IDE.
+      router.replace(`/dashboard/workspace/${DEMO_WORKSPACE_ID}`);
+      setWorkspaces([DEMO_WORKSPACE as Workspace]);
       setLoading(false);
       return;
     }
@@ -53,7 +57,7 @@ export default function WorkspacesPage() {
       }
     }
     load();
-  }, []);
+  }, [router]);
 
   async function handleCreate() {
     if (!newName.trim()) return;

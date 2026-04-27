@@ -10,6 +10,16 @@ export {
   findDemoBlueprint,
 } from "@/lib/demo/blueprints";
 
+export {
+  DEMO_WORKSPACE,
+  DEMO_WORKSPACE_ID,
+  DEMO_WORKSPACE_TREE,
+  DEMO_AGENT_RUN_COMMENT,
+  DEMO_RECENT_AGENT_ACTIVITY,
+  DEMO_TERMINAL_TRANSCRIPT,
+  findDemoFile,
+} from "@/lib/demo/workspace-fs";
+
 export const DEMO_STATS = {
   total_agents: 8,
   total_runs: 147,
