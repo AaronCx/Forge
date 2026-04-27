@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { api, Run } from "@/lib/api";
@@ -63,17 +64,25 @@ export function RunHistory({ limit }: { limit?: number } = {}) {
               {run.tokens_used} tokens
             </p>
           </div>
-          <Badge
-            variant={
-              run.status === "completed"
-                ? "default"
-                : run.status === "failed"
-                  ? "destructive"
-                  : "secondary"
-            }
-          >
-            {run.status}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge
+              variant={
+                run.status === "completed"
+                  ? "default"
+                  : run.status === "failed"
+                    ? "destructive"
+                    : "secondary"
+              }
+            >
+              {run.status}
+            </Badge>
+            <Link
+              href={`/dashboard/traces/${run.id}`}
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Trace →
+            </Link>
+          </div>
         </div>
       ))}
     </div>
