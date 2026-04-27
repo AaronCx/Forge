@@ -390,7 +390,15 @@ export const DEMO_COST_BY_AGENT = [
 ];
 
 export const DEMO_COST_BY_MODEL = [
-  { name: "gpt-4o-mini", input_tokens: 18200, output_tokens: 6300, cost: 0.031, requests: 47 },
+  { name: "gpt-4o-mini", input_tokens: 12100, output_tokens: 4200, cost: 0.018, requests: 31 },
+  { name: "claude-haiku-4-5", input_tokens: 4800, output_tokens: 1500, cost: 0.009, requests: 11 },
+  { name: "gemini-1.5-flash", input_tokens: 1300, output_tokens: 600, cost: 0.004, requests: 5 },
+];
+
+export const DEMO_COST_BY_PROVIDER = [
+  { name: "openai", input_tokens: 12100, output_tokens: 4200, cost: 0.018, requests: 31 },
+  { name: "anthropic", input_tokens: 4800, output_tokens: 1500, cost: 0.009, requests: 11 },
+  { name: "google", input_tokens: 1300, output_tokens: 600, cost: 0.004, requests: 5 },
 ];
 
 export const DEMO_COST_WEEK = {
