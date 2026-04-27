@@ -83,7 +83,11 @@ export function CodeEditor({ content, filename, onChange, onSave }: CodeEditorPr
       state,
       parent: containerRef.current,
     });
-  }, [filename]); // Re-create when file changes
+    // setupEditor reads `content` only as the editor's initial doc; live updates
+    // are handled by the separate effect below, so we deliberately re-create only
+    // when the filename changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filename]);
 
   useEffect(() => {
     setupEditor();
