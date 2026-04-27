@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_EVAL_SUITES } from "@/lib/demo-data";
 
 export default function EvalsPage() {
   const [suites, setSuites] = useState<EvalSuite[]>([]);
@@ -29,7 +29,7 @@ export default function EvalsPage() {
 
   useEffect(() => {
     if (isDemoMode()) {
-      setSuites([]);
+      setSuites(DEMO_EVAL_SUITES as unknown as EvalSuite[]);
       setLoading(false);
       return;
     }
@@ -190,7 +190,7 @@ export default function EvalsPage() {
             const suiteRuns = runs[suite.id] || [];
             const lastRun = suiteRuns[0];
             return (
-              <Card key={suite.id}>
+              <Card key={suite.id} data-seeded="true">
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between">
                     <div>

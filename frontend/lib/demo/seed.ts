@@ -182,6 +182,104 @@ export const DEMO_RECORDINGS = [
   },
 ];
 
+export const DEMO_ORGANIZATIONS = [
+  {
+    id: "org-demo",
+    name: "Forge Demo",
+    slug: "forge-demo",
+    description: "Sample organization for the Forge demo workspace.",
+    owner_id: "demo",
+    created_at: "2026-04-15T09:00:00Z",
+  },
+];
+
+export const DEMO_ORGANIZATION_MEMBERS = [
+  {
+    id: "mem-demo-1",
+    org_id: "org-demo",
+    user_id: "demo",
+    role: "owner",
+    joined_at: "2026-04-15T09:00:00Z",
+  },
+];
+
+export const DEMO_TRACES = [
+  {
+    id: "trace-cu-demo-1",
+    user_id: "demo",
+    span_type: "blueprint_run",
+    name: "Computer Use demo",
+    started_at: "2026-04-25T18:24:11Z",
+    duration_ms: 18400,
+    status: "ok" as const,
+    error: null,
+    span_count: 7,
+    token_count: 4180,
+  },
+  {
+    id: "trace-scraper-1",
+    user_id: "demo",
+    span_type: "blueprint_run",
+    name: "scraper-agent CI",
+    started_at: "2026-04-25T18:21:09Z",
+    duration_ms: 41200,
+    status: "ok" as const,
+    error: null,
+    span_count: 12,
+    token_count: 8260,
+  },
+  {
+    id: "trace-rag-qa-1",
+    user_id: "demo",
+    span_type: "agent_run",
+    name: "RAG-backed Q&A",
+    started_at: "2026-04-25T17:48:00Z",
+    duration_ms: 6200,
+    status: "error" as const,
+    error: "rate limit exceeded",
+    span_count: 4,
+    token_count: 1840,
+  },
+];
+
+export const DEMO_TRACE_STATS = {
+  total_spans: 23,
+  error_count: 1,
+  error_rate: 0.043,
+  total_tokens: 14_280,
+  avg_latency_ms: 21_933,
+  by_type: { blueprint_run: 2, agent_run: 1 } as Record<string, number>,
+};
+
+export const DEMO_KNOWLEDGE_COLLECTIONS = [
+  {
+    id: "kb-demo-1",
+    user_id: "demo",
+    name: "scraper-agent docs",
+    description: "Reference docs for the scraper-agent project (httpx, BeautifulSoup, project README).",
+    document_count: 7,
+    created_at: "2026-04-15T09:30:00Z",
+    updated_at: "2026-04-25T18:00:00Z",
+  },
+];
+
+export const DEMO_EVAL_SUITES = [
+  {
+    id: "eval-suite-1",
+    user_id: "demo",
+    name: "scraper-agent regression",
+    description: "Verifies the scraper extracts the right fields from the demo HTML fixture.",
+    target_type: "blueprint" as const,
+    target_id: "demo-bp-rag-qa",
+    test_cases: [
+      { id: "tc-1", input: "https://example.com", expected_output: "Example Domain" },
+      { id: "tc-2", input: "https://example.org", expected_output: "Example" },
+    ],
+    created_at: "2026-04-20T11:00:00Z",
+    updated_at: "2026-04-25T18:00:00Z",
+  },
+];
+
 export const DEMO_API_KEYS_DETAILED = [
   {
     id: "key-prod",

@@ -50,6 +50,7 @@ export function RunHistory({ limit }: { limit?: number } = {}) {
       {runs.map((run) => (
         <div
           key={run.id}
+          data-seeded="true"
           className="flex items-center justify-between rounded-lg border border-border p-4"
         >
           <div className="flex-1">
