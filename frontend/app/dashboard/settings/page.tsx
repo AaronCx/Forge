@@ -233,6 +233,7 @@ export default function SettingsPage() {
               return (
                 <div
                   key={config.provider}
+                  data-seeded="true"
                   className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
                 >
                   <div className="flex items-center gap-3">
@@ -426,6 +427,7 @@ export default function SettingsPage() {
                 {keys.map((key) => (
                   <div
                     key={key.id}
+                    data-seeded="true"
                     className="flex items-center justify-between rounded-lg border border-border p-3"
                   >
                     <div>

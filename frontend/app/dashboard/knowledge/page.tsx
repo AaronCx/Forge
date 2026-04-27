@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_KNOWLEDGE_COLLECTIONS } from "@/lib/demo-data";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-500",
@@ -37,7 +37,7 @@ export default function KnowledgePage() {
 
   useEffect(() => {
     if (isDemoMode()) {
-      setCollections([]);
+      setCollections(DEMO_KNOWLEDGE_COLLECTIONS as unknown as KnowledgeCollection[]);
       setLoading(false);
       return;
     }
@@ -201,6 +201,7 @@ export default function KnowledgePage() {
             collections.map((col) => (
               <Card
                 key={col.id}
+                data-seeded="true"
                 className={`cursor-pointer transition-colors hover:border-primary/50 ${
                   selectedCollection === col.id ? "border-primary" : ""
                 }`}

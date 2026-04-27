@@ -6,7 +6,7 @@ import { api, Trace, TraceStats } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_TRACES, DEMO_TRACE_STATS } from "@/lib/demo-data";
 
 const SPAN_COLORS: Record<string, string> = {
   llm_call: "bg-purple-500",
@@ -33,8 +33,8 @@ export default function TracesPage() {
 
   useEffect(() => {
     if (isDemoMode()) {
-      setTraces([]);
-      setStats({ total_spans: 0, error_count: 0, error_rate: 0, total_tokens: 0, avg_latency_ms: 0, by_type: {} });
+      setTraces(DEMO_TRACES as unknown as Trace[]);
+      setStats(DEMO_TRACE_STATS as TraceStats);
       setLoading(false);
       return;
     }
@@ -164,6 +164,7 @@ export default function TracesPage() {
           traces.map((trace) => (
             <Card
               key={trace.id}
+              data-seeded="true"
               className="cursor-pointer hover:border-primary/50 transition-colors"
               onClick={() => loadTraceTree(trace.id)}
             >

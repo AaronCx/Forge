@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_ORGANIZATIONS, DEMO_ORGANIZATION_MEMBERS } from "@/lib/demo-data";
 
 interface Organization {
   id: string;
@@ -48,6 +48,9 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (isDemoMode()) {
+      setOrgs(DEMO_ORGANIZATIONS);
+      setSelectedOrg(DEMO_ORGANIZATIONS[0] ?? null);
+      setMembers(DEMO_ORGANIZATION_MEMBERS);
       setLoading(false);
       return;
     }
@@ -148,6 +151,7 @@ export default function TeamPage() {
             orgs.map((org) => (
               <Card
                 key={org.id}
+                data-seeded="true"
                 className={`cursor-pointer transition-colors hover:bg-accent/50 ${
                   selectedOrg?.id === org.id ? "border-primary" : ""
                 }`}
