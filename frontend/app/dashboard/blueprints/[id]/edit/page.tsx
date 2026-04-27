@@ -59,8 +59,13 @@ export default function BlueprintEditorPage() {
 
   const [executionLog, setExecutionLog] = useState<string[]>([]);
   const [showTrace, setShowTrace] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const tokenRef = useRef<string>("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load blueprint and node types
   useEffect(() => {
@@ -400,7 +405,7 @@ export default function BlueprintEditorPage() {
       }
     : null;
 
-  const demo = isDemoMode();
+  const demo = mounted && isDemoMode();
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
