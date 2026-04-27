@@ -5,19 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { api, Blueprint } from "@/lib/api";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_BLUEPRINTS, DEMO_STARTER_BLUEPRINT } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 function BlueprintCard({ blueprint }: { blueprint: Blueprint }) {
-  const demo = isDemoMode();
-  const href = demo
-    ? `/dashboard/blueprints/${blueprint.id}`
-    : `/dashboard/blueprints/${blueprint.id}/edit`;
+  const href = `/dashboard/blueprints/${blueprint.id}/edit`;
 
   return (
-    <Link href={href}>
+    <Link href={href} data-seeded="true">
       <Card className="h-full transition-colors hover:border-primary/50">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
@@ -67,6 +64,7 @@ export default function BlueprintsPage() {
   useEffect(() => {
     if (isDemoMode()) {
       setDemo(true);
+      setBlueprints(DEMO_BLUEPRINTS);
       setLoading(false);
       return;
     }
@@ -127,11 +125,15 @@ export default function BlueprintsPage() {
             Visual DAG workflows with deterministic and AI-powered nodes
           </p>
         </div>
-        {!demo && (
-          <Link href="/dashboard/blueprints/new">
-            <Button>New Blueprint</Button>
-          </Link>
-        )}
+        <Link
+          href={
+            demo
+              ? `/dashboard/blueprints/${DEMO_STARTER_BLUEPRINT.id}/edit`
+              : "/dashboard/blueprints/new"
+          }
+        >
+          <Button>+ New Blueprint</Button>
+        </Link>
       </div>
 
       {loading ? (
@@ -202,11 +204,15 @@ export default function BlueprintsPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Create your first blueprint to build visual workflows.
               </p>
-              {!demo && (
-                <Link href="/dashboard/blueprints/new">
-                  <Button className="mt-4">New Blueprint</Button>
-                </Link>
-              )}
+              <Link
+                href={
+                  demo
+                    ? `/dashboard/blueprints/${DEMO_STARTER_BLUEPRINT.id}/edit`
+                    : "/dashboard/blueprints/new"
+                }
+              >
+                <Button className="mt-4">+ New Blueprint</Button>
+              </Link>
             </div>
           )}
         </>

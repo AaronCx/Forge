@@ -20,9 +20,11 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { toast } from "sonner";
+
 import { supabase } from "@/lib/supabase";
 import { api, Blueprint, BlueprintNode as ApiBlueprintNode, NodeTypeInfo } from "@/lib/api";
-import { isDemoMode } from "@/lib/demo-data";
+import { isDemoMode, DEMO_NODE_TYPES, findDemoBlueprint } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
 import { NodePalette } from "@/components/blueprints/NodePalette";
 import { BlueprintNodeComponent_Memo } from "@/components/blueprints/BlueprintNode";
@@ -96,7 +98,18 @@ export default function BlueprintEditorPage() {
     }
 
     async function load() {
-      if (isDemoMode()) return;
+      if (isDemoMode()) {
+        const bp = findDemoBlueprint(blueprintId);
+        if (!bp) {
+          router.push("/dashboard/blueprints");
+          return;
+        }
+        setNodeTypeList(DEMO_NODE_TYPES);
+        setBlueprintName(bp.name);
+        setBlueprintDescription(bp.description);
+        hydrate(bp, DEMO_NODE_TYPES);
+        return;
+      }
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         router.push("/login");
@@ -222,6 +235,12 @@ export default function BlueprintEditorPage() {
 
   // Save
   async function handleSave() {
+    if (isDemoMode()) {
+      toast("Demo mode — sign in to persist your work", {
+        description: "Edits stay on this device until you connect a Forge runtime.",
+      });
+      return;
+    }
     setSaving(true);
     try {
       await api.blueprints.update(
@@ -233,8 +252,9 @@ export default function BlueprintEditorPage() {
         },
         tokenRef.current,
       );
+      toast.success("Blueprint saved");
     } catch {
-      // Could add toast here
+      toast.error("Failed to save blueprint");
     } finally {
       setSaving(false);
     }
@@ -242,6 +262,12 @@ export default function BlueprintEditorPage() {
 
   // Run blueprint
   async function handleRun() {
+    if (isDemoMode()) {
+      toast("Demo mode — sign in to run blueprints", {
+        description: "Connect a Forge runtime to execute this DAG.",
+      });
+      return;
+    }
     setRunning(true);
     setShowTrace(true);
     setExecutionLog([]);
@@ -374,8 +400,17 @@ export default function BlueprintEditorPage() {
       }
     : null;
 
+  const demo = isDemoMode();
+
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
+      {demo && (
+        <div className="flex items-center justify-between gap-2 border-b border-yellow-700 bg-yellow-900/40 px-4 py-1.5 text-xs text-yellow-200">
+          <span>
+            Demo mode — fork to edit. Save and Run are disabled until you connect a Forge runtime.
+          </span>
+        </div>
+      )}
       {/* Top bar */}
       <div className="flex h-12 items-center justify-between border-b border-border bg-card px-4">
         <div className="flex items-center gap-3">
