@@ -3,15 +3,22 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
 import { getToken } from "@/lib/auth-client";
 import { api, type Workspace } from "@/lib/api";
-import { isDemoMode } from "@/lib/demo-data";
+import {
+  isDemoMode,
+  DEMO_WORKSPACE,
+  DEMO_WORKSPACE_TREE,
+  DEMO_AGENT_RUN_COMMENT,
+  findDemoFile,
+} from "@/lib/demo-data";
 import { FileTree } from "@/components/workspace/FileTree";
 import { EditorTabs } from "@/components/workspace/EditorTabs";
 import { WorkspaceSocket, type FileChangeEvent } from "@/lib/workspace-ws";
 import { AgentPanel } from "@/components/workspace/AgentPanel";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RefreshCw, TerminalSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ArrowLeft, Play, RefreshCw, TerminalSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 
 // Dynamic imports for browser-only components
@@ -21,6 +28,10 @@ const CodeEditor = dynamic(
 );
 const TerminalPanel = dynamic(
   () => import("@/components/workspace/Terminal").then((m) => m.TerminalPanel),
+  { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-muted-foreground">Loading terminal...</div> }
+);
+const DemoTerminal = dynamic(
+  () => import("@/components/workspace/DemoTerminal").then((m) => m.DemoTerminal),
   { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-muted-foreground">Loading terminal...</div> }
 );
 
@@ -38,6 +49,16 @@ interface OpenFile {
   originalContent: string;
 }
 
+function stripContent(entry: { name: string; path: string; type: "file" | "directory"; size: number | null; children: typeof entry[] | null }): FileEntry {
+  return {
+    name: entry.name,
+    path: entry.path,
+    type: entry.type,
+    size: entry.size,
+    children: entry.children ? entry.children.map(stripContent) : null,
+  };
+}
+
 export default function WorkspaceIDEPage() {
   const params = useParams();
   const router = useRouter();
@@ -53,36 +74,23 @@ export default function WorkspaceIDEPage() {
   const [showActivityPanel, setShowActivityPanel] = useState(true);
   const [recentChanges, setRecentChanges] = useState<FileChangeEvent[]>([]);
   const [currentToken, setCurrentToken] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [demoAgentRunning, setDemoAgentRunning] = useState(false);
   const wsRef = useRef<WorkspaceSocket | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const demo = mounted && isDemoMode();
 
   // Load workspace and files
   useEffect(() => {
     if (isDemoMode()) {
-      setWorkspace({
-        id: workspaceId,
-        user_id: "demo",
-        name: "Demo Workspace",
-        description: "Demo workspace",
-        path: "/demo",
-        status: "active",
-        settings: {},
-        created_at: "2026-03-20T00:00:00Z",
-        updated_at: "2026-03-23T00:00:00Z",
-      });
-      setFiles([
-        { name: "README.md", path: "README.md", type: "file", size: 256, children: null },
-        { name: "main.py", path: "main.py", type: "file", size: 1024, children: null },
-        {
-          name: "src",
-          path: "src",
-          type: "directory",
-          size: null,
-          children: [
-            { name: "app.py", path: "src/app.py", type: "file", size: 512, children: null },
-            { name: "config.json", path: "src/config.json", type: "file", size: 128, children: null },
-          ],
-        },
-      ]);
+      setWorkspace({ ...DEMO_WORKSPACE, id: workspaceId } as Workspace);
+      setFiles(
+        DEMO_WORKSPACE_TREE.map((entry) => stripContent(entry)) as FileEntry[]
+      );
       return;
     }
 
@@ -185,7 +193,8 @@ export default function WorkspaceIDEPage() {
     }
 
     if (isDemoMode()) {
-      const content = `# Demo file: ${path}\n\nThis is a demo workspace file.\nEdit it and see real-time sync in action.`;
+      const entry = findDemoFile(path);
+      const content = entry?.content ?? "";
       setOpenFiles((prev) => {
         const next = new Map(prev);
         next.set(path, { path, content, originalContent: content });
@@ -236,10 +245,8 @@ export default function WorkspaceIDEPage() {
     if (!file) return;
 
     if (isDemoMode()) {
-      setOpenFiles((prev) => {
-        const next = new Map(prev);
-        next.set(activeFile, { ...file, originalContent: file.content });
-        return next;
+      toast("Demo mode — fork the workspace to save", {
+        description: "Connect a Forge runtime to write files back to disk.",
       });
       return;
     }
@@ -257,6 +264,61 @@ export default function WorkspaceIDEPage() {
     } catch { /* save failed */ }
   }
 
+  async function runDemoAgent() {
+    if (!demo) return;
+    const targetPath = "src/output.py";
+    setDemoAgentRunning(true);
+    try {
+      const entry = findDemoFile(targetPath);
+      const baseContent = openFiles.get(targetPath)?.content ?? entry?.content ?? "";
+      const nextContent = baseContent.endsWith("\n")
+        ? baseContent + DEMO_AGENT_RUN_COMMENT
+        : baseContent + "\n" + DEMO_AGENT_RUN_COMMENT;
+
+      // Highlight the file in the tree.
+      setHighlightedPaths((prev) => {
+        const next = new Set(prev);
+        next.add(targetPath);
+        return next;
+      });
+      setTimeout(() => {
+        setHighlightedPaths((prev) => {
+          const next = new Set(prev);
+          next.delete(targetPath);
+          return next;
+        });
+      }, 2500);
+
+      // Update the open file content (or open it if not yet open).
+      setOpenFiles((prev) => {
+        const next = new Map(prev);
+        next.set(targetPath, {
+          path: targetPath,
+          content: nextContent,
+          originalContent: nextContent,
+        });
+        return next;
+      });
+      setActiveFile(targetPath);
+
+      // Surface in the activity panel.
+      const event: FileChangeEvent = {
+        type: "file_changed",
+        path: targetPath,
+        content: nextContent,
+        change_type: "modify",
+        source: "blueprint:workspace_write",
+      };
+      setRecentChanges((prev) => [event, ...prev].slice(0, 10));
+
+      toast.success("Demo agent ran", {
+        description: `workspace_write appended a comment to ${targetPath}.`,
+      });
+    } finally {
+      setDemoAgentRunning(false);
+    }
+  }
+
   const activeOpenFile = activeFile ? openFiles.get(activeFile) : null;
   const tabs = Array.from(openFiles.entries()).map(([path, file]) => ({
     path,
@@ -265,6 +327,11 @@ export default function WorkspaceIDEPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+      {demo && (
+        <div className="flex items-center justify-between gap-2 border-b border-yellow-700 bg-yellow-900/40 px-3 py-1.5 text-xs text-yellow-200">
+          <span>Demo mode — fork the workspace to save. Edits stay in your browser.</span>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1.5">
         <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/workspace")}>
@@ -274,6 +341,18 @@ export default function WorkspaceIDEPage() {
         <span className="text-sm font-medium">{workspace?.name ?? "Loading..."}</span>
         <span className="text-xs text-muted-foreground truncate">{workspace?.path}</span>
         <div className="ml-auto flex items-center gap-1">
+          {demo && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={runDemoAgent}
+              disabled={demoAgentRunning}
+              title="Run a seeded blueprint that modifies src/output.py"
+            >
+              <Play className="h-3.5 w-3.5 mr-1" />
+              {demoAgentRunning ? "Running..." : "Run demo agent"}
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setShowTerminal(!showTerminal)} title="Toggle terminal">
             <TerminalSquare className="h-3.5 w-3.5" />
           </Button>
@@ -338,9 +417,13 @@ export default function WorkspaceIDEPage() {
           </div>
 
           {/* Terminal panel */}
-          {showTerminal && currentToken && (
+          {showTerminal && (demo || currentToken) && (
             <div className="h-[200px] shrink-0 border-t border-border">
-              <TerminalPanel workspaceId={workspaceId} token={currentToken} />
+              {demo ? (
+                <DemoTerminal />
+              ) : (
+                <TerminalPanel workspaceId={workspaceId} token={currentToken} />
+              )}
             </div>
           )}
         </div>
