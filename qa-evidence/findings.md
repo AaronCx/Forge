@@ -355,3 +355,148 @@ the report is a complete coverage map per playbook ground rule #4.
 > the committed evidence set because their stack frames pattern-matched
 > as high-entropy strings under LastGate. The same content is preserved
 > verbatim inside the corresponding finding entry above.
+
+---
+
+# Re-run with bigger model + Computer Use bootstrap
+
+After PR #59-#63 plus pulling `qwen2.5:7b-instruct` (4.7GB, reliable tool calling)
+and running `scripts/bootstrap-macos.sh` end-to-end (Steer/Drive/OCR daemons
+installed, accessibility + screen-recording permissions verified live), the
+playbook re-run surfaced more bugs.
+
+### Finding #24 — `/api/agents/<id>/run` and `/api/dashboard/stream` 401 on SQLite
+
+Already shipped in PR #63 — see top-of-doc summary. Both endpoints assumed
+Supabase-style `user_response.user`; SQLite returns the user object directly,
+so every CLI agent run failed before any work happened.
+
+### Finding #25 — `forge agents run` used GET on a POST endpoint
+
+Already shipped in PR #63. CLI sent GET to `/api/agents/<id>/run` (registered
+as POST), got 405, never streamed anything. After fix: `forge agents run`
+end-to-end with qwen2.5:7b-instruct returns the expected output in ~19s on
+this Mac Mini.
+
+### Finding #26 — `DELETE /api/agents/<id>` 500s on FOREIGN KEY constraint
+
+**Section:** 6.4
+**Severity:** Critical
+**Surfaces:** API, CLI
+
+**Repro:**
+1. Create an agent (`forge agents create`).
+2. Run it once (any input) so a `runs` row references it.
+3. `DELETE /api/agents/<id>`.
+
+**Observed:**
+- 500. Backend log: `sqlite3.IntegrityError: FOREIGN KEY constraint failed`.
+- The `runs` table FK to `agents.id` is configured as RESTRICT, not SET NULL or CASCADE.
+
+**Expected (per playbook §6.4):**
+"Existing runs of that agent: still visible in Runs history (don't cascade-delete)" — so the FK should be `ON DELETE SET NULL` (or the route should soft-delete the agent rather than physically remove the row).
+
+**Suggested fix:**
+Migrate the `runs.agent_id` FK to `ON DELETE SET NULL`. Same for any other table that references `agents.id` (heartbeats, token_usage). Or switch the agents table to use a `deleted_at` column instead of physical deletes.
+
+### Finding #27 — `forge costs --period today` reports 0 even when runs have token usage
+
+**Section:** 3.1
+**Severity:** High
+**Surfaces:** CLI, API
+
+**Repro:**
+1. Run an agent that produces tokens (e.g., `forge agents run <id> --input 'say hello'`).
+2. `/api/stats` correctly reports `total_tokens > 0`.
+3. `forge costs --period today` reports 0 input/output/requests.
+
+**Root cause:**
+`/api/stats` queries the `runs` table; `forge costs` queries `/api/costs/summary` which queries the `token_usage` table. They're separate. The agent executor populates `runs.tokens_used` but the path that writes to `token_usage` is gated on a code branch that's apparently not hit for Ollama runs.
+
+**Suggested fix:**
+Either backfill `token_usage` rows from the agent executor for every provider (so the cost endpoints can aggregate), or reduce the cost endpoints to query `runs.tokens_used` directly when no `token_usage` rows exist.
+
+### Finding #28 — Same ambiguous-column issue on ORDER BY
+
+**Section:** 3 (uncovered indirectly)
+**Severity:** Critical
+**Surfaces:** API
+**Status:** Fixed in PR #64
+
+`/api/costs/all` 500'd because the WHERE-clause qualification fix from #6 didn't
+apply to ORDER BY. PR #64 adds the same prefixing to `_build_order` and a
+regression test.
+
+### Finding #29 — Ollama runs don't write to `token_usage` table
+
+**Section:** 3.2/3.3
+**Severity:** High
+**Surfaces:** CLI, API
+
+When the agent runs against an Ollama model, the per-LLM-call usage that the
+costs endpoints aggregate from `token_usage` never appears. `runs.tokens_used`
+is populated correctly. This breaks every cost-by-provider/model/agent
+breakdown for users on local-only stacks.
+
+**Suggested fix:**
+The `OllamaProvider` in `backend/app/providers/ollama_provider.py` should call
+`token_tracker.record_usage(...)` (or whatever the canonical hook is) after
+each completion, the same way OpenAI/Anthropic providers do.
+
+### Finding #30 — `forge cu *` commands call non-existent `/api/blueprints/node-exec`
+
+**Section:** 10.2
+**Severity:** Critical
+**Surfaces:** CLI
+
+**Repro:**
+- `forge cu see` → 405 Method Not Allowed
+- Source (`cli/forge/main.py`): the cu sub-commands all call
+  `client.post("/api/blueprints/node-exec", ...)`. That endpoint does not exist
+  in any router.
+
+**Expected:**
+The CLI cu commands should either invoke the local Steer/Drive binaries
+directly (matching the readme's "no backend required for CU" claim) or call a
+real backend route — e.g., a per-node execution endpoint with a defined
+contract. As of this run, neither path works.
+
+**Impact:**
+Every `forge cu *` command (see, click, type, focus, find, ocr) is non-functional.
+The audit log stays empty because no actions ever execute through the backend.
+
+### Finding #31 — Default model env-var fallback isn't applied at run-time
+
+**Section:** 4.3
+**Severity:** Medium
+**Surfaces:** API, CLI
+
+When an agent is created without an explicit `model` field, the run-time
+resolver uses `ProviderRegistry._default_model` — which is hard-coded to
+`gpt-4o-mini` (or `$DEFAULT_MODEL`) at registry init. So even with
+`forge config set-default-model "ollama/qwen2.5:7b-instruct"` (CLI default)
+or `DEFAULT_MODEL=ollama/qwen2.5:7b-instruct` (env), agents created without
+`model` still try `gpt-4o-mini` and 404 against Ollama.
+
+**Suggested fix:**
+On agent run, when `agent.model` is None, look up the user's preference from
+the providers config (or fall back to `default_provider/<first_model>`)
+rather than the hard-coded constant. The `/api/providers` endpoint in PR #61
+already does this; the run path should use the same logic.
+
+---
+
+## Re-run scoreboard
+
+| Section | Pre-fix outcome | After re-run with bigger model + bootstrap |
+|---|---|---|
+| §6.1 (CLI create + web list) | Pass | Pass |
+| §6.2 (CLI create + web run) | Blocked | Pass after #24/#25 fixes |
+| §6.3 (web edit propagation) | Pass | Pass |
+| §6.4 (delete propagation) | Blocked | **Fail** — Finding #26 |
+| §3.1 (token reconcile across surfaces) | Blocked | **Partial** — surfaces match for `runs.tokens_used` but `forge costs` reports 0 (#27, #29) |
+| §8.1 / 8.2 (workspace WS sync) | Blocked | Pass — CLI write → API tree, web PUT → CLI cat |
+| §10.1 (CU capability report) | Blocked | Pass (status endpoint + CLI agree) |
+| §10.2 (CU audit log) | Blocked | **Fail** — Finding #30 (CLI calls non-existent endpoint, audit stays empty) |
+| §2.2-2.4, §7, §9, §13, §14 | Blocked | Not run; cascading bugs in #26-#31 made them low signal |
+
