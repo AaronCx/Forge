@@ -165,21 +165,22 @@ class AgentRunner:
                 # breakdowns return zero on every Ollama-only stack (the
                 # blueprint engine writes here but the agent executor didn't
                 # — surfaced by QA Findings #27 and #29).
-                try:
-                    from app.services.token_tracker import token_tracker
+                if run_id and agent_id:
+                    try:
+                        from app.services.token_tracker import token_tracker
 
-                    token_tracker.record(
-                        run_id=run_id,
-                        agent_id=agent_id,
-                        user_id=user_id,
-                        step_number=i,
-                        model=result.get("model") or model or "unknown",
-                        provider=result.get("provider") or "unknown",
-                        input_tokens=result.get("input_tokens", 0),
-                        output_tokens=result.get("output_tokens", 0),
-                    )
-                except Exception:
-                    logger.warning("Failed to record token usage", exc_info=True)
+                        token_tracker.record(
+                            run_id=run_id,
+                            agent_id=agent_id,
+                            user_id=user_id,
+                            step_number=i,
+                            model=result.get("model") or model or "unknown",
+                            provider=result.get("provider") or "unknown",
+                            input_tokens=result.get("input_tokens", 0),
+                            output_tokens=result.get("output_tokens", 0),
+                        )
+                    except Exception:
+                        logger.warning("Failed to record token usage", exc_info=True)
 
             if heartbeat_id:
                 heartbeat_service.update(
