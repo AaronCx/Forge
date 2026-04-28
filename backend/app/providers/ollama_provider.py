@@ -22,6 +22,9 @@ class OllamaProvider(LLMProvider):
     """Ollama local model provider (OpenAI-compatible API)."""
 
     provider_name = "ollama"
+    # Used when the registry falls back to this provider with no specific model
+    # in scope. Tool-calling-capable and reasonable on Apple Silicon.
+    default_model = "qwen2.5:7b-instruct"
 
     def __init__(self, base_url: str = "http://localhost:11434") -> None:
         self.base_url = base_url.rstrip("/")
