@@ -376,6 +376,45 @@ auth_app = typer.Typer(help="Authentication commands")
 app.add_typer(auth_app, name="auth")
 
 
+def _save_session_token(token: str) -> None:
+    """Persist a session JWT to ``[api].key`` in ``~/.forge/config.toml``.
+
+    The previous implementation appended ``api_key = "..."`` to the end of
+    the file, which TOML scopes under whichever ``[section]`` came last —
+    typically ``[defaults]``. The config loader reads ``[api].key`` (or a
+    top-level ``api_key`` for legacy installs), so the key was effectively
+    invisible and every authenticated CLI command failed with 401/422.
+    """
+    ensure_config()
+    lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+    in_api = False
+    api_seen = False
+    key_written = False
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_api and not key_written:
+                out.append(f'key = "{token}"')
+                key_written = True
+            in_api = stripped == "[api]"
+            if in_api:
+                api_seen = True
+            out.append(line)
+            continue
+        if in_api and stripped.startswith("key") and "=" in stripped:
+            out.append(f'key = "{token}"')
+            key_written = True
+            continue
+        out.append(line)
+    if in_api and not key_written:
+        out.append(f'key = "{token}"')
+        key_written = True
+    if not api_seen:
+        out.extend(["", "[api]", f'key = "{token}"'])
+    CONFIG_FILE.write_text("\n".join(out) + "\n")
+
+
 @auth_app.command("signup")
 def auth_signup(
     email: str = typer.Option(..., "--email", "-e", help="Email address"),
@@ -387,17 +426,7 @@ def auth_signup(
         console.print(f"[green]Account created for {email}[/green]")
         token = result.get("access_token", "")
         if token:
-            # Store token in config
-            ensure_config()
-            lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
-            found = False
-            for i, line in enumerate(lines):
-                if line.strip().startswith("api_key"):
-                    lines[i] = f'api_key = "{token}"'
-                    found = True
-            if not found:
-                lines.append(f'api_key = "{token}"')
-            CONFIG_FILE.write_text("\n".join(lines) + "\n")
+            _save_session_token(token)
             console.print("[green]Session token saved to config.[/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -414,16 +443,7 @@ def auth_login(
         result = client.post("/api/auth/login", json={"email": email, "password": password})
         token = result.get("access_token", "")
         if token:
-            ensure_config()
-            lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
-            found = False
-            for i, line in enumerate(lines):
-                if line.strip().startswith("api_key"):
-                    lines[i] = f'api_key = "{token}"'
-                    found = True
-            if not found:
-                lines.append(f'api_key = "{token}"')
-            CONFIG_FILE.write_text("\n".join(lines) + "\n")
+            _save_session_token(token)
             console.print(f"[green]Logged in as {email}. Token saved.[/green]")
         else:
             console.print("[yellow]Login succeeded but no token returned.[/yellow]")
@@ -448,10 +468,11 @@ def auth_logout():
 def auth_whoami():
     """Show current user info."""
     try:
-        stats = client.get("/api/stats")
-        console.print(f"[bold]User:[/bold] {stats.get('user_id', 'unknown')}")
-        if stats.get("email"):
-            console.print(f"[bold]Email:[/bold] {stats['email']}")
+        me = client.get("/api/auth/me")
+        if isinstance(me, dict):
+            console.print(f"[bold]User:[/bold] {me.get('id', 'unknown')}")
+            if me.get("email"):
+                console.print(f"[bold]Email:[/bold] {me['email']}")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
@@ -470,14 +491,15 @@ def auth_keys_list_alias():
 def whoami():
     """Show current user info."""
     try:
-        stats = client.get("/api/stats")
+        me = client.get("/api/auth/me")
         console.print()
-        console.print(f"[bold]User:[/bold] {stats.get('user_id', 'unknown')}")
-        console.print(f"[bold]API URL:[/bold] {get_api_url()}")
-        if stats.get("email"):
-            console.print(f"[bold]Email:[/bold] {stats['email']}")
-        if stats.get("plan"):
-            console.print(f"[bold]Plan:[/bold] {stats['plan']}")
+        if isinstance(me, dict):
+            console.print(f"[bold]User:[/bold] {me.get('id', 'unknown')}")
+            console.print(f"[bold]API URL:[/bold] {get_api_url()}")
+            if me.get("email"):
+                console.print(f"[bold]Email:[/bold] {me['email']}")
+        if isinstance(me, dict) and me.get("plan"):
+            console.print(f"[bold]Plan:[/bold] {me['plan']}")
         console.print()
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
