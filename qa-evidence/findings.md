@@ -382,6 +382,7 @@ this Mac Mini.
 
 **Section:** 6.4
 **Severity:** Critical
+**Status:** Fixed in PR #66 — route now nulls back-pointers on history tables and drops transient heartbeats; runs survive with agent_id=null, schema also updated for fresh installs.
 **Surfaces:** API, CLI
 
 **Repro:**
@@ -403,6 +404,7 @@ Migrate the `runs.agent_id` FK to `ON DELETE SET NULL`. Same for any other table
 
 **Section:** 3.1
 **Severity:** High
+**Status:** Fixed in PR #67/#68 — agent executor now writes to token_usage so /api/costs/* aggregates see the data.
 **Surfaces:** CLI, API
 
 **Repro:**
@@ -431,6 +433,7 @@ regression test.
 
 **Section:** 3.2/3.3
 **Severity:** High
+**Status:** Fixed in PR #67/#68 (same fix as #27).
 **Surfaces:** CLI, API
 
 When the agent runs against an Ollama model, the per-LLM-call usage that the
@@ -447,6 +450,7 @@ each completion, the same way OpenAI/Anthropic providers do.
 
 **Section:** 10.2
 **Severity:** Critical
+**Status:** Fixed in PR #69 — cu commands shell out to the local steer binary (matching the documented host-side architecture).
 **Surfaces:** CLI
 
 **Repro:**
@@ -469,6 +473,7 @@ The audit log stays empty because no actions ever execute through the backend.
 
 **Section:** 4.3
 **Severity:** Medium
+**Status:** Fixed in PR #66 — registry resolves unrouteable seeded defaults to the default provider's own default_model.
 **Surfaces:** API, CLI
 
 When an agent is created without an explicit `model` field, the run-time
