@@ -200,8 +200,9 @@ export default function DashboardLayout({
   const [userEmail, setUserEmail] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const { mode } = useBackendMode();
+  const { mode, backendUrl } = useBackendMode();
   const demo = mode === "demo";
+  const unreachable = mode === "unreachable";
 
   useEffect(() => {
     if (mode === "loading") return;
@@ -210,6 +211,7 @@ export default function DashboardLayout({
       document.cookie = "forge_demo=1; path=/";
       return;
     }
+    if (unreachable) return;
     getUser()
       .then((user) => {
         if (!user) {
@@ -221,7 +223,7 @@ export default function DashboardLayout({
       .catch(() => {
         router.push("/login");
       });
-  }, [router, mode, demo]);
+  }, [router, mode, demo, unreachable]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -287,6 +289,17 @@ export default function DashboardLayout({
         {demo && (
           <div className="bg-yellow-900/50 border-b border-yellow-700 px-4 py-2 text-sm text-yellow-200 text-center">
             Exploring demo mode with simulated data
+          </div>
+        )}
+
+        {/* Backend unreachable banner — distinct from demo mode so visitors
+            don't mistake zeros for stale-but-live data. */}
+        {unreachable && (
+          <div className="bg-red-950/60 border-b border-red-800 px-4 py-2 text-sm text-red-200 text-center">
+            Backend unreachable — values may be stale or zero. Run{" "}
+            <code className="rounded bg-red-900/60 px-1 font-mono">forge up</code>{" "}
+            or check that the API is reachable at{" "}
+            <code className="rounded bg-red-900/60 px-1 font-mono">{backendUrl}</code>.
           </div>
         )}
 
