@@ -162,10 +162,46 @@ async def provider_health(
 async def list_providers(
     user=Depends(get_current_user),  # noqa: B008
 ):
-    """List configured providers and the default model."""
+    """List configured providers and the default model.
+
+    The registry seeds `default_model` from `$DEFAULT_MODEL` (defaulting to
+    `gpt-4o-mini`) regardless of which providers are actually configured.
+    On a fresh local-only stack with only Ollama registered, that produces
+    the misleading payload `{"providers": ["ollama"], "default_model": "gpt-4o-mini"}`.
+    Validate the default_model is reachable through the registered providers
+    and, if not, fall back to the first model the default_provider exposes.
+    """
+    from app.providers.registry import MODEL_PROVIDER_MAP
+
     user_registry = await create_user_registry(user.id)
+    default_model = user_registry.default_model
+    default_provider = user_registry.default_provider
+    provider_names = user_registry.provider_names
+
+    def _model_matches_registered_providers(model: str) -> bool:
+        # Explicit provider hint, e.g. "ollama/llama3"
+        if "/" in model:
+            return model.split("/", 1)[0] in provider_names
+        # Prefix table (e.g. "gpt-" -> openai)
+        for prefix, name in MODEL_PROVIDER_MAP.items():
+            if model.startswith(prefix):
+                return name in provider_names
+        return False
+
+    if default_provider and not _model_matches_registered_providers(default_model):
+        provider = user_registry.get_provider(default_provider)
+        if provider is not None:
+            try:
+                models = await provider.list_models()
+                if models:
+                    default_model = f"{default_provider}/{models[0].name}"
+            except Exception:
+                # If the provider is offline, leave the seeded default
+                # alone — the UI will surface it as misconfigured.
+                pass
+
     return {
-        "providers": user_registry.provider_names,
-        "default_model": user_registry.default_model,
-        "default_provider": user_registry.default_provider,
+        "providers": provider_names,
+        "default_model": default_model,
+        "default_provider": default_provider,
     }
