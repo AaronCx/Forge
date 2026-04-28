@@ -100,3 +100,33 @@ def test_order_by_qualifies_ambiguous_column(sqlite_backend):
         .execute()
     )
     assert result.data == []  # no token_usage rows yet — important: should not raise
+
+
+def test_agent_delete_preserves_run_history(sqlite_backend):
+    """QA Finding #26: DELETE on an agent that has runs must not 500. The
+    historical run rows should survive (agent_id nulled), per playbook §6.4."""
+    user_id = "44444444-4444-4444-4444-444444444444"
+    agent = sqlite_backend.table("agents").insert(
+        {"user_id": user_id, "name": "regression-#26", "system_prompt": "x"}
+    ).execute()
+    agent_id = agent.data[0]["id"]
+
+    sqlite_backend.table("runs").insert({
+        "agent_id": agent_id,
+        "user_id": user_id,
+        "input_text": "hi",
+        "output": "hello",
+        "status": "completed",
+        "tokens_used": 10,
+    }).execute()
+
+    # Mirror the route: null the back-reference, then drop the agent.
+    sqlite_backend.table("runs").update({"agent_id": None}).eq("agent_id", agent_id).execute()
+    sqlite_backend.table("agents").delete().eq("id", agent_id).execute()
+
+    # Run history must survive.
+    runs = sqlite_backend.table("runs").select("*").eq("user_id", user_id).execute()
+    assert len(runs.data) == 1
+    assert runs.data[0]["agent_id"] is None
+    # Agent is gone.
+    assert sqlite_backend.table("agents").select("id").eq("id", agent_id).execute().data == []
