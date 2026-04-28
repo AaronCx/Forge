@@ -2971,17 +2971,52 @@ def cu_status():
             console.print(f"  {instruction}")
 
 
+def _steer(*args: str) -> dict:
+    """Invoke the local steer binary and return its parsed JSON output.
+
+    The CU CLI commands historically posted to /api/blueprints/node-exec, an
+    endpoint that does not exist in any router (QA Finding #30). Steer is a
+    local binary installed by `scripts/bootstrap-macos.sh`; calling it
+    directly is the documented architecture and avoids the round-trip
+    entirely.
+    """
+    import json
+    import shutil
+    import subprocess
+
+    binary = shutil.which("steer") or str(Path.home() / "bin" / "steer")
+    if not Path(binary).exists():
+        raise RuntimeError(
+            "steer binary not found — run scripts/bootstrap-macos.sh first"
+        )
+    try:
+        result = subprocess.run(
+            [binary, *args], capture_output=True, text=True, check=True, timeout=30
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"steer {' '.join(args)} failed: {exc.stderr.strip() or exc.stdout.strip()}"
+        ) from exc
+    output = (result.stdout or "").strip()
+    if not output:
+        return {"success": True}
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        return {"success": True, "raw": output}
+
+
 @cu_app.command("see")
 def cu_see(
     app_name: str = typer.Option("screen", "--app", "-a", help="App to screenshot"),
 ):
     """Take a screenshot."""
     try:
-        result = client.post("/api/blueprints/node-exec", json={
-            "node_type": "steer_see",
-            "config": {"target": app_name},
-        })
-        path = result.get("screenshot_path", "")
+        args = ["see"]
+        if app_name and app_name != "screen":
+            args += ["--app", app_name]
+        result = _steer(*args)
+        path = result.get("path") or result.get("screenshot_path") or ""
         console.print(f"[green]Screenshot saved: {path}[/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -2994,13 +3029,21 @@ def cu_ocr(
 ):
     """Run OCR and display detected text."""
     try:
-        result = client.post("/api/blueprints/node-exec", json={
-            "node_type": "steer_ocr",
-            "config": {"target": app_name},
-        })
-        text = result.get("text", "")
-        count = result.get("element_count", 0)
-        console.print(f"[dim]({count} elements detected)[/dim]")
+        args = ["ocr"]
+        if app_name and app_name != "screen":
+            args += ["--app", app_name]
+        result = _steer(*args)
+        # steer ocr emits a JSON array of regions; older paths returned a dict
+        # with `text`/`element_count`. Handle both.
+        if isinstance(result, list):
+            elements = result
+            text = "\n".join(e.get("text", "") for e in elements if isinstance(e, dict))
+        elif isinstance(result, dict):
+            elements = result.get("elements") or []
+            text = result.get("text", "")
+        else:
+            elements, text = [], ""
+        console.print(f"[dim]({len(elements)} elements detected)[/dim]")
         console.print(text)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -3014,10 +3057,7 @@ def cu_click(
 ):
     """Click at coordinates."""
     try:
-        client.post("/api/blueprints/node-exec", json={
-            "node_type": "steer_click",
-            "config": {"x": x, "y": y},
-        })
+        _steer("click", str(x), str(y))
         console.print(f"[green]Clicked at ({x}, {y})[/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -3030,10 +3070,7 @@ def cu_type(
 ):
     """Type text into the focused app."""
     try:
-        client.post("/api/blueprints/node-exec", json={
-            "node_type": "steer_type",
-            "config": {"text": text},
-        })
+        _steer("type", text)
         console.print(f"[green]Typed {len(text)} characters[/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -3046,10 +3083,7 @@ def cu_hotkey(
 ):
     """Send a keyboard shortcut."""
     try:
-        client.post("/api/blueprints/node-exec", json={
-            "node_type": "steer_hotkey",
-            "config": {"keys": keys},
-        })
+        _steer("hotkey", keys)
         console.print(f"[green]Sent hotkey: {keys}[/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
