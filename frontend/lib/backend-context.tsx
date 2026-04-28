@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { API_URL } from "@/lib/constants";
 
-type AppMode = "loading" | "live" | "demo";
+type AppMode = "loading" | "live" | "demo" | "unreachable";
 
 interface BackendContextValue {
   mode: AppMode;
@@ -44,12 +44,16 @@ export function BackendProvider({ children }: { children: ReactNode }) {
           // Clear any stale demo cookie when backend is available
           document.cookie = "forge_demo=; max-age=0; path=/";
         } else {
-          setMode("demo");
+          // Reachable but unhealthy — surface to the user, don't silently
+          // fall back to demo data and pretend it's live.
+          setMode("unreachable");
         }
       })
       .catch(() => {
         clearTimeout(timeout);
-        setMode("demo");
+        // Backend unreachable on a non-demo deployment is a real problem;
+        // tell the user instead of rendering zero values dressed up as live.
+        setMode("unreachable");
       });
 
     return () => {
