@@ -359,14 +359,30 @@ def config_set_default_model(
     """Set the default model for agent execution."""
     ensure_config()
     lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+    in_defaults = False
     found = False
-    for i, line in enumerate(lines):
-        if line.strip().startswith("default_model") or line.strip().startswith("model"):
-            lines[i] = f'default_model = "{model}"'
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_defaults and not found:
+                out.append(f'model = "{model}"')
+                found = True
+            in_defaults = stripped == "[defaults]"
+            out.append(line)
+            continue
+        # Replace any existing model / default_model entry inside [defaults]
+        if in_defaults and (stripped.startswith("model") or stripped.startswith("default_model")) and "=" in stripped:
+            out.append(f'model = "{model}"')
             found = True
+            continue
+        out.append(line)
+    if in_defaults and not found:
+        out.append(f'model = "{model}"')
+        found = True
     if not found:
-        lines.append(f'default_model = "{model}"')
-    CONFIG_FILE.write_text("\n".join(lines) + "\n")
+        out.extend(["", "[defaults]", f'model = "{model}"'])
+    CONFIG_FILE.write_text("\n".join(out) + "\n")
     console.print(f"[green]Default model set to: {model}[/green]")
 
 

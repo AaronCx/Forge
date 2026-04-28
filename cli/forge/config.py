@@ -39,7 +39,10 @@ def get_config() -> dict:
                 config["api_url"] = file_config.get("api_url", config["api_url"])
                 config["api_key"] = file_config.get("api_key", config["api_key"])
             if "defaults" in file_config:
-                config["default_model"] = file_config["defaults"].get("model", "")
+                # Canonical key is `[defaults].model`; tolerate `default_model`
+                # for configs migrated from the older flat layout.
+                defaults = file_config["defaults"]
+                config["default_model"] = defaults.get("model") or defaults.get("default_model", "")
             else:
                 config["default_model"] = file_config.get("default_model", "")
 
