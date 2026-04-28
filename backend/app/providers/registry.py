@@ -54,23 +54,41 @@ class ProviderRegistry:
         if model is None:
             model = self._default_model
 
-        # Check prefix map
+        # Check if a registered provider claims this prefix (e.g. "gpt-" → openai).
+        # Only treat the prefix as routable when that provider is actually
+        # registered — otherwise fall through to the default provider with
+        # a sensible model swap.
         for prefix, provider_name in MODEL_PROVIDER_MAP.items():
             if model.startswith(prefix):
                 provider = self._providers.get(provider_name)
                 if provider:
                     return provider, model
+                # Prefix matches a known provider that isn't registered here.
+                # Don't return; let the default-provider fallback below pick a
+                # model that actually exists on the registered provider.
+                model_unrouteable_via_prefix = True
+                break
+        else:
+            model_unrouteable_via_prefix = False
 
-        # Check if model contains a provider hint like "ollama/llama3"
+        # Explicit provider hint, e.g. "ollama/llama3.2:3b"
         if "/" in model:
             provider_name, _, model_id = model.partition("/")
             provider = self._providers.get(provider_name)
             if provider:
                 return provider, model_id
 
-        # Fall back to default
+        # Fall back to the default provider. If the seeded default model is
+        # for an unregistered provider (the common Mac-mini-with-only-Ollama
+        # case where DEFAULT_MODEL=gpt-4o-mini doesn't route), drop the
+        # unrouteable model and let the provider use its own default — passing
+        # an empty string here makes provider.complete() fall back to whatever
+        # it considers its default, rather than 404'ing on `gpt-4o-mini`.
         if self._default_provider and self._default_provider in self._providers:
-            return self._providers[self._default_provider], model
+            provider = self._providers[self._default_provider]
+            if model_unrouteable_via_prefix:
+                return provider, getattr(provider, "default_model", "") or ""
+            return provider, model
 
         raise ValueError(f"No provider found for model '{model}' and no default configured")
 

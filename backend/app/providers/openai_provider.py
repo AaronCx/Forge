@@ -33,6 +33,7 @@ class OpenAIProvider(LLMProvider):
     """OpenAI API provider (GPT-4o, GPT-4, etc.)."""
 
     provider_name = "openai"
+    default_model = "gpt-4o-mini"
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
