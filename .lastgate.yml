@@ -10,6 +10,7 @@ checks:
       - "README.md"
       - "backend/app/db/*"
       - "cli/forge/**"
+      - "qa-evidence/**"
 
   lint:
     enabled: true
