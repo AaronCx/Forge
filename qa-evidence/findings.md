@@ -241,6 +241,7 @@ Once Findings #6 and #7 are fixed, re-run §2.1 with a clean DB and verify all f
 **Section:** 4.1
 **Severity:** Medium
 **Surfaces:** CLI
+**Status:** Fixed in PR #61 — writer now updates `[defaults].model` in place; loader tolerates legacy `default_model`.
 
 **Repro:**
 1. `forge config set-default-model "ollama/llama3.2:3b"` → "Default model set to: ollama/llama3.2:3b"
@@ -261,6 +262,7 @@ Either make the loader fall back to `default_model` (matches the older flat-file
 **Section:** 5.1
 **Severity:** Medium
 **Surfaces:** API, Web (cards)
+**Status:** Fixed in PR #61 — route swaps in first model from default_provider when seeded default is unrouteable.
 
 **Repro:**
 1. Local-only stack, only Ollama configured.
@@ -308,6 +310,7 @@ Each endpoint returns 200 and the structure matches what the corresponding web r
 
 **Section:** 18.1, 18.2
 **Severity:** Pass / Medium
+**Status:** §18.1 Medium portion fixed in PR #61 — BackendProvider now distinguishes "unreachable" from "demo" and the layout renders a red banner.
 
 **Test:**
 1. Kill backend on :8000.
