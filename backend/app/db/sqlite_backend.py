@@ -277,7 +277,15 @@ class SQLiteQueryBuilder(QueryBuilder):
     def _build_order(self) -> str:
         if not self._order_by:
             return ""
-        parts = [f"{col} {'DESC' if desc else 'ASC'}" for col, desc in self._order_by]
+        # Qualify bare column names with the primary table when a join is in
+        # play; otherwise SQLite raises "ambiguous column name" on tables that
+        # share a column (e.g. created_at on both token_usage and agents).
+        qualify_with_primary = bool(getattr(self, "_has_joins", False))
+        parts: list[str] = []
+        for col, desc in self._order_by:
+            if "." not in col and qualify_with_primary:
+                col = f"{self._table}.{col}"
+            parts.append(f"{col} {'DESC' if desc else 'ASC'}")
         return " ORDER BY " + ", ".join(parts)
 
     def _build_limit_offset(self) -> str:
