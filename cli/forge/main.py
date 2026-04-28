@@ -814,10 +814,13 @@ def agents_run(
     console.print(f"[bold]Running agent {agent_id[:8]}...[/bold]")
 
     try:
-        for data_str in client.stream_sse(
-            f"/api/agents/{agent_id}/run",
-            params={"token": get_api_key(), "input_text": input_text},
-        ):
+        # The /api/agents/<id>/run endpoint is a POST that takes the token
+        # and input_text as query parameters. Using stream_sse (GET) returned
+        # 405 Method Not Allowed, so the CLI run flow never produced any
+        # output. Build the query string and use stream_sse_post.
+        from urllib.parse import urlencode
+        qs = urlencode({"token": get_api_key(), "input_text": input_text})
+        for data_str in client.stream_sse_post(f"/api/agents/{agent_id}/run?{qs}"):
             try:
                 event = json.loads(data_str)
                 event_type = event.get("type", "")
