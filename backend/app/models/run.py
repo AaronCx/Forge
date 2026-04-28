@@ -16,7 +16,9 @@ class StepLog(BaseModel):
 
 class RunResponse(BaseModel):
     id: str
-    agent_id: str
+    # Nullable: when an agent is deleted, the run row is preserved (per QA
+    # playbook §6.4) and its back-reference is set to NULL.
+    agent_id: str | None
     user_id: str
     input_text: str | None
     input_file_url: str | None

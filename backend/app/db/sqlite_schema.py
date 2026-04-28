@@ -52,7 +52,9 @@ CREATE INDEX IF NOT EXISTS idx_agents_role         ON agents(agent_role);
 -- ===================== 003_runs =====================
 CREATE TABLE IF NOT EXISTS runs (
     id             TEXT PRIMARY KEY,
-    agent_id       TEXT REFERENCES agents(id),
+    -- ON DELETE SET NULL preserves run history when the parent agent is deleted
+    -- (per QA playbook §6.4 — "don't cascade-delete runs").
+    agent_id       TEXT REFERENCES agents(id) ON DELETE SET NULL,
     user_id        TEXT NOT NULL,
     input_text     TEXT,
     input_file_url TEXT,

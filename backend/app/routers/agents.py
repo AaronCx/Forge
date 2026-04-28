@@ -76,4 +76,30 @@ async def delete_agent(
     if not existing.data or existing.data["user_id"] != user.id:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    get_db().table("agents").delete().eq("id", agent_id).execute()
+    # Sever child references so the historical run/trace/usage rows survive
+    # the agent record. The runs FK is configured RESTRICT in older SQLite
+    # schemas, so a bare DELETE on the agent fails with FOREIGN KEY constraint
+    # failed. Per the QA playbook §6.4 ("don't cascade-delete runs"), null
+    # the back-pointers and keep the history. Heartbeats are transient
+    # in-flight state — those we can drop.
+    import contextlib
+
+    db = get_db()
+    # History tables: preserve, null the back-pointer.
+    for table in ("runs", "token_usage", "traces", "prompt_versions"):
+        try:
+            db.table(table).update({"agent_id": None}).eq("agent_id", agent_id).execute()
+        except Exception:
+            # Older schemas with NOT NULL — drop the rows rather than orphan-
+            # break the constraint.
+            with contextlib.suppress(Exception):
+                db.table(table).delete().eq("agent_id", agent_id).execute()
+    # Transient state: drop.
+    db.table("agent_heartbeats").delete().eq("agent_id", agent_id).execute()
+    # Group memberships: nullable, just null the ref.
+    with contextlib.suppress(Exception):
+        db.table("task_group_members").update({"agent_id": None}).eq("agent_id", agent_id).execute()
+    # Reparent any sub-agents (parent_agent_id) — already ON DELETE SET NULL
+    # in the schema; safe to drop the parent.
+
+    db.table("agents").delete().eq("id", agent_id).execute()
