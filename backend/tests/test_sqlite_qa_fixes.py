@@ -78,3 +78,25 @@ def test_join_where_qualifies_ambiguous_column(sqlite_backend):
         .execute()
     )
     assert result.data, "join + created_at filter should return the heartbeat"
+
+
+def test_order_by_qualifies_ambiguous_column(sqlite_backend):
+    """QA Finding #28: ORDER BY on a column shared with a joined table must
+    not raise 'ambiguous column name'. The breakdown query in
+    token_tracker.get_breakdown joins agents in the SELECT and orders by
+    `created_at` — both tables have one, so the bare reference broke
+    /api/costs/all on SQLite the same way the WHERE clause did."""
+    user_id = "33333333-3333-3333-3333-333333333333"
+    sqlite_backend.table("agents").insert(
+        {"user_id": user_id, "name": "regression-#28", "system_prompt": "x"}
+    ).execute()
+
+    # Mirrors token_tracker.get_breakdown: select with a join + ORDER BY created_at.
+    result = (
+        sqlite_backend.table("token_usage")
+        .select("agent_id, model, provider, input_tokens, output_tokens, cost_usd, agents(name)")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    assert result.data == []  # no token_usage rows yet — important: should not raise
