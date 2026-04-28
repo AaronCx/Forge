@@ -7,7 +7,7 @@ For Supabase mode, auth is handled client-side via Supabase Auth.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -16,6 +16,20 @@ from app.db import get_db
 from app.routers.auth import get_current_user
 
 router = APIRouter(tags=["auth"])
+
+# Local-mode JWTs expire after this window. Long enough for CI / dev workflows,
+# short enough that a stolen token isn't a permanent credential.
+JWT_LIFETIME = timedelta(days=7)
+
+
+def _build_jwt_payload(user_id: str, email: str) -> dict:
+    now = datetime.now(UTC)
+    return {
+        "sub": user_id,
+        "email": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + JWT_LIFETIME).timestamp()),
+    }
 
 
 class AuthRequest(BaseModel):
@@ -66,7 +80,7 @@ async def signup(req: AuthRequest):
     # Generate JWT
     import jwt as pyjwt
     token = pyjwt.encode(
-        {"sub": user_id, "email": req.email},
+        _build_jwt_payload(user_id, req.email),
         db.auth._jwt_secret,
         algorithm="HS256",
     )
@@ -96,7 +110,7 @@ async def login(req: AuthRequest):
     # Generate JWT
     import jwt as pyjwt
     token = pyjwt.encode(
-        {"sub": result.data["id"], "email": result.data["email"]},
+        _build_jwt_payload(result.data["id"], result.data["email"]),
         db.auth._jwt_secret,
         algorithm="HS256",
     )

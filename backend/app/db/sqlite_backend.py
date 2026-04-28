@@ -174,11 +174,19 @@ class SQLiteQueryBuilder(QueryBuilder):
         clauses: list[str] = []
         params: list[Any] = []
 
+        # When the SELECT joins a second table, bare column references like
+        # `created_at` are ambiguous (both `agent_heartbeats` and `agents` have
+        # one). Qualify unqualified columns with the primary table to match
+        # the qualification the SELECT clause already uses.
+        qualify_with_primary = bool(getattr(self, "_has_joins", False))
+
         for col, op, val in self._filters:
             # Handle dotted column names for joined table filters (e.g., "agents.user_id")
-            actual_col = col.replace(".", "_dot_")  # placeholder — joins handle this
             if "." in col:
-                # For join filters like "agents.user_id", use the table-qualified column
+                actual_col = col
+            elif qualify_with_primary:
+                actual_col = f"{self._table}.{col}"
+            else:
                 actual_col = col
 
             if op == "IN":
@@ -368,6 +376,9 @@ class SQLiteQueryBuilder(QueryBuilder):
                 col_sql += f", {j['table']}.{jc} AS _join_{j['table']}_{jc}"
             join_col_aliases[j["table"]] = j["columns"]
 
+        # Tell _build_where whether to qualify bare columns with the primary
+        # table (only meaningful when there are joins).
+        self._has_joins = bool(join_sql)
         where_sql, params = self._build_where()
         order_sql = self._build_order()
         limit_sql = self._build_limit_offset()
@@ -437,6 +448,19 @@ class SQLiteQueryBuilder(QueryBuilder):
 
             sql = f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})"
             await db.execute(sql, values)
+            # Read the row back so DB-applied defaults (e.g. is_template=0)
+            # appear in the response payload. Postgres backends get this via
+            # `INSERT ... RETURNING *`; SQLite does the equivalent here.
+            row_id = data.get("id") or data.get("rowid")
+            if row_id is not None:
+                cur = await db.execute(
+                    f"SELECT * FROM {self._table} WHERE id = ?", (row_id,)
+                )
+                row = await cur.fetchone()
+                if row:
+                    full = self._deserialize_row(dict(row))
+                    results.append(full)
+                    continue
             results.append(data)
 
         await db.commit()

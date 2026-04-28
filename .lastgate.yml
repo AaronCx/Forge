@@ -9,7 +9,7 @@ checks:
       - "frontend/**"
       - "README.md"
       - "backend/app/db/*"
-      - "cli/forge/*"
+      - "cli/forge/**"
 
   lint:
     enabled: true
