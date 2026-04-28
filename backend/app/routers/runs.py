@@ -42,12 +42,15 @@ async def run_agent(
     token: str = Query(...),
     input_text: str = Query(""),
 ):
-    # Verify token
+    # Verify token. The auth backend returns either a Supabase-style wrapper
+    # (`.user`) or the user object directly (SQLite local auth) — handle both.
     try:
         user_response = get_db().auth.get_user(token)
-        if not user_response or not user_response.user:
+        user = user_response.user if hasattr(user_response, "user") else user_response
+        if not user or not getattr(user, "id", None):
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = user_response.user
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
