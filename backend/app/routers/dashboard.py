@@ -91,14 +91,16 @@ async def stream_dashboard_updates(
         raise HTTPException(status_code=401, detail="Token required")
     try:
         user_response = get_db().auth.get_user(token)
-        if not user_response or not user_response.user:
+        # Supabase wraps in `.user`; SQLite returns the user object directly.
+        user = user_response.user if hasattr(user_response, "user") else user_response
+        if not user or not getattr(user, "id", None):
             raise HTTPException(status_code=401, detail="Invalid token")
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
-    user_id = user_response.user.id
+    user_id = user.id
 
     async def event_generator():
         while True:
