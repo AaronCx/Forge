@@ -13,30 +13,22 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useBackendMode } from "@/lib/backend-context";
+import { isActive as computeIsActive } from "./nav-active";
 import {
-  Activity,
   BookOpen,
   Bot,
   CheckCircle,
   Code2,
-  Cpu,
   GitBranch,
-  GitCompare,
   Key,
   LayoutDashboard,
   ListChecks,
   Menu,
-  MessageSquare,
-  Monitor,
-  Network,
   Play,
   Plug,
   Settings as SettingsIcon,
   Store,
-  Target,
   Users,
-  Video,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,50 +44,36 @@ type NavGroup = {
   items: NavItem[];
 };
 
+// PR-3 unified IA: six workspaces + a flat system layer. Old routes still resolve
+// (see /dashboard/library, /dashboard/ops, /dashboard/connections — they redirect
+// to their existing pages for now; PR-4 makes them tabbed homes).
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Overview",
+    label: null,
     items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
   },
   {
-    label: "Build",
+    label: "Studio",
     items: [
       { label: "Agents", href: "/dashboard/agents", icon: Bot },
       { label: "Blueprints", href: "/dashboard/blueprints", icon: GitBranch },
-      { label: "Prompts", href: "/dashboard/prompts", icon: MessageSquare },
-      { label: "Knowledge", href: "/dashboard/knowledge", icon: BookOpen },
+      // Library = Prompts + Knowledge as tabs (PR-4); for now redirects to /dashboard/prompts.
+      { label: "Library", href: "/dashboard/library", icon: BookOpen },
+      { label: "Workspace", href: "/dashboard/workspace", icon: Code2 },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      // /dashboard/ops becomes the Kanban board in PR-5; for now it redirects to Runs.
+      { label: "Runs", href: "/dashboard/ops", icon: Play },
+      { label: "Approvals", href: "/dashboard/ops/approvals", icon: CheckCircle },
     ],
   },
   {
     label: null,
-    items: [{ label: "Workspace", href: "/dashboard/workspace", icon: Code2 }],
-  },
-  {
-    label: "Run",
-    items: [
-      { label: "Orchestrate", href: "/dashboard/orchestrate", icon: Network },
-      { label: "Approvals", href: "/dashboard/approvals", icon: CheckCircle },
-      { label: "Triggers", href: "/dashboard/triggers", icon: Zap },
-      { label: "Targets", href: "/dashboard/targets", icon: Target },
-    ],
-  },
-  {
-    label: "Observe",
-    items: [
-      { label: "Runs", href: "/dashboard/runs", icon: Play },
-      { label: "Traces", href: "/dashboard/traces", icon: Activity },
-      { label: "Recordings", href: "/dashboard/recordings", icon: Video },
-      { label: "Evals", href: "/dashboard/evals", icon: ListChecks },
-      { label: "Compare", href: "/dashboard/compare", icon: GitCompare },
-    ],
-  },
-  {
-    label: "Compute",
-    items: [
-      { label: "Computer Use", href: "/dashboard/computer-use", icon: Monitor },
-      { label: "Providers", href: "/dashboard/providers", icon: Cpu },
-      { label: "MCP", href: "/dashboard/mcp", icon: Plug },
-    ],
+    // Compare becomes a tab inside the Evals page in PR-4 — keep the deep-link route alive.
+    items: [{ label: "Evals", href: "/dashboard/evals", icon: ListChecks }],
   },
   {
     label: null,
@@ -104,6 +82,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Settings",
     items: [
+      // /dashboard/connections is the consolidated infra surface (Providers, MCP, Targets,
+      // Computer-Use config) — PR-4 makes it tabbed; for now redirects to /dashboard/providers.
+      { label: "Connections", href: "/dashboard/connections", icon: Plug },
       { label: "Team", href: "/dashboard/team", icon: Users },
       { label: "API Keys", href: "/dashboard/settings/api-keys", icon: Key },
       { label: "Preferences", href: "/dashboard/settings", icon: SettingsIcon },
@@ -114,13 +95,7 @@ const NAV_GROUPS: NavGroup[] = [
 const ALL_HREFS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href));
 
 function isActive(itemHref: string, pathname: string): boolean {
-  if (itemHref === "/dashboard") return pathname === "/dashboard";
-  // If a longer registered href matches the pathname, defer to that one.
-  const longer = ALL_HREFS.find(
-    (h) => h !== itemHref && h.startsWith(itemHref + "/") && (pathname === h || pathname.startsWith(h + "/"))
-  );
-  if (longer) return false;
-  return pathname === itemHref || pathname.startsWith(itemHref + "/");
+  return computeIsActive(itemHref, pathname, ALL_HREFS);
 }
 
 function SidebarContent({
