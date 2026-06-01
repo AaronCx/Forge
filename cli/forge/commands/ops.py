@@ -188,19 +188,56 @@ runs_app = typer.Typer(help="View agent runs")
 
 
 @runs_app.command("list")
-def runs_list():
-    """List agent runs."""
+def runs_list(
+    status: str = typer.Option(
+        "",
+        "--status",
+        "-s",
+        help=(
+            "Filter to runs in the given lifecycle stage. One of: queued, running, "
+            "awaiting-approval, done, failed. Matches the columns on the Operations board."
+        ),
+    ),
+):
+    """List agent runs (optionally filtered by lifecycle stage / kanban column)."""
     try:
         runs = client.get("/api/runs")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
 
+    if status:
+        # PR-5: the column → backend status mapping is the inverse of the kanban's
+        # mapRunStatus(): queued → pending, running → running, done → completed,
+        # failed → failed. "awaiting-approval" is a separate concept driven by the
+        # approvals API; for now the CLI returns an empty list (with a hint) since
+        # awaiting-approval items aren't carried on the run resource.
+        column_map = {
+            "queued": "pending",
+            "running": "running",
+            "done": "completed",
+            "failed": "failed",
+        }
+        if status == "awaiting-approval":
+            console.print(
+                "[dim]awaiting-approval is sourced from `forge ops approvals list` — "
+                "no runs match this status directly.[/dim]"
+            )
+            return
+        target = column_map.get(status)
+        if target is None:
+            console.print(
+                f"[red]Unknown --status: {status}.[/red] "
+                f"Pick one of: {', '.join(['queued', 'running', 'awaiting-approval', 'done', 'failed'])}."
+            )
+            raise typer.Exit(2)
+        runs = [r for r in runs if r.get("status") == target]
+
     if not runs:
         console.print("[dim]No runs found.[/dim]")
         return
 
-    table = Table(title="Agent Runs")
+    table = Table(title="Agent Runs" + (f" — {status}" if status else ""))
     table.add_column("ID", style="dim", max_width=8)
     table.add_column("Agent", style="bold")
     table.add_column("Status")
@@ -920,5 +957,40 @@ def register(parent: typer.Typer) -> None:
 
 
     parent.add_typer(recordings_app, name="recordings")
+
+
+def register_workspace_shortcuts(workspace_app: typer.Typer) -> None:
+    """PR-5: add `forge ops approve`/`forge ops reject` convenience shortcuts.
+
+    These wrap the existing approvals_app commands so terminal users can act
+    directly from the Operations workspace without typing the extra `approvals`
+    segment (the spec wants the kanban's inline Approve/Reject to mirror this).
+    """
+
+    @workspace_app.command("approve")
+    def ops_approve(
+        approval_id: str = typer.Argument(..., help="Approval ID"),
+        feedback: str = typer.Option("", "--feedback", "-f", help="Optional feedback"),
+    ) -> None:
+        """Approve a pending HITL checkpoint (alias for `forge ops approvals approve`)."""
+        try:
+            client.post(f"/api/approvals/{approval_id}/approve", json={"feedback": feedback})
+            console.print(f"[green]Approved {approval_id[:8]}[/green]")
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+    @workspace_app.command("reject")
+    def ops_reject(
+        approval_id: str = typer.Argument(..., help="Approval ID"),
+        feedback: str = typer.Option("", "--feedback", "-f", help="Rejection reason"),
+    ) -> None:
+        """Reject a pending HITL checkpoint (alias for `forge ops approvals reject`)."""
+        try:
+            client.post(f"/api/approvals/{approval_id}/reject", json={"feedback": feedback})
+            console.print(f"[red]Rejected {approval_id[:8]}[/red]")
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
 
 
