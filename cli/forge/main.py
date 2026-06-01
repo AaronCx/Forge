@@ -198,6 +198,65 @@ _ALIAS_TO_CANONICAL: dict[str, str] = {
 _emit_deprecation_note()
 
 
+# --- PR-6: workspace → command tree printer ---
+# `forge map` prints the same six-workspace structure the sidebar shows, so terminal
+# users discover the IA without having to grep through --help output for each branch.
+@app.command("map")
+def _map() -> None:
+    """Print the workspace → command tree (mirrors the dashboard sidebar)."""
+    from rich.tree import Tree as _Tree
+
+    tree = _Tree("[bold]forge[/bold] · unified IA")
+
+    def _add(parent: "_Tree", label: str, children: list[str]) -> None:
+        branch = parent.add(f"[bold]{label}[/bold]")
+        for child in children:
+            branch.add(child)
+
+    _add(
+        tree,
+        "studio",
+        ["agents", "blueprints", "prompts", "knowledge", "workspace"],
+    )
+    _add(
+        tree,
+        "ops",
+        [
+            "runs (--status queued|running|done|failed)",
+            "approvals",
+            "approve <id>  ·  reject <id>  (PR-5 shortcuts)",
+            "triggers",
+            "traces",
+            "recordings",
+            "messages",
+            "groups",
+            "orchestrate",
+        ],
+    )
+    _add(tree, "evals", ["list / run / create / add-case / compare"])
+    _add(
+        tree,
+        "connections",
+        ["providers (was: models)", "mcp", "targets", "computer-use", "tools"],
+    )
+    _add(tree, "marketplace", ["browse / publish / show / rate / fork / unpublish"])
+    _add(
+        tree,
+        "settings",
+        ["team (was: teams)", "api-keys (was: keys)", "config"],
+    )
+    _add(
+        tree,
+        "(system — flat)",
+        [
+            "init · up · down · restart · status · health · dashboard",
+            "version · costs · whoami · login · logout",
+            "auth (signup / login / logout / whoami / keys)",
+        ],
+    )
+    console.print(tree)
+
+
 __all__ = ["app", "console", "__version__"]
 
 
