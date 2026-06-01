@@ -26,6 +26,49 @@ PIDS_FILE = Path.home() / ".forge" / "pids.json"
 
 console = Console()
 
+
+def _resolve_workspace(name: str) -> dict:
+    """Look up a workspace by name. Returns the workspace dict or exits."""
+    try:
+        workspaces = client.get("/api/workspaces")
+    except Exception as e:
+        console.print(f"[red]Error fetching workspaces: {e}[/red]")
+        raise typer.Exit(1)
+
+    for ws in workspaces:
+        if ws.get("name") == name:
+            return ws
+
+    console.print(f"[red]Workspace '{name}' not found.[/red]")
+    names = [ws.get("name", "?") for ws in workspaces]
+    if names:
+        console.print(f"[dim]Available: {', '.join(names)}[/dim]")
+    raise typer.Exit(1)
+
+
+def _build_file_tree(files: list, tree: Tree, prefix: str = ""):
+    """Recursively build a Rich Tree from a flat list of file paths."""
+    dirs: dict[str, list] = {}
+    plain_files: list[str] = []
+
+    for f in files:
+        path = f.get("path", f) if isinstance(f, dict) else f
+        rel = path[len(prefix):].lstrip("/") if prefix and path.startswith(prefix) else path
+        if "/" in rel:
+            top, rest = rel.split("/", 1)
+            dirs.setdefault(top, []).append(rest)
+        else:
+            plain_files.append(rel)
+
+    for d in sorted(dirs.keys()):
+        branch = tree.add(f"[bold blue]{d}/[/bold blue]")
+        child_files = [{"path": p} for p in dirs[d]]
+        _build_file_tree(child_files, branch)
+
+    for f in sorted(plain_files):
+        tree.add(f"[green]{f}[/green]")
+
+
 _app = typer.Typer()
 
 agents_app = typer.Typer(help="Manage agents")

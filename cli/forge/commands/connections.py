@@ -18,6 +18,42 @@ PIDS_FILE = Path.home() / ".forge" / "pids.json"
 
 console = Console()
 
+
+def _steer(*args: str) -> dict:
+    """Invoke the local steer binary and return its parsed JSON output.
+
+    The CU CLI commands historically posted to /api/blueprints/node-exec, an
+    endpoint that does not exist in any router (QA Finding #30). Steer is a
+    local binary installed by `scripts/bootstrap-macos.sh`; calling it
+    directly is the documented architecture and avoids the round-trip
+    entirely.
+    """
+    import json
+    import shutil
+    import subprocess
+
+    binary = shutil.which("steer") or str(Path.home() / "bin" / "steer")
+    if not Path(binary).exists():
+        raise RuntimeError(
+            "steer binary not found — run scripts/bootstrap-macos.sh first"
+        )
+    try:
+        result = subprocess.run(
+            [binary, *args], capture_output=True, text=True, check=True, timeout=30
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"steer {' '.join(args)} failed: {exc.stderr.strip() or exc.stdout.strip()}"
+        ) from exc
+    output = (result.stdout or "").strip()
+    if not output:
+        return {"success": True}
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        return {"success": True, "raw": output}
+
+
 _app = typer.Typer()
 
 models_app = typer.Typer(help="Manage models and providers")
