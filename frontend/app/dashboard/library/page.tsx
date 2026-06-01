@@ -1,7 +1,7 @@
 "use client";
 
+import { Suspense, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -14,9 +14,18 @@ import KnowledgePage from "../knowledge/page";
  * destinations; this page just hosts the two views under one workspace home.
  *
  * Tab persistence: ?tab=prompts | ?tab=knowledge so refreshes and bookmarks
- * land on the right pane.
+ * land on the right pane. useSearchParams must run inside a Suspense boundary
+ * so Next.js can statically generate the surrounding shell.
  */
 export default function LibraryPage() {
+  return (
+    <Suspense fallback={<LibraryShell tab="prompts" />}>
+      <LibraryContent />
+    </Suspense>
+  );
+}
+
+function LibraryContent() {
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -31,6 +40,18 @@ export default function LibraryPage() {
     [pathname, router],
   );
 
+  return <LibraryShell tab={tab} onChange={onChange} interactive />;
+}
+
+function LibraryShell({
+  tab,
+  onChange,
+  interactive,
+}: {
+  tab: "prompts" | "knowledge";
+  onChange?: (next: string) => void;
+  interactive?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <header>
@@ -40,18 +61,22 @@ export default function LibraryPage() {
         </p>
       </header>
 
-      <Tabs value={tab} onValueChange={onChange}>
+      <Tabs value={tab} onValueChange={onChange ?? (() => {})}>
         <TabsList>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="prompts">
-          <PromptsPage />
-        </TabsContent>
-        <TabsContent value="knowledge">
-          <KnowledgePage />
-        </TabsContent>
+        {interactive && (
+          <>
+            <TabsContent value="prompts">
+              <PromptsPage />
+            </TabsContent>
+            <TabsContent value="knowledge">
+              <KnowledgePage />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   );

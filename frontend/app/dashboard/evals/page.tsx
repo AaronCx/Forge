@@ -1,23 +1,25 @@
 "use client";
 
+import { Suspense, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { SuitesView } from "./SuitesView";
 import ComparePage from "../compare/page";
 
-/**
- * PR-4 Evals — Suites + Compare under one workspace home.
- *
- * Compare keeps living at /dashboard/compare as a deep-link target; this page
- * just hosts it as a tab. Tab persistence via ?tab=suites|compare.
- */
 const TABS = ["suites", "compare"] as const;
 type EvalsTab = (typeof TABS)[number];
 
 export default function EvalsPage() {
+  return (
+    <Suspense fallback={<EvalsShell tab="suites" />}>
+      <EvalsContent />
+    </Suspense>
+  );
+}
+
+function EvalsContent() {
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -36,6 +38,18 @@ export default function EvalsPage() {
     [pathname, router],
   );
 
+  return <EvalsShell tab={tab} onChange={onChange} interactive />;
+}
+
+function EvalsShell({
+  tab,
+  onChange,
+  interactive,
+}: {
+  tab: EvalsTab;
+  onChange?: (next: string) => void;
+  interactive?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <header>
@@ -45,18 +59,22 @@ export default function EvalsPage() {
         </p>
       </header>
 
-      <Tabs value={tab} onValueChange={onChange}>
+      <Tabs value={tab} onValueChange={onChange ?? (() => {})}>
         <TabsList>
           <TabsTrigger value="suites">Suites</TabsTrigger>
           <TabsTrigger value="compare">Compare</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="suites">
-          <SuitesView />
-        </TabsContent>
-        <TabsContent value="compare">
-          <ComparePage />
-        </TabsContent>
+        {interactive && (
+          <>
+            <TabsContent value="suites">
+              <SuitesView />
+            </TabsContent>
+            <TabsContent value="compare">
+              <ComparePage />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   );

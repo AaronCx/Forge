@@ -1,7 +1,7 @@
 "use client";
 
+import { Suspense, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useCallback } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -10,17 +10,18 @@ import McpPage from "../mcp/page";
 import TargetsPage from "../targets/page";
 import ComputerUsePage from "../computer-use/page";
 
-/**
- * PR-4 Connections — Providers / MCP / Targets / Computer-Use config under one
- * Settings-side workspace home. The Computer-Use *live view* deep link still
- * lives at /dashboard/computer-use; this tab is the config surface for it.
- *
- * Tab persistence: ?tab=providers|mcp|targets|computer-use.
- */
 const TABS = ["providers", "mcp", "targets", "computer-use"] as const;
 type ConnectionsTab = (typeof TABS)[number];
 
 export default function ConnectionsPage() {
+  return (
+    <Suspense fallback={<ConnectionsShell tab="providers" />}>
+      <ConnectionsContent />
+    </Suspense>
+  );
+}
+
+function ConnectionsContent() {
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -39,6 +40,18 @@ export default function ConnectionsPage() {
     [pathname, router],
   );
 
+  return <ConnectionsShell tab={tab} onChange={onChange} interactive />;
+}
+
+function ConnectionsShell({
+  tab,
+  onChange,
+  interactive,
+}: {
+  tab: ConnectionsTab;
+  onChange?: (next: string) => void;
+  interactive?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <header>
@@ -48,7 +61,7 @@ export default function ConnectionsPage() {
         </p>
       </header>
 
-      <Tabs value={tab} onValueChange={onChange}>
+      <Tabs value={tab} onValueChange={onChange ?? (() => {})}>
         <TabsList>
           <TabsTrigger value="providers">Providers</TabsTrigger>
           <TabsTrigger value="mcp">MCP</TabsTrigger>
@@ -56,18 +69,22 @@ export default function ConnectionsPage() {
           <TabsTrigger value="computer-use">Computer Use</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="providers">
-          <ProvidersPage />
-        </TabsContent>
-        <TabsContent value="mcp">
-          <McpPage />
-        </TabsContent>
-        <TabsContent value="targets">
-          <TargetsPage />
-        </TabsContent>
-        <TabsContent value="computer-use">
-          <ComputerUsePage />
-        </TabsContent>
+        {interactive && (
+          <>
+            <TabsContent value="providers">
+              <ProvidersPage />
+            </TabsContent>
+            <TabsContent value="mcp">
+              <McpPage />
+            </TabsContent>
+            <TabsContent value="targets">
+              <TargetsPage />
+            </TabsContent>
+            <TabsContent value="computer-use">
+              <ComputerUsePage />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   );
