@@ -92,6 +92,7 @@ ops_app.add_typer(_ops_mod.traces_app, name="traces")
 ops_app.add_typer(_ops_mod.recordings_app, name="recordings")
 ops_app.add_typer(_ops_mod.messages_app, name="messages")
 ops_app.add_typer(_ops_mod.orchestrate_app, name="groups")  # was: orchestrate-groups
+_ops_mod.register_workspace_shortcuts(ops_app)  # PR-5: forge ops approve/reject
 
 connections_app.add_typer(
     _connections_mod.models_app, name="providers"
