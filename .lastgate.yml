@@ -1,36 +1,69 @@
-# LastGate Configuration
-# https://lastgate.dev/docs/config
+version: 1
+
+# Top-level path allowlist applied to every content-scanning check.
+# The previous config used non-existent keys (`exclude:`, `commit-message`,
+# `file-size`, `sensitive-files`) that the engine's Zod schema silently
+# stripped. This config uses the canonical fields the engine actually
+# reads (see packages/engine/src/config/schema.ts in AaronCx/LastGate).
+allow:
+  # Test fixtures intentionally host example credentials to exercise
+  # detector regexes.
+  - "**/__tests__/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "tests/**"
+  - "frontend/tests/**"
+  - "frontend/e2e/**"
+  # Lockfile integrity hashes routinely trip the entropy scanner.
+  - "package-lock.json"
+  - "**/package-lock.json"
+  - "bun.lock"
+  - "**/bun.lock"
+  - "yarn.lock"
+  - "**/yarn.lock"
+  - "pnpm-lock.yaml"
+  - "**/pnpm-lock.yaml"
+  - "uv.lock"
+  - "**/uv.lock"
+  - "Cargo.lock"
+  # Demo fixtures + QA evidence carry shaped-like-credential test data.
+  - "frontend/lib/demo/**"
+  - "qa-evidence/**"
+  # Generated/build artefacts (.next, etc.) are gitignored anyway, but
+  # keep this here for any that slip in.
+  - "frontend/.next/**"
 
 checks:
   secrets:
     enabled: true
     severity: fail
-    exclude:
-      - "frontend/**"
-      - "README.md"
-      - "backend/app/db/*"
-      - "cli/forge/**"
-      - "qa-evidence/**"
-
-  lint:
+  file_patterns:
     enabled: true
     severity: fail
-
-  commit-message:
-    enabled: true
-    severity: warn
-    format: conventional
-
-  file-size:
-    enabled: true
-    severity: warn
-    maxSizeKb: 500
-
-  sensitive-files:
-    enabled: true
-    severity: fail
-    patterns:
+    block:
       - ".env"
       - "*.pem"
       - "*.key"
       - "credentials.*"
+      - "*.sqlite"
+      - "*.db"
+    allow:
+      - ".env.example"
+      - ".env.sample"
+  commit_message:
+    enabled: true
+    severity: warn
+    require_conventional: true
+  duplicates:
+    enabled: true
+    severity: warn
+  dependencies:
+    enabled: true
+    severity: warn
+  agent_patterns:
+    enabled: true
+    severity: warn
+
+protected_branches:
+  - main
