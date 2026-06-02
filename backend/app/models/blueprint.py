@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.models.attachment import Attachment
+
 
 class BlueprintNode(BaseModel):
     """A single node in the blueprint DAG."""
@@ -66,6 +68,7 @@ class BlueprintRunRequest(BaseModel):
 
     input_text: str = Field("", max_length=50000)
     input_data: dict[str, Any] = Field(default_factory=dict)
+    attachments: list[Attachment] = Field(default_factory=list)
 
 
 class BlueprintRunResponse(BaseModel):

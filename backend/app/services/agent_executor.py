@@ -1,6 +1,7 @@
 import logging
 import os
 from collections.abc import AsyncIterator
+from typing import Any
 
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -26,6 +27,18 @@ TOOL_REGISTRY = {
     "data_extractor": data_extractor,
     "summarizer": summarizer,
 }
+
+# Models that accept OpenAI-style ``image_url`` content blocks. Image
+# passthrough is restricted to these so we never hand an Anthropic/Ollama
+# model a content schema it can't parse — non-matching models get a text note
+# instead (see ``_prepare_attachments``).
+_VISION_MODEL_HINTS = ("gpt-4o", "gpt-4.1", "gpt-4-turbo", "gpt-4-vision", "o1")
+
+
+def _is_vision_capable(model: str | None) -> bool:
+    """True if ``model`` accepts OpenAI-style multimodal image content blocks."""
+    m = (model or "").lower()
+    return any(hint in m for hint in _VISION_MODEL_HINTS)
 
 
 class AgentRunner:
@@ -97,6 +110,7 @@ class AgentRunner:
         heartbeat_id: str | None = None,
         run_id: str | None = None,
         user_id: str | None = None,
+        attachments: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Execute an agent's workflow and yield streaming events."""
         from app.services.heartbeat import heartbeat_service
@@ -114,14 +128,23 @@ class AgentRunner:
         if not workflow_steps:
             workflow_steps = ["Process the user's input according to your instructions."]
 
+        # Documents become prepended context; images become multimodal blocks
+        # (or a note for non-vision models). Done once, up front.
+        doc_context, image_blocks, notes = await self._prepare_attachments(attachments, model)
+
         if heartbeat_id:
             heartbeat_service.update(
                 heartbeat_id, state="running", current_step=0
             )
 
         yield {"type": "step", "content": f"Starting agent: {agent_config.get('name', 'Unnamed')}", "tokens": 0}
+        for note in notes:
+            yield {"type": "step", "content": note, "tokens": 0}
 
-        accumulated_context = ""
+        # Seed context with extracted document text + any attachment notes.
+        accumulated_context = doc_context
+        if notes:
+            accumulated_context = (accumulated_context + "\n\n" + "\n".join(notes)).strip()
         total_tokens = 0
 
         for i, step in enumerate(workflow_steps, 1):
@@ -132,10 +155,16 @@ class AgentRunner:
                     heartbeat_id, state="running", current_step=i
                 )
 
+            # Only send image blocks on the first step to avoid re-billing the
+            # image on every step; later steps carry forward via context.
+            step_images = image_blocks if i == 1 else None
+
             if tools:
                 result = await self._execute_with_tools(system_prompt, step, user_input, accumulated_context, tools)
             else:
-                result = await self._execute_step(system_prompt, step, user_input, accumulated_context, model=model)
+                result = await self._execute_step(
+                    system_prompt, step, user_input, accumulated_context, model=model, image_blocks=step_images,
+                )
 
             step_tokens = result.get("tokens", 0)
             total_tokens += step_tokens
@@ -196,6 +225,48 @@ class AgentRunner:
         if heartbeat_id:
             heartbeat_service.complete(heartbeat_id, tokens_used=total_tokens)
 
+    async def _prepare_attachments(
+        self, attachments: list[dict] | None, model: str | None
+    ) -> tuple[str, list[dict], list[str]]:
+        """Turn attachments into (document_context, image_blocks, notes).
+
+        - Documents are extracted to text and concatenated with a
+          ``--- file: {name} ---`` header.
+        - Images become OpenAI-style ``image_url`` content blocks for
+          vision-capable models, or a ``[image omitted ...]`` note otherwise.
+        """
+        if not attachments:
+            return "", [], []
+
+        from app.services.extract import extract_text
+
+        vision = _is_vision_capable(model)
+        doc_parts: list[str] = []
+        image_blocks: list[dict] = []
+        notes: list[str] = []
+
+        for att in attachments:
+            kind = att.get("kind")
+            name = att.get("name") or att.get("url", "")
+            url = att.get("url", "")
+            if not url:
+                continue
+
+            if kind == "image":
+                if vision:
+                    image_blocks.append({"type": "image_url", "image_url": {"url": url}})
+                else:
+                    notes.append(f"[image omitted: model not multimodal] {name}")
+            elif kind == "document":
+                try:
+                    text = await extract_text(url)
+                    doc_parts.append(f"--- file: {name} ---\n{text}")
+                except Exception:
+                    logger.warning("Failed to extract attachment %s", name, exc_info=True)
+                    notes.append(f"[document omitted: could not read {name}]")
+
+        return "\n\n".join(doc_parts), image_blocks, notes
+
     async def _execute_with_tools(
         self, system_prompt: str, step: str, user_input: str, context: str, tools: list
     ) -> dict:
@@ -226,16 +297,31 @@ class AgentRunner:
         }
 
     async def _execute_step(
-        self, system_prompt: str, step: str, user_input: str, context: str, *, model: str | None = None
+        self,
+        system_prompt: str,
+        step: str,
+        user_input: str,
+        context: str,
+        *,
+        model: str | None = None,
+        image_blocks: list[dict] | None = None,
     ) -> dict:
         """Execute a single workflow step via the provider registry."""
         full_input = user_input
         if context:
             full_input = f"{user_input}\n\nPrevious step results:\n{context}"
 
-        messages = [
+        # When images are present (vision models only), the user message uses
+        # multimodal content blocks; otherwise it's a plain string.
+        user_content: str | list[dict]
+        if image_blocks:
+            user_content = [{"type": "text", "text": full_input}, *image_blocks]
+        else:
+            user_content = full_input
+
+        messages: list[dict[str, Any]] = [
             {"role": "system", "content": f"{system_prompt}\n\nCurrent task: {step}"},
-            {"role": "user", "content": full_input},
+            {"role": "user", "content": user_content},
         ]
 
         # Use user's provider registry if available
