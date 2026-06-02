@@ -60,6 +60,23 @@ export interface Attachment {
   mime: string;
 }
 
+export interface Preferences {
+  user_id: string;
+  default_model: string | null;
+  default_provider: string | null;
+  onboarded_at: string | null;
+  use_case: string | null;
+  custom_instructions: string | null;
+}
+
+export interface PreferencesUpdate {
+  default_model?: string;
+  default_provider?: string;
+  use_case?: string;
+  custom_instructions?: string;
+  onboarded_at?: string;
+}
+
 export interface CatalogEntry {
   type: "agent" | "blueprint";
   id: string;
@@ -438,6 +455,11 @@ export const api = {
     start: (agentId: string, input: { text?: string; file_url?: string }, token: string) => {
       return `${API_URL}/api/agents/${agentId}/run?token=${encodeURIComponent(token)}&input_text=${encodeURIComponent(input.text || "")}`;
     },
+  },
+  preferences: {
+    get: (token: string) => request<Preferences>("/api/preferences", { token }),
+    update: (data: PreferencesUpdate, token: string) =>
+      request<Preferences>("/api/preferences", { method: "PUT", body: JSON.stringify(data), token }),
   },
   dispatch: {
     // The user's agents + blueprints, for the composer's target-override picker.

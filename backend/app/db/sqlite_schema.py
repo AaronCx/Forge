@@ -529,12 +529,16 @@ CREATE TABLE IF NOT EXISTS provider_configs (
 
 -- ===================== 20260312_multi_model: user_preferences =====================
 CREATE TABLE IF NOT EXISTS user_preferences (
-    id               TEXT PRIMARY KEY,
-    user_id          TEXT NOT NULL UNIQUE,
-    default_model    TEXT DEFAULT 'gpt-4o-mini',
-    default_provider TEXT DEFAULT 'openai',
-    created_at       TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at       TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    id                  TEXT PRIMARY KEY,
+    user_id             TEXT NOT NULL UNIQUE,
+    default_model       TEXT DEFAULT 'gpt-4o-mini',
+    default_provider    TEXT DEFAULT 'openai',
+    -- Onboarding (forge-onboarding-spec). NULL onboarded_at = not yet onboarded.
+    onboarded_at        TEXT,
+    use_case            TEXT,
+    custom_instructions TEXT,
+    created_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 -- ===================== 20260312_multi_model: comparison_runs =====================
@@ -716,3 +720,19 @@ FK_MAP: dict[tuple[str, str], tuple[str, str]] = {
     # workspaces
     ("workspace_changes", "workspaces"):         ("workspace_id", "id"),
 }
+
+
+# ---------------------------------------------------------------------------
+# Idempotent column migrations for existing databases.
+#
+# `initialize()` only runs CREATE TABLE IF NOT EXISTS, so a column added to an
+# existing table's DDL above never reaches a database created before the column
+# existed. Each entry is applied with `ALTER TABLE ... ADD COLUMN`, ignoring the
+# "duplicate column name" error when the column is already present.
+# ---------------------------------------------------------------------------
+COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
+    # forge-onboarding-spec — user_preferences onboarding columns
+    ("user_preferences", "onboarded_at", "TEXT"),
+    ("user_preferences", "use_case", "TEXT"),
+    ("user_preferences", "custom_instructions", "TEXT"),
+]
