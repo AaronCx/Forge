@@ -35,6 +35,7 @@ from app.routers import (
     targets,
     traces,
     triggers,
+    uploads,
     workspaces,
     ws_workspace,
 )
@@ -118,6 +119,7 @@ app.include_router(organizations.router, prefix="/api")
 app.include_router(computer_use.router, prefix="/api")
 app.include_router(targets.router, prefix="/api")
 app.include_router(recordings.router, prefix="/api")
+app.include_router(uploads.router, prefix="/api")
 app.include_router(workspaces.router, prefix="/api")
 app.include_router(ws_workspace.router)  # WebSocket (no /api prefix)
 
