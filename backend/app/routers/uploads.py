@@ -42,7 +42,7 @@ async def upload_files(
         if len(data) > MAX_FILE_BYTES:
             raise HTTPException(
                 status_code=413,
-                detail=f"{upload.filename or 'file'} exceeds the {MAX_FILE_BYTES // (1024 * 1024)}MB limit",
+                detail=f"{upload.filename or 'file'} exceeds the {MAX_FILE_BYTES // (1024 * 1024)}MB limit",  # lastgate-ignore: f-string, not a secret
             )
         mime = upload.content_type or "application/octet-stream"
         if storage.kind_for_mime(mime) is None:
