@@ -7,6 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface ComposerProps {
   onSend: (message: string, files: File[]) => void;
+  // When provided, the mic button is enabled: it records audio and calls this
+  // to get a transcript (PR-6). Omitted/undefined → mic stays disabled.
+  onTranscribe?: (blob: Blob) => Promise<string>;
   busy?: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -20,11 +23,16 @@ const ACCEPT = "image/*,.pdf,.docx,.txt,.md";
  * the right agent/blueprint. Enter sends; Shift+Enter inserts a newline. The
  * mic button is present but disabled until PR-6 (voice) wires it up.
  */
-export function Composer({ onSend, busy = false, disabled = false, placeholder }: ComposerProps) {
+export function Composer({ onSend, onTranscribe, busy = false, disabled = false, placeholder }: ComposerProps) {
   const [value, setValue] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [micError, setMicError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const submit = () => {
     const message = value.trim();
@@ -43,6 +51,53 @@ export function Composer({ onSend, busy = false, disabled = false, placeholder }
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const startRecording = async () => {
+    setMicError("");
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setMicError("Recording isn’t supported in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        if (!onTranscribe || blob.size === 0) return;
+        setTranscribing(true);
+        try {
+          const text = await onTranscribe(blob);
+          if (text) {
+            setValue((prev) => (prev ? `${prev} ${text}` : text));
+            textareaRef.current?.focus();
+          }
+        } catch (err) {
+          setMicError(err instanceof Error ? err.message : "Transcription failed.");
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setMicError("Microphone permission denied.");
+    }
+  };
+
+  const toggleMic = () => {
+    if (recording) {
+      mediaRecorderRef.current?.stop();
+      setRecording(false);
+    } else {
+      void startRecording();
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -116,14 +171,33 @@ export function Composer({ onSend, busy = false, disabled = false, placeholder }
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant={recording ? "destructive" : "ghost"}
             size="icon"
-            disabled
-            title="Voice input (coming soon)"
-            aria-label="Voice input"
+            disabled={!onTranscribe || disabled || busy || transcribing}
+            onClick={toggleMic}
+            title={
+              !onTranscribe
+                ? "Voice input unavailable"
+                : recording
+                  ? "Stop recording"
+                  : "Record a voice command"
+            }
+            aria-label={recording ? "Stop recording" : "Voice input"}
+            aria-pressed={recording}
           >
-            <Mic />
+            <Mic className={recording ? "animate-pulse" : undefined} />
           </Button>
+          {recording && (
+            <span className="ml-1 flex items-center gap-1 text-xs text-destructive" role="status">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" />
+              Recording…
+            </span>
+          )}
+          {transcribing && (
+            <span className="ml-1 text-xs text-muted-foreground" role="status">
+              Transcribing…
+            </span>
+          )}
         </div>
         <Button
           type="button"
@@ -136,6 +210,11 @@ export function Composer({ onSend, busy = false, disabled = false, placeholder }
           <ArrowUp />
         </Button>
       </div>
+      {micError && (
+        <p className="mt-1 text-xs text-destructive" role="alert">
+          {micError}
+        </p>
+      )}
     </div>
   );
 }
