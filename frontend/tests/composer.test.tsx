@@ -86,8 +86,8 @@ describe("DispatchThread", () => {
     expect(screen.getByText(/summarize failures/)).toBeInTheDocument();
     expect(screen.getByText(/it summarizes failures/)).toBeInTheDocument();
     expect(screen.getByText("All clear.")).toBeInTheDocument();
-    const link = screen.getByText("View full run →").closest("a");
-    expect(link).toHaveAttribute("href", "/dashboard/runs/run-9");
+    const link = screen.getByText("View in Operations →").closest("a");
+    expect(link).toHaveAttribute("href", "/dashboard/ops");
   });
 
   it("renders a clarify reply box and submits the reply", async () => {

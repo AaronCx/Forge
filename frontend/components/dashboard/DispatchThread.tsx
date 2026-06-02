@@ -140,14 +140,14 @@ export function DispatchThread({ thread, onClarifyReply, busy }: DispatchThreadP
         <p className="mt-3 text-sm text-destructive">{thread.errorText || "Something went wrong."}</p>
       )}
 
-      {/* Done — link to the full run in Operations */}
+      {/* Done — link to the run in the Operations workspace. There is no
+          per-run detail route, so we deep-link to Operations (the run shows in
+          its list) rather than a 404. */}
       {thread.status === "done" && thread.runId && (
-        <div className="mt-3">
-          <Link
-            href={`/dashboard/runs/${thread.runId}`}
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            View full run →
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">Run {thread.runId.slice(0, 8)}</span>
+          <Link href="/dashboard/ops" className="text-sm font-medium text-primary hover:underline">
+            View in Operations →
           </Link>
         </div>
       )}
