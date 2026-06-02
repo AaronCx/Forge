@@ -29,6 +29,7 @@ from app.routers import (
     messages,
     orchestration,
     organizations,
+    preferences,
     prompt_versions,
     providers,
     recordings,
@@ -57,6 +58,19 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     db = create_db_from_env()
     init_db(db)
     await db.initialize()
+
+    # Idempotent column migrations for pre-existing SQLite databases (Supabase
+    # columns are handled by supabase/migrations/). Best-effort — never block
+    # startup on a migration hiccup.
+    from app.db.sqlite_backend import SQLiteBackend
+
+    if isinstance(db, SQLiteBackend):
+        try:
+            from app.db.column_migrations import apply_column_migrations
+
+            await apply_column_migrations(db.db_path)
+        except Exception:
+            logger.warning("Column migrations failed", exc_info=True)
 
     try:
         await seed_templates(get_db())
@@ -109,6 +123,7 @@ app.include_router(orchestration.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 app.include_router(blueprints.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
+app.include_router(preferences.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
 app.include_router(triggers.router, prefix="/api")
