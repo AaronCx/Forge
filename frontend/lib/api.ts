@@ -53,6 +53,13 @@ export interface Run {
   created_at: string;
 }
 
+export interface Attachment {
+  url: string;
+  kind: "image" | "document";
+  name: string;
+  mime: string;
+}
+
 export interface AgentCreate {
   name: string;
   description: string;
@@ -406,6 +413,24 @@ export const api = {
     get: (id: string, token: string) => request<Run>(`/api/runs/${id}`, { token }),
     start: (agentId: string, input: { text?: string; file_url?: string }, token: string) => {
       return `${API_URL}/api/agents/${agentId}/run?token=${encodeURIComponent(token)}&input_text=${encodeURIComponent(input.text || "")}`;
+    },
+  },
+  uploads: {
+    // Multipart upload — returns stable Attachment refs for the composer to
+    // pass into a dispatch/run. Token rides as a query param (the request is
+    // multipart, not JSON, so we can't use the shared `request` helper).
+    files: async (files: File[], token: string): Promise<Attachment[]> => {
+      const form = new FormData();
+      for (const f of files) form.append("files", f);
+      const res = await fetch(`${API_URL}/api/uploads?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(error.detail || "Upload failed");
+      }
+      return res.json();
     },
   },
   keys: {
