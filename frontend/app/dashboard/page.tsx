@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
+import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { DashboardComposer } from "@/components/dashboard/DashboardComposer";
 import { LiveStatusSection } from "@/components/dashboard/sections/LiveStatusSection";
 import { UsageCostSection } from "@/components/dashboard/sections/UsageCostSection";
@@ -63,6 +64,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <GettingStarted />
       <DashboardComposer />
       <LiveStatusSection onConnectedChange={handleConnectedChange} />
       <UsageCostSection />

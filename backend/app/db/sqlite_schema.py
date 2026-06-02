@@ -537,6 +537,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     onboarded_at        TEXT,
     use_case            TEXT,
     custom_instructions TEXT,
+    getting_started_dismissed INTEGER DEFAULT 0,
     created_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -735,4 +736,5 @@ COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("user_preferences", "onboarded_at", "TEXT"),
     ("user_preferences", "use_case", "TEXT"),
     ("user_preferences", "custom_instructions", "TEXT"),
+    ("user_preferences", "getting_started_dismissed", "INTEGER DEFAULT 0"),
 ]

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { api, type Attachment, type CatalogEntry, type DispatchEvent } from "@/lib/api";
 import { getToken } from "@/lib/auth-client";
 import { isDemoMode } from "@/lib/demo-data";
@@ -32,10 +33,12 @@ export function DashboardComposer() {
   const [thread, setThread] = useState<ThreadState | null>(null);
   const [busy, setBusy] = useState(false);
   const [targets, setTargets] = useState<CatalogEntry[]>([]);
+  const [hasProvider, setHasProvider] = useState(true); // assume yes until checked, to avoid a flash
   const abortRef = useRef<AbortController | null>(null);
   const demo = typeof window !== "undefined" && isDemoMode();
 
-  // Load the user's agents/blueprints once, for the override picker.
+  // Load the user's agents/blueprints (override picker) + whether a provider is
+  // connected (drives the disabled-composer state) once.
   useEffect(() => {
     if (demo) return;
     let cancelled = false;
@@ -48,11 +51,19 @@ export function DashboardComposer() {
       } catch {
         // Non-fatal — the override picker just won't show.
       }
+      try {
+        const providers = await api.providers.list(token);
+        if (!cancelled) setHasProvider((providers.providers?.length ?? 0) > 0);
+      } catch {
+        // Non-fatal — leave the composer enabled rather than block the user.
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [demo]);
+
+  const noProvider = !demo && !hasProvider;
 
   const runDispatch = useCallback(async (
     message: string,
@@ -205,11 +216,22 @@ export function DashboardComposer() {
 
   return (
     <section className="space-y-3" aria-label="Command composer">
+      {noProvider && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed bg-muted/40 p-3 text-sm"
+          data-testid="composer-no-provider"
+        >
+          <span className="text-muted-foreground">Connect a model to start dispatching tasks.</span>
+          <Link href="/dashboard/connections" className="font-medium text-primary hover:underline">
+            Connect a model →
+          </Link>
+        </div>
+      )}
       <Composer
         onSend={handleSend}
-        onTranscribe={demo ? undefined : handleTranscribe}
+        onTranscribe={demo || noProvider ? undefined : handleTranscribe}
         busy={busy}
-        disabled={demo}
+        disabled={demo || noProvider}
       />
       <DispatchThread
         thread={thread}
