@@ -20,6 +20,7 @@ class PreferencesUpdate(BaseModel):
     use_case: str | None = None
     custom_instructions: str | None = None
     onboarded_at: str | None = None
+    getting_started_dismissed: bool | None = None
 
 
 def _get_or_create(user_id: str) -> dict:

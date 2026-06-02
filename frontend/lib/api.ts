@@ -67,6 +67,7 @@ export interface Preferences {
   onboarded_at: string | null;
   use_case: string | null;
   custom_instructions: string | null;
+  getting_started_dismissed?: boolean | number | null;
 }
 
 export interface PreferencesUpdate {
@@ -75,6 +76,7 @@ export interface PreferencesUpdate {
   use_case?: string;
   custom_instructions?: string;
   onboarded_at?: string;
+  getting_started_dismissed?: boolean;
 }
 
 export type ProviderKind = "cloud" | "ollama" | "generic";
