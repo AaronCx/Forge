@@ -3,10 +3,11 @@ import json
 import time
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.db import get_db
+from app.models.attachment import RunRequest
 from app.models.run import RunResponse
 from app.routers.auth import get_current_user
 from app.services.agent_executor import AgentRunner
@@ -41,7 +42,17 @@ async def run_agent(
     request: Request,
     token: str = Query(...),
     input_text: str = Query(""),
+    body: RunRequest | None = Body(default=None),  # noqa: B008
 ):
+    # Optional JSON body carries attachments and (optionally) overrides the
+    # query-param input_text. Existing CLI/trigger callers POST with no body
+    # and are unaffected — the body wins only when present.
+    attachments: list[dict] = []
+    if body is not None:
+        if body.input_text is not None:
+            input_text = body.input_text
+        attachments = [a.model_dump() for a in body.attachments]
+
     # Verify token. The auth backend returns either a Supabase-style wrapper
     # (`.user`) or the user object directly (SQLite local auth) — handle both.
     try:
@@ -63,11 +74,14 @@ async def run_agent(
     if agent_config["user_id"] != user.id and not agent_config.get("is_template", False):
         raise HTTPException(status_code=403, detail="Not authorized to run this agent")
 
-    # Create run record
+    # Create run record. Persist the first attachment URL for run history;
+    # full multimodal context is reconstructed by the runner from attachments.
+    first_url = attachments[0]["url"] if attachments else None
     run_result = get_db().table("runs").insert({
         "agent_id": agent_id,
         "user_id": user.id,
         "input_text": input_text,
+        "input_file_url": first_url,
         "status": "running",
     }).execute()
     if not run_result.data:
@@ -96,7 +110,7 @@ async def run_agent(
             step_num = 0
             async for event in agent_runner.execute(
                 agent_config, input_text, heartbeat_id=heartbeat_id,
-                run_id=run_id, user_id=user.id,
+                run_id=run_id, user_id=user.id, attachments=attachments,
             ):
                 step_num += 1
                 step_start = time.time()

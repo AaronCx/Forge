@@ -185,10 +185,12 @@ async def run_blueprint(
         raise HTTPException(status_code=404, detail="Blueprint not found")
 
     # Create run record
-    input_payload = {
+    input_payload: dict = {
         "text": run_req.input_text,
         **run_req.input_data,
     }
+    if run_req.attachments:
+        input_payload["attachments"] = [a.model_dump() for a in run_req.attachments]
     run_result = get_db().table("blueprint_runs").insert({
         "blueprint_id": blueprint_id,
         "user_id": user.id,

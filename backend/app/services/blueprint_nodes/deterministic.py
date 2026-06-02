@@ -9,8 +9,8 @@ from typing import Any
 
 import httpx
 
+from app.services.extract import extract_text
 from app.services.security.url_validator import validate_url
-from app.services.tools.document_reader import document_reader
 
 
 async def execute_fetch_url(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -37,9 +37,9 @@ async def execute_fetch_document(config: dict, inputs: dict[str, Any]) -> dict[s
 
     validate_url(file_url)
 
-    # Reuse the existing document_reader tool
-    result = await document_reader.ainvoke(file_url)
-    return {"text": str(result)}
+    # Shared extractor — same code path the agent runner uses for attachments.
+    text = await extract_text(file_url)
+    return {"text": text}
 
 
 async def execute_run_linter(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
