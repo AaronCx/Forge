@@ -1,6 +1,8 @@
 """Provider API routes — model listing, health, and configuration."""
 
 import logging
+from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,12 +14,116 @@ from app.routers.auth import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["providers"])
 
+DEFAULT_OLLAMA_URL = "http://localhost:11434"
+
 
 class ProviderConfigCreate(BaseModel):
     provider: str
     api_key: str | None = None
     base_url: str | None = None
     is_default: bool = False
+
+
+class ProviderVerifyRequest(BaseModel):
+    kind: Literal["cloud", "ollama", "generic"]
+    provider: str | None = None  # openai | anthropic (for cloud)
+    api_key: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+
+
+class ProviderConnectRequest(BaseModel):
+    kind: Literal["cloud", "ollama", "generic"]
+    provider: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+
+
+def _build_provider(req: ProviderVerifyRequest | ProviderConnectRequest):
+    """Instantiate the right provider class for a verify/connect request."""
+    if req.kind == "cloud":
+        if req.provider == "openai":
+            from app.providers.openai_provider import OpenAIProvider
+
+            return "openai", OpenAIProvider(api_key=req.api_key)
+        if req.provider == "anthropic":
+            from app.providers.anthropic_provider import AnthropicProvider
+
+            return "anthropic", AnthropicProvider(api_key=req.api_key)
+        raise HTTPException(status_code=400, detail="Unknown cloud provider")
+    if req.kind == "ollama":
+        from app.providers.ollama_provider import OllamaProvider
+
+        return "ollama", OllamaProvider(base_url=req.base_url or DEFAULT_OLLAMA_URL)
+    # generic OpenAI-compatible endpoint
+    if not req.base_url:
+        raise HTTPException(status_code=400, detail="base_url is required for a custom endpoint")
+    from app.providers.generic_provider import GenericOpenAIProvider
+
+    name = req.provider or "generic"
+    return name, GenericOpenAIProvider(api_key=req.api_key or "", base_url=req.base_url, provider_name=name)
+
+
+@router.post("/providers/verify")
+async def verify_provider(req: ProviderVerifyRequest, user=Depends(get_current_user)):  # noqa: B008
+    """Verify a provider is reachable and return its available models.
+
+    Cloud keys are validated via a health check; Ollama/generic reachability is
+    confirmed by listing models from the endpoint. Never raises on a bad
+    credential/URL — returns ok=False with an error so the UI can show it.
+    """
+    try:
+        _name, provider = _build_provider(req)
+    except HTTPException:
+        raise
+
+    try:
+        health = await provider.health_check()
+        if health.status != "healthy":
+            return {"ok": False, "error": health.error or "Provider is not reachable."}
+        models = await provider.list_models()
+        return {
+            "ok": True,
+            "models": [{"id": m.id, "name": m.name} for m in models],
+        }
+    except Exception as exc:
+        logger.info("Provider verify failed: %s", exc)
+        return {"ok": False, "error": str(exc) or "Verification failed."}
+
+
+@router.post("/providers/connect")
+async def connect_provider(req: ProviderConnectRequest, user=Depends(get_current_user)):  # noqa: B008
+    """Persist a provider config and set it as the user's default."""
+    name, _provider = _build_provider(req)
+
+    get_db().table("provider_configs").upsert(
+        {
+            "user_id": user.id,
+            "provider": name,
+            "api_key_encrypted": req.api_key or "",  # plaintext; access control via RLS
+            "base_url": req.base_url or "",
+            "is_default": True,
+            "is_enabled": True,
+        },
+        on_conflict="user_id,provider",
+    ).execute()
+
+    # Local/custom models route by an explicit "{provider}/{model}" prefix; cloud
+    # models (gpt-*, claude-*) route by their own name.
+    default_model = ""
+    if req.model:
+        default_model = f"{name}/{req.model}" if req.kind in ("ollama", "generic") else req.model
+
+    from app.routers.preferences import _get_or_create
+
+    _get_or_create(user.id)
+    patch: dict = {"default_provider": name, "updated_at": datetime.now(UTC).isoformat()}
+    if default_model:
+        patch["default_model"] = default_model
+    get_db().table("user_preferences").update(patch).eq("user_id", user.id).execute()
+
+    return {"ok": True, "provider": name, "default_model": default_model}
 
 
 class ProviderHealthResponse(BaseModel):
