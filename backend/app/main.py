@@ -21,6 +21,7 @@ from app.routers import (
     computer_use,
     costs,
     dashboard,
+    dispatch,
     evals,
     knowledge,
     marketplace,
@@ -101,6 +102,7 @@ app.include_router(agents.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(api_keys.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(dispatch.router, prefix="/api")
 app.include_router(costs.router, prefix="/api")
 app.include_router(orchestration.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
