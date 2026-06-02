@@ -236,9 +236,18 @@ async def route(
     if catalog is None:
         catalog = build_catalog(user_id)
     if not catalog:
-        return Decision(action="none", rationale="You have no agents or blueprints yet.")
+        return Decision(
+            action="none",
+            rationale="You have no agents or blueprints yet.",
+            cold_start=True,
+        )
 
     messages = _build_messages(catalog, message, attachments_summary)
     text, input_tokens, output_tokens, model = await _invoke(user_id, messages)
     _track(user_id, model, input_tokens, output_tokens)
-    return parse_decision(text, catalog)
+
+    from app.services.token_tracker import calculate_cost
+
+    decision = parse_decision(text, catalog)
+    decision.routing_cost = calculate_cost(model, input_tokens, output_tokens)
+    return decision

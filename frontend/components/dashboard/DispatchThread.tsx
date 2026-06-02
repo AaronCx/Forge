@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Loader2, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { Attachment } from "@/lib/api";
+import type { Attachment, CatalogEntry } from "@/lib/api";
 
 export interface ThreadState {
   status: "idle" | "routing" | "running" | "clarify" | "none" | "error" | "done";
@@ -13,6 +13,8 @@ export interface ThreadState {
   attachments?: Attachment[];
   target?: { type: "agent" | "blueprint"; id: string } | null;
   rationale?: string;
+  routingCost?: number;
+  coldStart?: boolean;
   steps: string[];
   output: string;
   runId?: string | null;
@@ -25,17 +27,34 @@ export interface ThreadState {
 interface DispatchThreadProps {
   thread: ThreadState | null;
   onClarifyReply: (reply: string, threadId: string | null | undefined) => void;
+  onOverride: (targetType: "agent" | "blueprint", targetId: string) => void;
+  targets: CatalogEntry[];
   busy: boolean;
+}
+
+function formatCost(cost?: number): string {
+  if (!cost || cost <= 0) return "free";
+  return `$${cost.toFixed(4)}`;
 }
 
 /**
  * Renders a single dispatch turn: the routing decision, live step/token
  * output, and a link to the full run — plus clarify / none / error states.
  */
-export function DispatchThread({ thread, onClarifyReply, busy }: DispatchThreadProps) {
+export function DispatchThread({ thread, onClarifyReply, onOverride, targets, busy }: DispatchThreadProps) {
   const [reply, setReply] = useState("");
 
   if (!thread) return null;
+
+  const handleOverridePick = (value: string) => {
+    if (!value) return;
+    const [type, id] = value.split(":");
+    if (type === "agent" || type === "blueprint") onOverride(type, id);
+  };
+
+  // Once a turn has settled, let the user re-run against a different target.
+  const showOverride =
+    targets.length > 0 && ["done", "error", "none", "clarify"].includes(thread.status);
 
   const handleReplyKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -85,6 +104,9 @@ export function DispatchThread({ thread, onClarifyReply, busy }: DispatchThreadP
               </span>
               {thread.rationale && (
                 <span className="text-muted-foreground">— {thread.rationale}</span>
+              )}
+              {thread.routingCost !== undefined && (
+                <span className="text-muted-foreground/70">· routing {formatCost(thread.routingCost)}</span>
               )}
             </span>
           )}
@@ -145,11 +167,19 @@ export function DispatchThread({ thread, onClarifyReply, busy }: DispatchThreadP
         </div>
       )}
 
-      {/* No match */}
+      {/* No match / cold start — offer to create an agent, prefilled from the message */}
       {thread.status === "none" && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          {thread.noneMessage || "No matching agent or blueprint."}
-        </p>
+        <div className="mt-3 rounded-lg border border-dashed p-3">
+          <p className="text-sm font-medium">
+            {thread.coldStart ? "No agents yet" : "No agent fits this yet"}
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {thread.noneMessage || "Nothing in your catalog matched this task."}
+          </p>
+          <Link href={`/dashboard/agents/new?prompt=${encodeURIComponent(thread.message)}`} className="mt-2 inline-block">
+            <Button size="sm">Create an agent</Button>
+          </Link>
+        </div>
       )}
 
       {/* Error */}
@@ -166,6 +196,32 @@ export function DispatchThread({ thread, onClarifyReply, busy }: DispatchThreadP
           <Link href="/dashboard/ops" className="text-sm font-medium text-primary hover:underline">
             View in Operations →
           </Link>
+        </div>
+      )}
+
+      {/* Wrong target? Re-run against a specific agent/blueprint. */}
+      {showOverride && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
+          <span>Wrong target?</span>
+          <select
+            aria-label="Re-run with a different target"
+            className="rounded-md border bg-background px-2 py-1 text-foreground"
+            disabled={busy}
+            defaultValue=""
+            onChange={(e) => {
+              handleOverridePick(e.target.value);
+              e.target.value = "";
+            }}
+          >
+            <option value="" disabled>
+              Re-run with…
+            </option>
+            {targets.map((t) => (
+              <option key={`${t.type}:${t.id}`} value={`${t.type}:${t.id}`}>
+                {t.name} ({t.type})
+              </option>
+            ))}
+          </select>
         </div>
       )}
     </div>

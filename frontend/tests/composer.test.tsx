@@ -93,12 +93,12 @@ describe("DispatchThread", () => {
   it("renders nothing when there is no thread", async () => {
     const { DispatchThread } = await import("@/components/dashboard/DispatchThread");
     const { container } = render(
-      <DispatchThread thread={null} onClarifyReply={vi.fn()} busy={false} />,
+      <DispatchThread thread={null} onClarifyReply={vi.fn()} onOverride={vi.fn()} targets={[]} busy={false} />,
     );
     expect(container.firstChild).toBeNull();
   });
 
-  it("shows routing header, output, and a run link when done", async () => {
+  it("shows routing header, cost, output, and a run link when done", async () => {
     const { DispatchThread } = await import("@/components/dashboard/DispatchThread");
     render(
       <DispatchThread
@@ -107,17 +107,21 @@ describe("DispatchThread", () => {
           message: "summarize failures",
           target: { type: "agent", id: "agent-123456789" },
           rationale: "it summarizes failures",
+          routingCost: 0.0007,
           steps: ["Step 1: read logs"],
           output: "All clear.",
           runId: "run-9",
         }}
         onClarifyReply={vi.fn()}
+        onOverride={vi.fn()}
+        targets={[]}
         busy={false}
       />,
     );
 
     expect(screen.getByText(/summarize failures/)).toBeInTheDocument();
     expect(screen.getByText(/it summarizes failures/)).toBeInTheDocument();
+    expect(screen.getByText(/routing \$0\.0007/)).toBeInTheDocument();
     expect(screen.getByText("All clear.")).toBeInTheDocument();
     const link = screen.getByText("View in Operations →").closest("a");
     expect(link).toHaveAttribute("href", "/dashboard/ops");
@@ -137,6 +141,8 @@ describe("DispatchThread", () => {
           threadId: "th-1",
         }}
         onClarifyReply={onClarifyReply}
+        onOverride={vi.fn()}
+        targets={[]}
         busy={false}
       />,
     );
@@ -148,24 +154,60 @@ describe("DispatchThread", () => {
     expect(onClarifyReply).toHaveBeenCalledWith("the weekly one", "th-1");
   });
 
-  it("shows the none and error states", async () => {
+  it("shows a cold-start create-agent card prefilled from the message", async () => {
     const { DispatchThread } = await import("@/components/dashboard/DispatchThread");
-    const { rerender } = render(
+    render(
       <DispatchThread
-        thread={{ status: "none", message: "x", steps: [], output: "", noneMessage: "No agent fits." }}
+        thread={{
+          status: "none",
+          message: "build me a thing",
+          steps: [],
+          output: "",
+          noneMessage: "You have no agents or blueprints yet.",
+          coldStart: true,
+        }}
         onClarifyReply={vi.fn()}
+        onOverride={vi.fn()}
+        targets={[]}
         busy={false}
       />,
     );
-    expect(screen.getByText("No agent fits.")).toBeInTheDocument();
+    expect(screen.getByText("No agents yet")).toBeInTheDocument();
+    const link = screen.getByText("Create an agent").closest("a");
+    expect(link).toHaveAttribute("href", "/dashboard/agents/new?prompt=build%20me%20a%20thing");
+  });
 
-    rerender(
+  it("offers a target override that re-runs against the picked target", async () => {
+    const { DispatchThread } = await import("@/components/dashboard/DispatchThread");
+    const onOverride = vi.fn();
+    render(
       <DispatchThread
-        thread={{ status: "error", message: "x", steps: [], output: "", errorText: "Boom." }}
+        thread={{ status: "done", message: "x", steps: [], output: "ok", runId: "r1" }}
         onClarifyReply={vi.fn()}
+        onOverride={onOverride}
+        targets={[
+          { type: "agent", id: "a1", name: "Summarizer", description: "" },
+          { type: "blueprint", id: "b1", name: "Report", description: "" },
+        ]}
         busy={false}
       />,
     );
-    expect(screen.getByText("Boom.")).toBeInTheDocument();
+    const select = screen.getByLabelText("Re-run with a different target");
+    fireEvent.change(select, { target: { value: "blueprint:b1" } });
+    expect(onOverride).toHaveBeenCalledWith("blueprint", "b1");
+  });
+
+  it("shows the error state", async () => {
+    const { DispatchThread } = await import("@/components/dashboard/DispatchThread");
+    render(
+      <DispatchThread
+        thread={{ status: "error", message: "x", steps: [], output: "", errorText: "Rate limit exceeded." }}
+        onClarifyReply={vi.fn()}
+        onOverride={vi.fn()}
+        targets={[]}
+        busy={false}
+      />,
+    );
+    expect(screen.getByText("Rate limit exceeded.")).toBeInTheDocument();
   });
 });

@@ -12,11 +12,12 @@ import logging
 import time
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.db import get_db
-from app.models.dispatch import DispatchRequest
+from app.models.dispatch import CatalogEntry, DispatchRequest
+from app.routers.auth import get_current_user
 from app.services import dispatcher
 from app.services.agent_executor import AgentRunner
 from app.services.rate_limiter import limiter
@@ -41,6 +42,12 @@ def _resolve_user(token: str):
         raise
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
+
+
+@router.get("/dispatch/targets", response_model=list[CatalogEntry])
+async def list_targets(user=Depends(get_current_user)):  # noqa: B008
+    """The user's agents + blueprints, for the composer's target-override picker."""
+    return dispatcher.build_catalog(user.id)
 
 
 @router.post("/dispatch")
@@ -77,19 +84,24 @@ async def dispatch(
                 yield _sse({"type": "clarify", "question": decision.clarifying_question, "thread_id": body.thread_id})
                 return
             if decision.action == "none":
-                yield _sse({"type": "none", "message": decision.rationale or "No matching agent/blueprint."})
+                yield _sse({
+                    "type": "none",
+                    "message": decision.rationale or "No matching agent/blueprint.",
+                    "cold_start": decision.cold_start,
+                })
                 return
 
             # action == "route"
             target_id = decision.target_id
             if not target_id:
-                yield _sse({"type": "none", "message": "No matching agent/blueprint."})
+                yield _sse({"type": "none", "message": "No matching agent/blueprint.", "cold_start": False})
                 return
 
             yield _sse({
                 "type": "routing",
                 "target": {"type": decision.target_type, "id": target_id},
                 "rationale": decision.rationale,
+                "routing_cost": decision.routing_cost,
             })
 
             run_input = decision.input_text or body.message

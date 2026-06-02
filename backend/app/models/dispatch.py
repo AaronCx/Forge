@@ -27,6 +27,11 @@ class Decision(BaseModel):
     input_text: str = ""
     rationale: str = ""
     clarifying_question: str = ""
+    # The cost (USD) of the routing LLM call itself, surfaced in the UI so
+    # routing doesn't feel like a hidden tax (PR-7).
+    routing_cost: float = 0.0
+    # True when the user has no agents/blueprints — drives the cold-start card.
+    cold_start: bool = False
 
 
 class DispatchRequest(BaseModel):
