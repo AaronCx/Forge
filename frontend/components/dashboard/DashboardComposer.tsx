@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { api, type Attachment, type DispatchEvent } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, type Attachment, type CatalogEntry, type DispatchEvent } from "@/lib/api";
 import { getToken } from "@/lib/auth-client";
 import { isDemoMode } from "@/lib/demo-data";
 import { Composer } from "./Composer";
 import { DispatchThread, type ThreadState } from "./DispatchThread";
+
+interface Override {
+  type: "agent" | "blueprint";
+  id: string;
+}
 
 function newThreadId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -26,10 +31,35 @@ function stepText(data: { step: number; result: string } | string): string {
 export function DashboardComposer() {
   const [thread, setThread] = useState<ThreadState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [targets, setTargets] = useState<CatalogEntry[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const demo = typeof window !== "undefined" && isDemoMode();
 
-  const runDispatch = useCallback(async (message: string, threadId: string, attachments: Attachment[] = []) => {
+  // Load the user's agents/blueprints once, for the override picker.
+  useEffect(() => {
+    if (demo) return;
+    let cancelled = false;
+    (async () => {
+      const token = await getToken();
+      if (!token) return;
+      try {
+        const t = await api.dispatch.targets(token);
+        if (!cancelled) setTargets(t);
+      } catch {
+        // Non-fatal — the override picker just won't show.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [demo]);
+
+  const runDispatch = useCallback(async (
+    message: string,
+    threadId: string,
+    attachments: Attachment[] = [],
+    override?: Override,
+  ) => {
     if (demo) {
       setThread({
         status: "error",
@@ -58,7 +88,13 @@ export function DashboardComposer() {
         if (!prev) return prev;
         switch (event.type) {
           case "routing":
-            return { ...prev, status: "running", target: event.target, rationale: event.rationale };
+            return {
+              ...prev,
+              status: "running",
+              target: event.target,
+              rationale: event.rationale,
+              routingCost: event.routing_cost,
+            };
           case "step":
             return { ...prev, status: "running", steps: [...prev.steps, stepText(event.data)] };
           case "token":
@@ -66,7 +102,7 @@ export function DashboardComposer() {
           case "clarify":
             return { ...prev, status: "clarify", clarifyQuestion: event.question, threadId: event.thread_id ?? prev.threadId };
           case "none":
-            return { ...prev, status: "none", noneMessage: event.message };
+            return { ...prev, status: "none", noneMessage: event.message, coldStart: event.cold_start };
           case "done":
             return { ...prev, status: "done", runId: event.run_id };
           case "error":
@@ -79,7 +115,12 @@ export function DashboardComposer() {
 
     try {
       await api.dispatch.send(
-        { message, thread_id: threadId, attachments },
+        {
+          message,
+          thread_id: threadId,
+          attachments,
+          ...(override ? { target_type: override.type, target_id: override.id } : {}),
+        },
         token,
         onEvent,
         controller.signal,
@@ -154,6 +195,14 @@ export function DashboardComposer() {
     [runDispatch, thread?.message],
   );
 
+  const handleOverride = useCallback(
+    (targetType: "agent" | "blueprint", targetId: string) => {
+      if (!thread) return;
+      void runDispatch(thread.message, newThreadId(), thread.attachments ?? [], { type: targetType, id: targetId });
+    },
+    [runDispatch, thread],
+  );
+
   return (
     <section className="space-y-3" aria-label="Command composer">
       <Composer
@@ -162,7 +211,13 @@ export function DashboardComposer() {
         busy={busy}
         disabled={demo}
       />
-      <DispatchThread thread={thread} onClarifyReply={handleClarifyReply} busy={busy} />
+      <DispatchThread
+        thread={thread}
+        onClarifyReply={handleClarifyReply}
+        onOverride={handleOverride}
+        targets={targets}
+        busy={busy}
+      />
     </section>
   );
 }

@@ -60,12 +60,19 @@ export interface Attachment {
   mime: string;
 }
 
+export interface CatalogEntry {
+  type: "agent" | "blueprint";
+  id: string;
+  name: string;
+  description: string;
+}
+
 export type DispatchEvent =
-  | { type: "routing"; target: { type: "agent" | "blueprint"; id: string }; rationale: string }
+  | { type: "routing"; target: { type: "agent" | "blueprint"; id: string }; rationale: string; routing_cost?: number }
   | { type: "step"; data: { step: number; result: string; duration_ms?: number } | string }
   | { type: "token"; data: string }
   | { type: "clarify"; question: string; thread_id?: string | null }
-  | { type: "none"; message: string }
+  | { type: "none"; message: string; cold_start?: boolean }
   | { type: "done"; run_id: string }
   | { type: "error"; data: string };
 
@@ -433,6 +440,8 @@ export const api = {
     },
   },
   dispatch: {
+    // The user's agents + blueprints, for the composer's target-override picker.
+    targets: (token: string) => request<CatalogEntry[]>("/api/dispatch/targets", { token }),
     // Routes a message and streams the resulting run back. Parses typed SSE
     // events (`data: {json}\n\n`) and invokes onEvent for each. Resolves when
     // the stream ends; throws on a non-OK response (rate limit, provider error).

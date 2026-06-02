@@ -85,6 +85,25 @@ def test_parse_decision_unparseable_returns_none():
 async def test_route_returns_none_with_empty_catalog():
     d = await dispatcher.route("user-1", "do something", catalog=[])
     assert d.action == "none"
+    assert d.cold_start is True
+
+
+@pytest.mark.asyncio
+async def test_route_sets_routing_cost():
+    raw = json.dumps({"action": "route", "target_type": "agent", "target_id": "agent-1", "input_text": "go"})
+    with patch("app.services.dispatcher._invoke", new=AsyncMock(return_value=(raw, 1000, 500, "gpt-4o-mini"))), \
+         patch("app.services.token_tracker.token_tracker"):
+        d = await dispatcher.route("user-1", "summarize", catalog=CATALOG)
+    # gpt-4o-mini: 0.15/1M in + 0.60/1M out → 1000*0.15/1e6 + 500*0.60/1e6.
+    assert d.routing_cost > 0
+
+
+def test_targets_endpoint_returns_catalog(auth_client):
+    with patch("app.services.dispatcher.build_catalog", return_value=CATALOG):
+        resp = auth_client.get("/api/dispatch/targets")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert {e["id"] for e in data} == {"agent-1", "bp-1"}
 
 
 @pytest.mark.asyncio
