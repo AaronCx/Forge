@@ -477,6 +477,21 @@ export const api = {
     update: (data: PreferencesUpdate, token: string) =>
       request<Preferences>("/api/preferences", { method: "PUT", body: JSON.stringify(data), token }),
   },
+  onboarding: {
+    finish: (
+      data: {
+        use_case?: string;
+        custom_instructions?: string;
+        template_ids?: string[];
+        custom_agents?: { name?: string; description: string }[];
+      },
+      token: string,
+    ) =>
+      request<{ ok: boolean; created_agents: number; agents: { id: string; name: string }[] }>(
+        "/api/onboarding/finish",
+        { method: "POST", body: JSON.stringify(data), token },
+      ),
+  },
   dispatch: {
     // The user's agents + blueprints, for the composer's target-override picker.
     targets: (token: string) => request<CatalogEntry[]>("/api/dispatch/targets", { token }),
