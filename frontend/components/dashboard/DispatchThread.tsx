@@ -2,13 +2,15 @@
 
 import { useState, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { Attachment } from "@/lib/api";
 
 export interface ThreadState {
   status: "idle" | "routing" | "running" | "clarify" | "none" | "error" | "done";
   message: string; // the user's submitted message
+  attachments?: Attachment[];
   target?: { type: "agent" | "blueprint"; id: string } | null;
   rationale?: string;
   steps: string[];
@@ -51,6 +53,21 @@ export function DispatchThread({ thread, onClarifyReply, busy }: DispatchThreadP
       <p className="text-sm text-muted-foreground">
         <span className="font-medium text-foreground">You:</span> {thread.message}
       </p>
+
+      {/* Attachments on the user's turn */}
+      {thread.attachments && thread.attachments.length > 0 && (
+        <ul className="mt-1 flex flex-wrap gap-2">
+          {thread.attachments.map((a, i) => (
+            <li
+              key={`${a.name}-${i}`}
+              className="flex items-center gap-1 rounded border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              <Paperclip className="h-3 w-3" />
+              <span className="max-w-[180px] truncate">{a.name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Routing header */}
       {(thread.status === "routing" || thread.target) && (

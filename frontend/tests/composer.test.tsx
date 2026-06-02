@@ -20,9 +20,9 @@ describe("Composer", () => {
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
     expect(onSend).not.toHaveBeenCalled();
 
-    // Enter sends.
+    // Enter sends (message + empty file list).
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
-    expect(onSend).toHaveBeenCalledWith("summarize failures");
+    expect(onSend).toHaveBeenCalledWith("summarize failures", []);
     expect(textarea.value).toBe("");
   });
 
@@ -48,11 +48,27 @@ describe("Composer", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("keeps attach + mic disabled until PR-5/PR-6", async () => {
+  it("enables attach (PR-5) and keeps mic disabled until PR-6", async () => {
     const { Composer } = await import("@/components/dashboard/Composer");
     render(<Composer onSend={vi.fn()} />);
-    expect(screen.getByLabelText("Attach files")).toBeDisabled();
+    expect(screen.getByLabelText("Attach files")).not.toBeDisabled();
     expect(screen.getByLabelText("Voice input")).toBeDisabled();
+  });
+
+  it("shows a chip for an attached file and can send with attachments", async () => {
+    const { Composer } = await import("@/components/dashboard/Composer");
+    const onSend = vi.fn();
+    const { container } = render(<Composer onSend={onSend} />);
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["hello"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(screen.getByText("notes.txt")).toBeInTheDocument();
+
+    // Sending with only an attachment (no text) is allowed.
+    fireEvent.click(screen.getByLabelText("Send"));
+    expect(onSend).toHaveBeenCalledWith("", [file]);
   });
 });
 

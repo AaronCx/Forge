@@ -117,6 +117,35 @@ async def test_route_tracks_tokens_with_null_run_and_agent():
     assert kwargs["step_number"] == 0
 
 
+# --- attachments summary (PR-5) -----------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_build_attachments_summary_includes_doc_preview():
+    attachments = [
+        {"url": "file:///r.pdf", "kind": "document", "name": "r.pdf", "mime": "application/pdf"},
+        {"url": "data:image/png;base64,AAA", "kind": "image", "name": "shot.png", "mime": "image/png"},
+    ]
+    with patch("app.services.extract.extract_text", new=AsyncMock(return_value="Quarterly revenue grew 20%.")):
+        summary = await dispatcher.build_attachments_summary(attachments)
+
+    assert "r.pdf (document): Quarterly revenue grew 20%." in summary
+    assert "shot.png (image)" in summary
+
+
+@pytest.mark.asyncio
+async def test_build_attachments_summary_empty():
+    assert await dispatcher.build_attachments_summary([]) == ""
+
+
+@pytest.mark.asyncio
+async def test_build_attachments_summary_handles_unreadable_doc():
+    attachments = [{"url": "file:///x.pdf", "kind": "document", "name": "x.pdf", "mime": "application/pdf"}]
+    with patch("app.services.extract.extract_text", new=AsyncMock(side_effect=OSError("nope"))):
+        summary = await dispatcher.build_attachments_summary(attachments)
+    assert "x.pdf (document): <unreadable>" in summary
+
+
 # --- /api/dispatch endpoint ---------------------------------------------------
 
 
