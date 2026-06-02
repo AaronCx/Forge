@@ -1,12 +1,10 @@
 import logging
-import os
 from collections.abc import AsyncIterator
 from typing import Any
 
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
 
 from app.mcp.tool_registry import tool_registry
 from app.providers.registry import provider_registry
@@ -45,45 +43,20 @@ class AgentRunner:
     """Executes agent workflows step-by-step using LangChain with tool integration."""
 
     def __init__(self, model: str | None = None, user_id: str | None = None):
+        from langchain_openai import ChatOpenAI
+
         self.model = model or provider_registry.default_model
         self.user_id = user_id
-        self._llm = None  # Created lazily
+        self._llm: ChatOpenAI | None = None  # Created lazily
 
     async def _get_llm(self):
-        """Get LLM instance, using user's provider config if available."""
+        """Get LLM instance, using the shared user-LLM resolver (one key path)."""
         if self._llm:
             return self._llm
 
-        api_key = os.getenv("OPENAI_API_KEY", "")
+        from app.services.llm import get_user_llm
 
-        # Try to get user's OpenAI key from provider_configs
-        if self.user_id:
-            try:
-                from app.db import get_db
-
-                result = (
-                    get_db().table("provider_configs")
-                    .select("api_key_encrypted")
-                    .eq("user_id", self.user_id)
-                    .eq("provider", "openai")
-                    .eq("is_enabled", True)
-                    .single()
-                    .execute()
-                )
-                if result.data and result.data.get("api_key_encrypted"):
-                    api_key = result.data["api_key_encrypted"]
-            except Exception:
-                pass
-
-        if not api_key:
-            return None
-
-        self._llm = ChatOpenAI(  # type: ignore[call-arg, assignment]
-            model=self.model,
-            temperature=0,
-            streaming=True,
-            api_key=api_key,  # type: ignore[arg-type]
-        )
+        self._llm = await get_user_llm(self.user_id, self.model, streaming=True, temperature=0)
         return self._llm
 
     def _resolve_tools(self, tool_names: list[str]):
