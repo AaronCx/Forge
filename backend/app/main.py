@@ -27,6 +27,7 @@ from app.routers import (
     marketplace,
     mcp,
     messages,
+    onboarding,
     orchestration,
     organizations,
     preferences,
@@ -124,6 +125,7 @@ app.include_router(messages.router, prefix="/api")
 app.include_router(blueprints.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
 app.include_router(preferences.router, prefix="/api")
+app.include_router(onboarding.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
 app.include_router(mcp.router, prefix="/api")
 app.include_router(triggers.router, prefix="/api")
