@@ -13,6 +13,7 @@ allow:
   - "**/*.test.tsx"
   - "**/*.spec.ts"
   - "tests/**"
+  - "**/tests/**"          # backend/tests fixtures + mocks (e.g. patched dotted paths) trip the entropy scanner
   - "frontend/tests/**"
   - "frontend/e2e/**"
   # Lockfile integrity hashes routinely trip the entropy scanner.
