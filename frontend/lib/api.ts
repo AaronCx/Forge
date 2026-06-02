@@ -60,6 +60,23 @@ export interface Attachment {
   mime: string;
 }
 
+export type DispatchEvent =
+  | { type: "routing"; target: { type: "agent" | "blueprint"; id: string }; rationale: string }
+  | { type: "step"; data: { step: number; result: string; duration_ms?: number } | string }
+  | { type: "token"; data: string }
+  | { type: "clarify"; question: string; thread_id?: string | null }
+  | { type: "none"; message: string }
+  | { type: "done"; run_id: string }
+  | { type: "error"; data: string };
+
+export interface DispatchBody {
+  message: string;
+  attachments?: Attachment[];
+  thread_id?: string | null;
+  target_type?: "agent" | "blueprint";
+  target_id?: string;
+}
+
 export interface AgentCreate {
   name: string;
   description: string;
@@ -413,6 +430,50 @@ export const api = {
     get: (id: string, token: string) => request<Run>(`/api/runs/${id}`, { token }),
     start: (agentId: string, input: { text?: string; file_url?: string }, token: string) => {
       return `${API_URL}/api/agents/${agentId}/run?token=${encodeURIComponent(token)}&input_text=${encodeURIComponent(input.text || "")}`;
+    },
+  },
+  dispatch: {
+    // Routes a message and streams the resulting run back. Parses typed SSE
+    // events (`data: {json}\n\n`) and invokes onEvent for each. Resolves when
+    // the stream ends; throws on a non-OK response (rate limit, provider error).
+    send: async (
+      body: DispatchBody,
+      token: string,
+      onEvent: (event: DispatchEvent) => void,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const res = await fetch(`${API_URL}/api/dispatch?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || "Dispatch failed");
+      }
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (!data || data === "[DONE]") continue;
+          try {
+            onEvent(JSON.parse(data) as DispatchEvent);
+          } catch {
+            // Skip malformed frames.
+          }
+        }
+      }
     },
   },
   uploads: {
