@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 import { DashboardComposer } from "@/components/dashboard/DashboardComposer";
 import { LiveStatusSection } from "@/components/dashboard/sections/LiveStatusSection";
 import { UsageCostSection } from "@/components/dashboard/sections/UsageCostSection";
@@ -29,6 +30,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10">
+      <OnboardingGate />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
