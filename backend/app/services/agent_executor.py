@@ -88,8 +88,13 @@ class AgentRunner:
         """Execute an agent's workflow and yield streaming events."""
         from app.services.heartbeat import heartbeat_service
         from app.services.observability.trace_service import trace_service
+        from app.services.tailoring import load_custom_instructions, prepend_about
 
         system_prompt = agent_config.get("system_prompt", "")
+        # Weave the user's global custom instructions into the system prompt at
+        # run time (idempotent — a seeded prompt that already carries the block
+        # isn't doubled; agents created after onboarding still benefit).
+        system_prompt = prepend_about(system_prompt, load_custom_instructions(user_id or self.user_id))
         tool_names = agent_config.get("tools", [])
         workflow_steps = agent_config.get("workflow_steps", [])
         tools, _mcp_tools = self._resolve_tools(tool_names)

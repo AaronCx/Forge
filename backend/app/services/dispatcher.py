@@ -243,6 +243,13 @@ async def route(
         )
 
     messages = _build_messages(catalog, message, attachments_summary)
+    # Tailor routing with the user's custom instructions, too.
+    from app.services.tailoring import load_custom_instructions, prepend_about
+
+    instructions = load_custom_instructions(user_id)
+    if instructions:
+        messages[0]["content"] = prepend_about(messages[0]["content"], instructions)
+
     text, input_tokens, output_tokens, model = await _invoke(user_id, messages)
     _track(user_id, model, input_tokens, output_tokens)
 
