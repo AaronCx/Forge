@@ -77,6 +77,22 @@ export interface PreferencesUpdate {
   onboarded_at?: string;
 }
 
+export type ProviderKind = "cloud" | "ollama" | "generic";
+
+export interface ProviderVerifyBody {
+  kind: ProviderKind;
+  provider?: string;
+  api_key?: string;
+  base_url?: string;
+  model?: string;
+}
+
+export interface ProviderVerifyResult {
+  ok: boolean;
+  models?: { id: string; name: string }[];
+  error?: string;
+}
+
 export interface CatalogEntry {
   type: "agent" | "blueprint";
   id: string;
@@ -583,6 +599,14 @@ export const api = {
       request<{ ok: boolean }>("/api/providers/configs", { method: "POST", body: JSON.stringify(data), token }),
     deleteConfig: (provider: string, token: string) =>
       request<{ ok: boolean }>(`/api/providers/configs/${provider}`, { method: "DELETE", token }),
+    verify: (data: ProviderVerifyBody, token: string) =>
+      request<ProviderVerifyResult>("/api/providers/verify", { method: "POST", body: JSON.stringify(data), token }),
+    connect: (data: ProviderVerifyBody, token: string) =>
+      request<{ ok: boolean; provider: string; default_model: string }>("/api/providers/connect", {
+        method: "POST",
+        body: JSON.stringify(data),
+        token,
+      }),
   },
   compare: {
     run: (data: { prompt: string; system_prompt?: string; models: string[]; temperature?: number; max_tokens?: number }, token: string) =>
