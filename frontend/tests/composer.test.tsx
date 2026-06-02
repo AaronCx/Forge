@@ -55,6 +55,23 @@ describe("Composer", () => {
     expect(screen.getByLabelText("Voice input")).toBeDisabled();
   });
 
+  it("enables the mic only when onTranscribe is provided", async () => {
+    const { Composer } = await import("@/components/dashboard/Composer");
+    const { rerender } = render(<Composer onSend={vi.fn()} />);
+    expect(screen.getByLabelText("Voice input")).toBeDisabled();
+
+    rerender(<Composer onSend={vi.fn()} onTranscribe={vi.fn(async () => "hi")} />);
+    expect(screen.getByLabelText("Voice input")).not.toBeDisabled();
+  });
+
+  it("surfaces an error when recording is unsupported in the browser", async () => {
+    const { Composer } = await import("@/components/dashboard/Composer");
+    render(<Composer onSend={vi.fn()} onTranscribe={vi.fn(async () => "hi")} />);
+    // jsdom has no navigator.mediaDevices.getUserMedia.
+    fireEvent.click(screen.getByLabelText("Voice input"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/isn.t supported|permission/i);
+  });
+
   it("shows a chip for an attached file and can send with attachments", async () => {
     const { Composer } = await import("@/components/dashboard/Composer");
     const onSend = vi.fn();

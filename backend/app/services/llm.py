@@ -18,18 +18,12 @@ from app.providers.registry import provider_registry
 logger = logging.getLogger(__name__)
 
 
-async def get_user_llm(
-    user_id: str | None,
-    model: str | None = None,
-    *,
-    streaming: bool = True,
-    temperature: float = 0.0,
-) -> ChatOpenAI | None:
-    """Build a ChatOpenAI client from the user's OpenAI key, or None.
+async def get_user_openai_key(user_id: str | None) -> str | None:
+    """Resolve the user's OpenAI API key, or None.
 
     Resolution order: the user's enabled ``openai`` provider config, then the
-    ``OPENAI_API_KEY`` env var. Returns None when no OpenAI key is available
-    (callers fall back to the provider registry or surface a clear message).
+    ``OPENAI_API_KEY`` env var. This is the single OpenAI key path shared by the
+    runner, the dispatcher, and transcription.
     """
     api_key = os.getenv("OPENAI_API_KEY", "")
 
@@ -51,6 +45,22 @@ async def get_user_llm(
         except Exception:
             logger.debug("No user openai provider config for %s", user_id, exc_info=True)
 
+    return api_key or None
+
+
+async def get_user_llm(
+    user_id: str | None,
+    model: str | None = None,
+    *,
+    streaming: bool = True,
+    temperature: float = 0.0,
+) -> ChatOpenAI | None:
+    """Build a ChatOpenAI client from the user's OpenAI key, or None.
+
+    Returns None when no OpenAI key is available (callers fall back to the
+    provider registry or surface a clear message).
+    """
+    api_key = await get_user_openai_key(user_id)
     if not api_key:
         return None
 

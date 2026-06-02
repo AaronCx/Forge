@@ -140,6 +140,12 @@ export function DashboardComposer() {
     [runDispatch, demo],
   );
 
+  const handleTranscribe = useCallback(async (blob: Blob): Promise<string> => {
+    const token = await getToken();
+    if (!token) throw new Error("Not authenticated.");
+    return api.transcribe.send(blob, token);
+  }, []);
+
   const handleClarifyReply = useCallback(
     (reply: string, threadId: string | null | undefined) => {
       const original = thread?.message ? `${thread.message}\n\n${reply}` : reply;
@@ -150,7 +156,12 @@ export function DashboardComposer() {
 
   return (
     <section className="space-y-3" aria-label="Command composer">
-      <Composer onSend={handleSend} busy={busy} disabled={demo} />
+      <Composer
+        onSend={handleSend}
+        onTranscribe={demo ? undefined : handleTranscribe}
+        busy={busy}
+        disabled={demo}
+      />
       <DispatchThread thread={thread} onClarifyReply={handleClarifyReply} busy={busy} />
     </section>
   );

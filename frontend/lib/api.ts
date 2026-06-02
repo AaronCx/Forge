@@ -476,6 +476,25 @@ export const api = {
       }
     },
   },
+  transcribe: {
+    // Sends a recorded audio blob to Whisper (via the user's OpenAI key) and
+    // returns the transcript. Throws with a clear message when no OpenAI key
+    // is configured (HTTP 400 from the backend).
+    send: async (blob: Blob, token: string): Promise<string> => {
+      const form = new FormData();
+      form.append("file", blob, "audio.webm");
+      const res = await fetch(`${API_URL}/api/transcribe?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || "Transcription failed");
+      }
+      const data = (await res.json()) as { text: string };
+      return data.text;
+    },
+  },
   uploads: {
     // Multipart upload — returns stable Attachment refs for the composer to
     // pass into a dispatch/run. Token rides as a query param (the request is
