@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { api, type DispatchEvent } from "@/lib/api";
+import { api, type Attachment, type DispatchEvent } from "@/lib/api";
 import { getToken } from "@/lib/auth-client";
 import { isDemoMode } from "@/lib/demo-data";
 import { Composer } from "./Composer";
@@ -29,7 +29,7 @@ export function DashboardComposer() {
   const abortRef = useRef<AbortController | null>(null);
   const demo = typeof window !== "undefined" && isDemoMode();
 
-  const runDispatch = useCallback(async (message: string, threadId: string) => {
+  const runDispatch = useCallback(async (message: string, threadId: string, attachments: Attachment[] = []) => {
     if (demo) {
       setThread({
         status: "error",
@@ -48,7 +48,7 @@ export function DashboardComposer() {
     }
 
     setBusy(true);
-    setThread({ status: "routing", message, steps: [], output: "", threadId });
+    setThread({ status: "routing", message, steps: [], output: "", threadId, attachments });
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -78,7 +78,12 @@ export function DashboardComposer() {
     };
 
     try {
-      await api.dispatch.send({ message, thread_id: threadId }, token, onEvent, controller.signal);
+      await api.dispatch.send(
+        { message, thread_id: threadId, attachments },
+        token,
+        onEvent,
+        controller.signal,
+      );
     } catch (err) {
       if (err instanceof Error && err.name !== "AbortError") {
         setThread((prev) =>
@@ -91,10 +96,48 @@ export function DashboardComposer() {
   }, [demo]);
 
   const handleSend = useCallback(
-    (message: string) => {
-      void runDispatch(message, newThreadId());
+    async (message: string, files: File[]) => {
+      const threadId = newThreadId();
+      if (files.length === 0) {
+        void runDispatch(message, threadId);
+        return;
+      }
+
+      if (demo) {
+        setThread({
+          status: "error",
+          message,
+          steps: [],
+          output: "",
+          errorText: "Uploads are disabled in demo mode.",
+        });
+        return;
+      }
+
+      const token = await getToken();
+      if (!token) {
+        setThread({ status: "error", message, steps: [], output: "", errorText: "Not authenticated." });
+        return;
+      }
+
+      // Upload first, then dispatch with the returned refs.
+      setBusy(true);
+      setThread({ status: "routing", message, steps: ["Uploading attachments…"], output: "", threadId });
+      try {
+        const attachments = await api.uploads.files(files, token);
+        await runDispatch(message, threadId, attachments);
+      } catch (err) {
+        setBusy(false);
+        setThread({
+          status: "error",
+          message,
+          steps: [],
+          output: "",
+          errorText: err instanceof Error ? err.message : "Upload failed.",
+        });
+      }
     },
-    [runDispatch],
+    [runDispatch, demo],
   );
 
   const handleClarifyReply = useCallback(

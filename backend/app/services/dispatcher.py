@@ -75,6 +75,33 @@ def build_catalog(user_id: str) -> list[CatalogEntry]:
     return entries
 
 
+async def build_attachments_summary(attachments: list[dict]) -> str:
+    """A short summary of attachments for the routing prompt.
+
+    Lists each attachment's name + kind, and for documents includes the first
+    ~500 chars of extracted text so routing can use file content (PR-5).
+    """
+    if not attachments:
+        return ""
+
+    from app.services.extract import extract_text
+
+    lines: list[str] = []
+    for att in attachments:
+        name = att.get("name") or att.get("url", "")
+        kind = att.get("kind", "file")
+        if kind == "document":
+            try:
+                text = await extract_text(att.get("url", ""))
+                preview = text[:500].strip().replace("\n", " ")
+                lines.append(f"- {name} (document): {preview}")
+            except Exception:
+                lines.append(f"- {name} (document): <unreadable>")
+        else:
+            lines.append(f"- {name} ({kind})")
+    return "\n".join(lines)
+
+
 def _format_catalog(catalog: list[CatalogEntry]) -> str:
     lines = []
     for e in catalog:

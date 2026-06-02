@@ -69,7 +69,9 @@ async def dispatch(
                     rationale="Target chosen by user.",
                 )
             else:
-                decision = await dispatcher.route(user_id, body.message)
+                # PR-5: let routing see attachment names + document previews.
+                attachments_summary = await dispatcher.build_attachments_summary(attachments)
+                decision = await dispatcher.route(user_id, body.message, attachments_summary)
 
             if decision.action == "clarify":
                 yield _sse({"type": "clarify", "question": decision.clarifying_question, "thread_id": body.thread_id})
