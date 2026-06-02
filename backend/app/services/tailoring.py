@@ -30,3 +30,27 @@ def prepend_about(system_prompt: str | None, instructions: str | None) -> str:
     if not block:
         return prompt
     return block + "\n\n" + prompt
+
+
+def load_custom_instructions(user_id: str | None) -> str:
+    """Read a user's stored custom_instructions (empty string when unavailable).
+
+    Read at run time so agents created after onboarding also benefit.
+    """
+    if not user_id:
+        return ""
+    try:
+        from app.db import get_db
+
+        result = (
+            get_db().table("user_preferences")
+            .select("custom_instructions")
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
+        if result.data:
+            return result.data.get("custom_instructions") or ""
+    except Exception:
+        return ""
+    return ""
