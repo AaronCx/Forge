@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { DashboardComposer } from "@/components/dashboard/DashboardComposer";
 import { LiveStatusSection } from "@/components/dashboard/sections/LiveStatusSection";
 import { UsageCostSection } from "@/components/dashboard/sections/UsageCostSection";
 import { RecentRunsSection } from "@/components/dashboard/sections/RecentRunsSection";
@@ -60,6 +61,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <DashboardComposer />
       <LiveStatusSection onConnectedChange={handleConnectedChange} />
       <UsageCostSection />
       <RecentRunsSection />
