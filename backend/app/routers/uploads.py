@@ -40,12 +40,10 @@ async def upload_files(
     for upload in files:
         data = await upload.read()
         if len(data) > MAX_FILE_BYTES:
-            # Built by concatenation rather than an f-string so the secret
-            # scanner's entropy heuristic doesn't flag the interpolated message.
             limit_mb = MAX_FILE_BYTES // (1024 * 1024)
             raise HTTPException(
                 status_code=413,
-                detail=(upload.filename or "file") + " exceeds the " + str(limit_mb) + "MB limit",
+                detail=f"{upload.filename or 'file'} exceeds the {limit_mb}MB limit",
             )
         mime = upload.content_type or "application/octet-stream"
         if storage.kind_for_mime(mime) is None:

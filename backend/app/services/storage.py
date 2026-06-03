@@ -20,12 +20,6 @@ from pathlib import Path
 
 BUCKET = "forge-uploads"
 
-# Defaults pulled into named constants so no single statement carries a long
-# interpolated/concatenated literal (the secret scanner's entropy heuristic
-# flags those as potential credentials).
-DEFAULT_UPLOAD_DIR = "/tmp/forge-uploads"
-_PUBLIC_OBJECT_PREFIX = "/storage/v1/object/public/"
-
 # Allowlisted MIME types. Anything else is rejected by the uploads endpoint
 # with HTTP 415.
 DOCUMENT_MIMES = {
@@ -57,14 +51,12 @@ def use_supabase() -> bool:
     if backend == "sqlite":
         return False
     # Auto: match create_db_from_env — Supabase if its env is configured.
-    has_url = bool(os.getenv("SUPABASE_URL"))
-    has_key = bool(os.getenv("SUPABASE_SERVICE_KEY"))
-    return has_url and has_key
+    return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_KEY"))
 
 
 def upload_dir() -> Path:
     """The local upload directory, created on first use."""
-    d = Path(os.getenv("AF_UPLOAD_DIR", DEFAULT_UPLOAD_DIR))
+    d = Path(os.getenv("AF_UPLOAD_DIR", "/tmp/forge-uploads"))
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -99,9 +91,7 @@ def get_url(ref: str) -> str:
     if ref.startswith(("http://", "https://", "data:", "file://")):
         return ref
     if use_supabase():
-        # Concatenation via a named prefix constant keeps the secret scanner's
-        # entropy heuristic from flagging the public-object URL as a credential.
-        return os.environ["SUPABASE_URL"] + _PUBLIC_OBJECT_PREFIX + BUCKET + "/" + ref
+        return f"{os.environ['SUPABASE_URL']}/storage/v1/object/public/{BUCKET}/{ref}"
     return (upload_dir() / ref).as_uri()
 
 
@@ -117,9 +107,7 @@ def _save_local(file_id: str, name: str, data: bytes, mime: str, kind: str) -> s
 def _save_supabase(file_id: str, name: str, data: bytes, mime: str, user_id: str) -> str:
     from supabase import create_client
 
-    url = os.environ["SUPABASE_URL"]
-    service_key = os.environ["SUPABASE_SERVICE_KEY"]
-    client = create_client(url, service_key)
+    client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
     key = f"{user_id}/{file_id}__{name}"
     bucket = client.storage.from_(BUCKET)
     # The forge-uploads bucket must exist and be public (created via the
