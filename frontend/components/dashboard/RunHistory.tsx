@@ -78,10 +78,10 @@ export function RunHistory({ limit }: { limit?: number } = {}) {
               {run.status}
             </Badge>
             <Link
-              href={`/dashboard/traces/${run.id}`}
+              href="/dashboard/traces"
               className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
-              Trace →
+              Traces →
             </Link>
           </div>
         </div>
