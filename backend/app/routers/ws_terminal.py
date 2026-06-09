@@ -22,18 +22,27 @@ router = APIRouter()
 @router.websocket("/ws/terminal/{workspace_id}")
 async def terminal_websocket(websocket: WebSocket, workspace_id: str, token: str = ""):
     """WebSocket terminal: spawns a pty shell with CWD set to workspace directory."""
-    # Auth check
-    if token:
-        try:
-            get_db().auth.get_user(token)
-        except Exception:
-            await websocket.close(code=4001, reason="Invalid token")
-            return
+    # Auth check — a valid token is required
+    if not token:
+        await websocket.close(code=4401, reason="Authentication required")
+        return
+    try:
+        user_response = get_db().auth.get_user(token)
+        # Supabase returns response.user, local auth returns user directly
+        user = user_response.user if hasattr(user_response, "user") else user_response
+        if not user or not getattr(user, "id", None):
+            raise ValueError("Invalid token")
+    except Exception:
+        await websocket.close(code=4401, reason="Invalid token")
+        return
 
-    # Get workspace path
-    result = get_db().table("workspaces").select("path").eq("id", workspace_id).single().execute()
+    # Get workspace path and verify ownership
+    result = get_db().table("workspaces").select("path, user_id").eq("id", workspace_id).single().execute()
     if not result.data:
         await websocket.close(code=4004, reason="Workspace not found")
+        return
+    if result.data["user_id"] != user.id:
+        await websocket.close(code=4403, reason="Not authorized")
         return
 
     workspace_path = str(result.data["path"])
