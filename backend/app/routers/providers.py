@@ -11,6 +11,7 @@ from app.db import get_db
 from app.providers.registry import create_user_registry
 from app.routers.auth import get_current_user
 from app.services.security.secrets import decrypt_secret, encrypt_secret
+from app.services.security.url_validator import SSRFError, validate_url
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["providers"])
@@ -41,8 +42,20 @@ class ProviderConnectRequest(BaseModel):
     model: str | None = None
 
 
+def _validate_base_url(base_url: str | None, *, allow_localhost: bool = False) -> None:
+    """Reject SSRF-prone base URLs with a 400 before any fetch."""
+    if not base_url:
+        return
+    try:
+        validate_url(base_url, allow_localhost=allow_localhost)
+    except SSRFError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 def _build_provider(req: ProviderVerifyRequest | ProviderConnectRequest):
     """Instantiate the right provider class for a verify/connect request."""
+    # Ollama is expected to be a local/LAN daemon; generic endpoints must be public.
+    _validate_base_url(req.base_url, allow_localhost=req.kind == "ollama")
     if req.kind == "cloud":
         if req.provider == "openai":
             from app.providers.openai_provider import OpenAIProvider
@@ -150,6 +163,7 @@ class ModelResponse(BaseModel):
 @router.post("/providers/configs")
 async def save_provider_config(config: ProviderConfigCreate, user=Depends(get_current_user)):  # noqa: B008
     """Save or update a user's provider configuration."""
+    _validate_base_url(config.base_url, allow_localhost=config.provider == "ollama")
     data = {
         "user_id": user.id,
         "provider": config.provider,
