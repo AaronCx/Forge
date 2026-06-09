@@ -45,7 +45,8 @@ def encrypt_secret(value: str) -> str:
     fernet = _get_fernet()
     if fernet is None:
         return value
-    return fernet.encrypt(value.encode()).decode()
+    encrypted: str = fernet.encrypt(value.encode()).decode()
+    return encrypted
 
 
 def decrypt_secret(value: str) -> str:
@@ -56,7 +57,8 @@ def decrypt_secret(value: str) -> str:
     if fernet is None:
         return value
     try:
-        return fernet.decrypt(value.encode()).decode()
+        decrypted: str = fernet.decrypt(value.encode()).decode()
+        return decrypted
     except Exception:
         # Legacy plaintext row (or a value encrypted with a different key).
         return value
