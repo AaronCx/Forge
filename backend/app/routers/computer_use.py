@@ -52,14 +52,15 @@ async def test_remote(_user=Depends(get_current_user)):  # noqa: B008
 
 
 @router.get("/computer-use/audit-log")
-async def audit_log(limit: int = 50, _user=Depends(get_current_user)):  # noqa: B008
-    """Return recent computer use audit log entries."""
+async def audit_log(limit: int = 50, user=Depends(get_current_user)):  # noqa: B008
+    """Return the current user's recent computer use audit log entries."""
     from app.db import get_db
 
     try:
         result = (
             get_db().table("computer_use_audit_log")
             .select("*")
+            .eq("user_id", user.id)
             .order("created_at", desc=True)
             .limit(limit)
             .execute()
