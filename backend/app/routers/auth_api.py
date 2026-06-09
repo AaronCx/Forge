@@ -9,11 +9,12 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routers.auth import get_current_user
+from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["auth"])
 
@@ -49,7 +50,8 @@ class UserInfo(BaseModel):
 
 
 @router.post("/auth/signup", response_model=AuthResponse)
-async def signup(req: AuthRequest):
+@limiter.limit("3/minute")
+async def signup(req: AuthRequest, request: Request):
     """Create a local account."""
     db = get_db()
 
@@ -61,7 +63,8 @@ async def signup(req: AuthRequest):
     # Check if email already exists
     existing = db.table("local_users").select("id").eq("email", req.email).execute()
     if existing.data:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        # Generic message — don't confirm whether an email is registered.
+        raise HTTPException(status_code=400, detail="Unable to create account with the provided credentials")
 
     # Hash password
     import bcrypt
@@ -89,7 +92,8 @@ async def signup(req: AuthRequest):
 
 
 @router.post("/auth/login", response_model=AuthResponse)
-async def login(req: AuthRequest):
+@limiter.limit("5/minute")
+async def login(req: AuthRequest, request: Request):
     """Login with email/password and get a JWT."""
     db = get_db()
 
