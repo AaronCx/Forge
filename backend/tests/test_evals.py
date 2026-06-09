@@ -114,7 +114,8 @@ def test_json_schema_no_schema():
     assert result["passed"] is True
 
 
-def test_custom_grading():
+def test_custom_grading(monkeypatch):
+    monkeypatch.setenv("FORGE_ALLOW_CUSTOM_GRADERS", "1")
     func = """
 result = {"passed": len(actual) > 5, "score": min(len(actual) / 10, 1.0)}
 """
@@ -123,13 +124,21 @@ result = {"passed": len(actual) > 5, "score": min(len(actual) / 10, 1.0)}
     assert result["score"] > 0
 
 
+def test_custom_grading_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("FORGE_ALLOW_CUSTOM_GRADERS", raising=False)
+    result = grade_custom("test", "", {"function": "result = {'passed': True, 'score': 1.0}"})
+    assert result["passed"] is False
+    assert "disabled" in result.get("error", "")
+
+
 def test_custom_grading_no_function():
     result = grade_custom("test", "", {})
     assert result["passed"] is False
     assert "No function" in result.get("error", "")
 
 
-def test_custom_grading_error():
+def test_custom_grading_error(monkeypatch):
+    monkeypatch.setenv("FORGE_ALLOW_CUSTOM_GRADERS", "1")
     result = grade_custom("test", "", {"function": "raise ValueError('boom')"})
     assert result["passed"] is False
     assert "boom" in result.get("error", "")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
 
@@ -153,6 +154,14 @@ def grade_custom(actual: str, expected: str, config: dict[str, Any]) -> dict[str
     func_str = config.get("function", "")
     if not func_str:
         return {"passed": False, "score": 0.0, "method": "custom", "error": "No function provided"}
+
+    if os.environ.get("FORGE_ALLOW_CUSTOM_GRADERS", "").lower() not in ("1", "true"):
+        return {
+            "passed": False,
+            "score": 0.0,
+            "method": "custom",
+            "error": "Custom graders are disabled. Set FORGE_ALLOW_CUSTOM_GRADERS=1 to enable executing custom grading functions.",
+        }
 
     try:
         # Create a restricted namespace
