@@ -41,7 +41,9 @@ async def get_user_openai_key(user_id: str | None) -> str | None:
                 .execute()
             )
             if result.data and result.data.get("api_key_encrypted"):
-                api_key = result.data["api_key_encrypted"]
+                from app.services.security.secrets import decrypt_secret
+
+                api_key = decrypt_secret(result.data["api_key_encrypted"])
         except Exception:
             logger.debug("No user openai provider config for %s", user_id, exc_info=True)
 

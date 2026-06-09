@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.db import get_db
 from app.providers.registry import create_user_registry
 from app.routers.auth import get_current_user
+from app.services.security.secrets import decrypt_secret, encrypt_secret
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["providers"])
@@ -101,7 +102,7 @@ async def connect_provider(req: ProviderConnectRequest, user=Depends(get_current
         {
             "user_id": user.id,
             "provider": name,
-            "api_key_encrypted": req.api_key or "",  # plaintext; access control via RLS
+            "api_key_encrypted": encrypt_secret(req.api_key or ""),
             "base_url": req.base_url or "",
             "is_default": True,
             "is_enabled": True,
@@ -152,7 +153,7 @@ async def save_provider_config(config: ProviderConfigCreate, user=Depends(get_cu
     data = {
         "user_id": user.id,
         "provider": config.provider,
-        "api_key_encrypted": config.api_key or "",  # WARNING: stored as plaintext. Access control relies on Supabase RLS policies.
+        "api_key_encrypted": encrypt_secret(config.api_key or ""),
         "base_url": config.base_url or "",
         "is_default": config.is_default,
         "is_enabled": True,
@@ -177,7 +178,7 @@ async def list_provider_configs(user=Depends(get_current_user)):  # noqa: B008
 
     # Mask API keys
     for c in configs:
-        key = c.get("api_key_encrypted", "")
+        key = decrypt_secret(c.get("api_key_encrypted", ""))
         c["api_key_masked"] = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
         del c["api_key_encrypted"]
 
