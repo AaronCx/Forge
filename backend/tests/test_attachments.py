@@ -20,14 +20,16 @@ from app.services.extract import extract_text
 
 
 @pytest.mark.asyncio
-async def test_extract_text_reads_local_txt(tmp_path):
+async def test_extract_text_reads_local_txt(tmp_path, monkeypatch):
+    monkeypatch.setenv("AF_UPLOAD_DIR", str(tmp_path))
     f = tmp_path / "notes.txt"
     f.write_text("hello from a text file")
     assert await extract_text(str(f)) == "hello from a text file"
 
 
 @pytest.mark.asyncio
-async def test_extract_text_reads_local_docx(tmp_path):
+async def test_extract_text_reads_local_docx(tmp_path, monkeypatch):
+    monkeypatch.setenv("AF_UPLOAD_DIR", str(tmp_path))
     f = tmp_path / "report.docx"
     doc = Document()
     doc.add_paragraph("First line of the doc")
@@ -40,17 +42,32 @@ async def test_extract_text_reads_local_docx(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_extract_text_handles_file_uri(tmp_path):
+async def test_extract_text_handles_file_uri(tmp_path, monkeypatch):
+    monkeypatch.setenv("AF_UPLOAD_DIR", str(tmp_path))
     f = tmp_path / "readme.md"
     f.write_text("# Title\n\nbody")
     assert "# Title" in await extract_text(f.as_uri())
 
 
 @pytest.mark.asyncio
-async def test_extract_text_caps_length(tmp_path):
+async def test_extract_text_caps_length(tmp_path, monkeypatch):
+    monkeypatch.setenv("AF_UPLOAD_DIR", str(tmp_path))
     f = tmp_path / "big.txt"
     f.write_text("x" * 50_000)
     assert len(await extract_text(str(f))) == 10_000
+
+
+@pytest.mark.asyncio
+async def test_extract_text_rejects_file_outside_upload_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("AF_UPLOAD_DIR", str(tmp_path))
+    with pytest.raises(ValueError, match="upload directory"):
+        await extract_text("file:///etc/passwd")
+
+
+@pytest.mark.asyncio
+async def test_extract_text_rejects_unsupported_scheme():
+    with pytest.raises(ValueError, match="scheme"):
+        await extract_text("ftp://internal-host/secret.txt")
 
 
 # --- Vision detection ---------------------------------------------------------

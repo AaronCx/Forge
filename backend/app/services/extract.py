@@ -17,6 +17,9 @@ import httpx
 from docx import Document
 from pypdf import PdfReader
 
+from app.services import storage
+from app.services.security.url_validator import validate_url
+
 # Cap extracted text so a large upload can't blow up a prompt/context window.
 MAX_CHARS = 10_000
 
@@ -45,14 +48,23 @@ async def _load(file_url: str) -> tuple[bytes, str, str]:
     parsed = urlparse(file_url)
 
     if parsed.scheme in ("http", "https"):
+        validate_url(file_url)  # SSRF guard — blocks internal/private targets
         async with httpx.AsyncClient() as client:
             response = await client.get(file_url, timeout=30.0, follow_redirects=True)
         response.raise_for_status()
         return response.content, response.headers.get("content-type", ""), parsed.path
 
-    # Local file: a ``file://`` URI or a bare filesystem path.
+    if parsed.scheme not in ("", "file"):
+        raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
+
+    # Local file: a ``file://`` URI or a bare filesystem path. Only files the
+    # uploads storage backend wrote (inside the upload dir) may be read back —
+    # anything else is an arbitrary-local-file-read primitive.
     path = Path(unquote(parsed.path)) if parsed.scheme == "file" else Path(file_url)
-    return path.read_bytes(), "", path.name
+    resolved = path.resolve()
+    if not resolved.is_relative_to(storage.upload_dir().resolve()):
+        raise ValueError("Local file access is restricted to the upload directory")
+    return resolved.read_bytes(), "", resolved.name
 
 
 def _extract_pdf(file_bytes: bytes) -> str:
