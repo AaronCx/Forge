@@ -233,9 +233,11 @@ async def create_user_registry(user_id: str) -> ProviderRegistry:
 
     registry = ProviderRegistry()
 
+    from app.services.security.secrets import decrypt_secret
+
     for config in configs:
         provider_name = config["provider"]
-        api_key = config.get("api_key_encrypted", "")
+        api_key = decrypt_secret(config.get("api_key_encrypted", ""))
         base_url = config.get("base_url", "") or None
         is_default = config.get("is_default", False)
 

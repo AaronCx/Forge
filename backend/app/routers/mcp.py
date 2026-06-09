@@ -13,6 +13,7 @@ from app.db import get_db
 from app.mcp.client import mcp_client
 from app.mcp.tool_registry import tool_registry
 from app.routers.auth import get_current_user
+from app.services.security.url_validator import SSRFError, validate_url
 
 router = APIRouter(tags=["mcp"])
 
@@ -40,6 +41,11 @@ async def connect_mcp_server(
     req: MCPConnectRequest, user: Any = Depends(get_current_user)  # noqa: B008
 ) -> dict[str, Any]:
     """Add and test an MCP server connection."""
+    try:
+        validate_url(req.server_url)
+    except SSRFError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # Test connection first
     status = await mcp_client.connect(req.server_url)
 
@@ -114,6 +120,11 @@ async def list_connection_tools(
         raise HTTPException(status_code=404, detail="Connection not found")
 
     conn = result.data
+    try:
+        validate_url(conn["server_url"])
+    except SSRFError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # Re-discover tools from the server
     tools = await mcp_client.discover_tools(
         conn["server_url"], server_id=conn["id"], server_name=conn["name"]

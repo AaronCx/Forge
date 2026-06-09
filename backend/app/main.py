@@ -55,6 +55,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Warn when provider API keys can't be encrypted at rest
+    from app.services.security.secrets import warn_if_unconfigured
+
+    warn_if_unconfigured()
+
     # Initialize pluggable database backend
     db = create_db_from_env()
     init_db(db)

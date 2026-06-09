@@ -1,6 +1,7 @@
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -8,6 +9,7 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from app.mcp.tool_registry import tool_registry
 from app.providers.registry import provider_registry
+from app.services.security.url_validator import SSRFError, validate_url
 from app.services.tools.code_executor import code_executor
 from app.services.tools.data_extractor import data_extractor
 from app.services.tools.document_reader import document_reader
@@ -237,8 +239,15 @@ class AgentRunner:
                     notes.append(f"[image omitted: model not multimodal] {name}")
             elif kind == "document":
                 try:
+                    # Remote URLs must pass the SSRF check; local file:// refs
+                    # are restricted to the upload dir inside extract_text.
+                    if urlparse(url).scheme in ("http", "https"):
+                        validate_url(url)
                     text = await extract_text(url)
                     doc_parts.append(f"--- file: {name} ---\n{text}")
+                except SSRFError:
+                    logger.warning("Blocked attachment URL %s", name)
+                    notes.append(f"[document omitted: URL not allowed for {name}]")
                 except Exception:
                     logger.warning("Failed to extract attachment %s", name, exc_info=True)
                     notes.append(f"[document omitted: could not read {name}]")

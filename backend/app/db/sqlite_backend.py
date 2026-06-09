@@ -7,6 +7,7 @@ allowing all existing call sites to work without changes.
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
 from datetime import UTC, datetime
@@ -554,7 +555,16 @@ class SQLiteAuthBackend(AuthBackend):
 
     def __init__(self, db_path: str, jwt_secret: str = "") -> None:
         self._db_path = db_path
-        self._jwt_secret = jwt_secret or "forge-local-dev-secret"
+        secret = jwt_secret or os.environ.get("FORGE_JWT_SECRET", "")
+        if not secret:
+            if os.environ.get("FORGE_TESTING", "").lower() in ("1", "true"):
+                secret = "forge-local-dev-secret"
+            else:
+                raise RuntimeError(
+                    "FORGE_JWT_SECRET must be set to use SQLite local auth — "
+                    "refusing to sign tokens with a known development secret."
+                )
+        self._jwt_secret = secret
 
     def get_user(self, token: str) -> Any:
         """Verify a local JWT and return a user-like object."""

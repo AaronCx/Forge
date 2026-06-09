@@ -89,7 +89,9 @@ class KnowledgeService:
                 .execute()
             )
             if result.data and result.data.get("api_key_encrypted"):
-                return str(result.data["api_key_encrypted"])
+                from app.services.security.secrets import decrypt_secret
+
+                return decrypt_secret(str(result.data["api_key_encrypted"]))
         except Exception:
             pass
         return None
