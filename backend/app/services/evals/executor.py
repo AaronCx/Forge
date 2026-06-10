@@ -28,8 +28,14 @@ class EvalExecutor:
         user_id: str,
         model: str | None = None,
         triggered_by: str = "manual",
+        prompt_override: str | None = None,
     ) -> dict[str, Any]:
-        """Execute an eval suite and return the run summary."""
+        """Execute an eval suite and return the run summary.
+
+        ``prompt_override`` lets a caller (e.g. the self-optimization loop) run an
+        agent-targeted suite with a candidate system prompt without mutating the
+        stored agent. It is ignored for non-agent targets.
+        """
         # Get suite
         suite = (
             get_db().table("eval_suites")
@@ -77,6 +83,7 @@ class EvalExecutor:
                     suite=suite,
                     run_id=run_id,
                     model=model,
+                    prompt_override=prompt_override,
                 )
                 results.append(result)
                 if result.get("passed"):
@@ -127,6 +134,7 @@ class EvalExecutor:
         suite: dict[str, Any],
         run_id: str,
         model: str | None = None,
+        prompt_override: str | None = None,
     ) -> dict[str, Any]:
         """Execute a single eval case."""
         input_data = case.get("input", {})
@@ -141,6 +149,7 @@ class EvalExecutor:
             target_id=suite["target_id"],
             input_data=input_data,
             model=model,
+            prompt_override=prompt_override,
         )
         latency_ms = int((time.time() - start) * 1000)
 
@@ -185,6 +194,7 @@ class EvalExecutor:
         target_id: str,
         input_data: dict[str, Any],
         model: str | None = None,
+        prompt_override: str | None = None,
     ) -> dict[str, Any]:
         """Run an agent or blueprint and capture output."""
         input_text = input_data.get("text", input_data.get("input_text", json.dumps(input_data)))
@@ -202,10 +212,11 @@ class EvalExecutor:
             if not agent:
                 raise ValueError(f"Agent {target_id} not found")
 
+            system_prompt = prompt_override if prompt_override is not None else agent.get("system_prompt", "")
             resolved_model = model or agent.get("model") or None
             response = await provider_registry.complete(
                 messages=[
-                    {"role": "system", "content": agent.get("system_prompt", "")},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": input_text},
                 ],
                 model=resolved_model,
