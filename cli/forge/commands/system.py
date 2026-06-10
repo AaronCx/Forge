@@ -450,6 +450,33 @@ def costs(
         console.print(table)
 
 
+@_app.command(name="mcp-server")
+def mcp_server(
+    transport: str = typer.Option(
+        "stdio", "--transport", "-t", help="MCP transport: 'stdio' (local clients) or 'sse' (HTTP)"
+    ),
+):
+    """Serve Forge agents and blueprints as MCP tools.
+
+    Exposes forge_list_agents, forge_run_agent, forge_list_blueprints,
+    forge_run_blueprint, and forge_get_run_status to any MCP client. Uses your
+    `forge login` session for auth. Add to an MCP client config with:
+    command `forge`, args `["mcp-server"]`.
+    """
+    from forge.mcp_server import ForgeMCPError, serve
+
+    if transport == "stdio":
+        # stdio owns stdout for the protocol — status messages go to stderr.
+        console.print(f"[dim]Forge MCP server starting on {transport}…[/dim]", stderr=True)
+    else:
+        console.print(f"[bold]Forge MCP server[/bold] starting on {transport}…")
+    try:
+        serve(transport=transport)
+    except ForgeMCPError as e:
+        console.print(f"[red]Error: {e}[/red]", stderr=True)
+        raise typer.Exit(1)
+
+
 def register(parent: typer.Typer) -> None:
     """Forward this module's flat commands and sub-apps onto the root app."""
     for cmd_info in _app.registered_commands:
