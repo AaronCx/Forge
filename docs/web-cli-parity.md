@@ -115,6 +115,7 @@ you add a CLI command group **or** a web route — both must move together.
 | `forge version` | CLI version |
 | `forge costs` | Token + cost rollup |
 | `forge map` | Print the workspace → command tree (mirrors the sidebar). PR-6. |
+| `forge mcp-server` | Serve Forge agents + blueprints as MCP tools (stdio/sse) for external MCP clients. Requires `forge-cli[mcp]`. |
 
 ---
 
