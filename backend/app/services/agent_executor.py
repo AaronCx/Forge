@@ -44,12 +44,30 @@ def _is_vision_capable(model: str | None) -> bool:
 class AgentRunner:
     """Executes agent workflows step-by-step using LangChain with tool integration."""
 
-    def __init__(self, model: str | None = None, user_id: str | None = None):
+    def __init__(
+        self,
+        model: str | None = None,
+        user_id: str | None = None,
+        *,
+        recorder: Any = None,
+        response_cache: Any = None,
+    ):
         from langchain_openai import ChatOpenAI
 
         self.model = model or provider_registry.default_model
         self.user_id = user_id
         self._llm: ChatOpenAI | None = None  # Created lazily
+        # Time-travel debugger hooks. ``recorder`` appends to the run's
+        # append-only event log; ``response_cache`` serves recorded model/tool
+        # responses so replay/fork don't re-pay. Both default to no-ops so the
+        # normal execution path is unchanged when the debugger isn't in use.
+        from app.services.timetravel.recorder import NullRecorder
+
+        self.recorder = recorder or NullRecorder()
+        self.response_cache = response_cache
+        # Tracks the workflow step currently executing, so model/tool calls are
+        # recorded against the right step without threading it through every call.
+        self._current_step = 0
 
     async def _get_llm(self):
         """Get LLM instance, using the shared user-LLM resolver (one key path)."""
@@ -117,6 +135,10 @@ class AgentRunner:
                 heartbeat_id, state="running", current_step=0
             )
 
+        # Open the run's event log (no-op when no recorder is attached).
+        self._current_step = 0
+        self.recorder.run_start(agent_id=agent_id, user_input=user_input, model=model)
+
         yield {"type": "step", "content": f"Starting agent: {agent_config.get('name', 'Unnamed')}", "tokens": 0}
         for note in notes:
             yield {"type": "step", "content": note, "tokens": 0}
@@ -128,6 +150,8 @@ class AgentRunner:
         total_tokens = 0
 
         for i, step in enumerate(workflow_steps, 1):
+            self._current_step = i
+            self.recorder.step_boundary(i, step)
             yield {"type": "step", "content": f"Step {i}: {step}", "tokens": 0}
 
             if heartbeat_id:
@@ -199,8 +223,13 @@ class AgentRunner:
                 )
 
             accumulated_context += f"\n\n--- Step {i} result ---\n{result['content']}"
+            # Record the post-step accumulated context as a state mutation so the
+            # replayer can reconstruct exact step-by-step state from the log.
+            self.recorder.state(i, key="accumulated_context", value=accumulated_context)
             yield {"type": "token", "content": result["content"], "tokens": step_tokens}
             yield {"type": "step", "content": f"Step {i} completed", "tokens": 0}
+
+        self.recorder.run_end(status="completed", output=accumulated_context, total_tokens=total_tokens)
 
         if heartbeat_id:
             heartbeat_service.complete(heartbeat_id, tokens_used=total_tokens)
@@ -258,6 +287,14 @@ class AgentRunner:
         self, system_prompt: str, step: str, user_input: str, context: str, tools: list
     ) -> dict:
         """Execute a step using LangChain agent with tools."""
+        # Replay/fork: a cached step result is served verbatim — the LangChain
+        # executor (and every model/tool call it would make) is skipped, so the
+        # step isn't re-billed.
+        if self.response_cache is not None:
+            hit, cached = self.response_cache.get_model(self._current_step)
+            if hit:
+                return dict(cached)
+
         llm = await self._get_llm()
         if not llm:
             # No OpenAI key — fall back to non-tool step via provider registry
@@ -278,10 +315,18 @@ class AgentRunner:
 
         result = await executor.ainvoke({"input": full_input})
 
-        return {
+        out = {
             "content": result.get("output", ""),
             "tokens": 0,
         }
+        # Record the tool-augmented step's outcome as a model_call so replay and
+        # fork can reconstruct it without re-running the agent loop.
+        self.recorder.model_call(
+            self._current_step,
+            request={"system_prompt": system_prompt, "step": step, "input": full_input, "tools": True},
+            response=out,
+        )
+        return out
 
     async def _execute_step(
         self,
@@ -311,6 +356,26 @@ class AgentRunner:
             {"role": "user", "content": user_content},
         ]
 
+        return await self._invoke_model(messages, model)
+
+    async def _invoke_model(self, messages: list[dict[str, Any]], model: str | None) -> dict:
+        """Run one model completion, consulting the cache and recording the result.
+
+        This is the single interception point for model calls. When a step's
+        response is cached (replay, or a fork's unchanged prefix) the recorded
+        value is returned and the provider is never hit — that's how forks avoid
+        re-paying. Otherwise the real provider runs and the call is recorded.
+        """
+        request = {"messages": messages, "model": model}
+
+        if self.response_cache is not None:
+            hit, cached = self.response_cache.get_model(self._current_step)
+            if hit:
+                # Served from the recorded log — do NOT record again (the event
+                # already exists in the parent/original log; a fork copies the
+                # prefix verbatim before resuming).
+                return dict(cached)
+
         # Use user's provider registry if available
         if self.user_id:
             from app.providers.registry import create_user_registry
@@ -325,7 +390,7 @@ class AgentRunner:
             temperature=0,
         )
 
-        return {
+        result = {
             "content": response.content,
             "tokens": response.input_tokens + response.output_tokens,
             "input_tokens": response.input_tokens,
@@ -334,3 +399,5 @@ class AgentRunner:
             "model": response.model,
             "provider": response.provider,
         }
+        self.recorder.model_call(self._current_step, request=request, response=result)
+        return result
