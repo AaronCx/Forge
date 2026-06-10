@@ -634,6 +634,51 @@ CREATE TABLE IF NOT EXISTS workspace_changes (
 CREATE INDEX IF NOT EXISTS idx_ws_changes_workspace ON workspace_changes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_ws_changes_file      ON workspace_changes(workspace_id, file_path);
 CREATE INDEX IF NOT EXISTS idx_ws_changes_time      ON workspace_changes(created_at);
+
+-- ===================== optimizer: optimization_runs (lineage) =====================
+-- One self-optimization attempt: baseline eval of an agent against a suite,
+-- N generated prompt variants, the winner, and the score delta. The promotion
+-- of the winner is gated behind an approval (approval_id), never auto-applied.
+CREATE TABLE IF NOT EXISTS optimization_runs (
+    id                  TEXT PRIMARY KEY,
+    user_id             TEXT NOT NULL,
+    agent_id            TEXT NOT NULL REFERENCES agents(id),
+    suite_id            TEXT NOT NULL REFERENCES eval_suites(id),
+    status              TEXT NOT NULL DEFAULT 'running'
+                        CHECK (status IN ('running','no_improvement','no_failures','awaiting_approval','failed')),
+    parent_prompt       TEXT NOT NULL DEFAULT '',
+    baseline_run_id     TEXT REFERENCES eval_runs(id),
+    baseline_score      REAL,
+    winner_variant_id   TEXT,
+    winner_score        REAL,
+    score_delta         REAL,
+    approval_id         TEXT REFERENCES approvals(id),
+    summary             TEXT DEFAULT '',
+    error               TEXT,
+    created_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    completed_at        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_optimization_runs_user  ON optimization_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_optimization_runs_agent ON optimization_runs(agent_id);
+
+-- ===================== optimizer: optimization_variants =====================
+-- Each candidate prompt produced for an optimization run, with the eval run it
+-- was scored by and its resulting suite score.
+CREATE TABLE IF NOT EXISTS optimization_variants (
+    id                  TEXT PRIMARY KEY,
+    optimization_run_id TEXT NOT NULL REFERENCES optimization_runs(id),
+    variant_index       INTEGER NOT NULL DEFAULT 0,
+    system_prompt       TEXT NOT NULL,
+    rationale           TEXT DEFAULT '',
+    eval_run_id         TEXT REFERENCES eval_runs(id),
+    score               REAL,
+    pass_rate           REAL,
+    is_winner           INTEGER NOT NULL DEFAULT 0,
+    created_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_optimization_variants_run ON optimization_variants(optimization_run_id);
 """
 
 # ---------------------------------------------------------------------------
@@ -720,6 +765,10 @@ FK_MAP: dict[tuple[str, str], tuple[str, str]] = {
     ("marketplace_forks", "blueprints"):         ("source_blueprint_id", "id"),
     # workspaces
     ("workspace_changes", "workspaces"):         ("workspace_id", "id"),
+    # optimizer
+    ("optimization_runs", "agents"):             ("agent_id", "id"),
+    ("optimization_runs", "eval_suites"):        ("suite_id", "id"),
+    ("optimization_variants", "optimization_runs"): ("optimization_run_id", "id"),
 }
 
 
