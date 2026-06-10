@@ -679,6 +679,46 @@ CREATE TABLE IF NOT EXISTS optimization_variants (
 );
 
 CREATE INDEX IF NOT EXISTS idx_optimization_variants_run ON optimization_variants(optimization_run_id);
+
+-- ===================== time-travel debugger: run_events (append-only log) =====================
+-- An append-only event log for every agent run. Each row is one event in the
+-- run's timeline: a model_call (request+response), a tool_call (args+result), a
+-- state mutation, or a step boundary. seq is the monotonic position in the log.
+-- step ties the event to the workflow step that produced it. The log is the
+-- source of truth for deterministic replay and edit-and-fork: a fork copies the
+-- prefix of these rows up to step N and serves the recorded responses as a cache
+-- so unchanged steps are never re-billed.
+CREATE TABLE IF NOT EXISTS run_events (
+    id          TEXT PRIMARY KEY,
+    run_id      TEXT NOT NULL REFERENCES runs(id),
+    seq         INTEGER NOT NULL,
+    step        INTEGER NOT NULL DEFAULT 0,
+    event_type  TEXT NOT NULL
+                CHECK (event_type IN ('run_start','step_boundary','model_call','tool_call','state','run_end')),
+    payload     TEXT NOT NULL DEFAULT '{}',
+    created_at  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_events_run_seq ON run_events(run_id, seq);
+CREATE INDEX IF NOT EXISTS idx_run_events_run_step ON run_events(run_id, step);
+
+-- ===================== time-travel debugger: run_forks (lineage) =====================
+-- Records that a run was forked from a parent at step N with a set of edits.
+-- The child run is a normal runs row. This table captures the lineage so the
+-- UI/CLI can show "forked from <parent> at step N".
+CREATE TABLE IF NOT EXISTS run_forks (
+    id            TEXT PRIMARY KEY,
+    parent_run_id TEXT NOT NULL REFERENCES runs(id),
+    child_run_id  TEXT NOT NULL REFERENCES runs(id),
+    user_id       TEXT NOT NULL,
+    from_step     INTEGER NOT NULL,
+    edits         TEXT NOT NULL DEFAULT '{}',
+    created_at    TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_forks_parent ON run_forks(parent_run_id);
+CREATE INDEX IF NOT EXISTS idx_run_forks_child  ON run_forks(child_run_id);
+CREATE INDEX IF NOT EXISTS idx_run_forks_user   ON run_forks(user_id);
 """
 
 # ---------------------------------------------------------------------------
@@ -708,6 +748,8 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "comparison_runs":         {"models", "results"},
     "traces":                  {"metadata"},
     "workspaces":              {"settings"},
+    "run_events":              {"payload"},
+    "run_forks":               {"edits"},
 }
 
 # ---------------------------------------------------------------------------
@@ -769,6 +811,10 @@ FK_MAP: dict[tuple[str, str], tuple[str, str]] = {
     ("optimization_runs", "agents"):             ("agent_id", "id"),
     ("optimization_runs", "eval_suites"):        ("suite_id", "id"),
     ("optimization_variants", "optimization_runs"): ("optimization_run_id", "id"),
+    # time-travel debugger
+    ("run_events", "runs"):                       ("run_id", "id"),
+    # run_forks has two FKs to runs (parent_run_id, child_run_id); store parent as primary.
+    ("run_forks", "runs"):                        ("parent_run_id", "id"),
 }
 
 

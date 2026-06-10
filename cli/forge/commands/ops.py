@@ -311,6 +311,103 @@ def runs_cancel(
         raise typer.Exit(1)
 
 
+# --- Time-travel debugger commands ---
+
+
+@runs_app.command("events")
+def runs_events(
+    run_id: str = typer.Argument(..., help="Run ID"),
+):
+    """Show the append-only event log (timeline) for a run."""
+    try:
+        data = client.get(f"/api/runs/{run_id}/events")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    timeline = data.get("timeline", {})
+    steps = timeline.get("steps", [])
+    if not steps:
+        console.print("[dim]No recorded events for this run.[/dim]")
+        return
+
+    table = Table(title=f"Run {run_id[:8]} — timeline ({timeline.get('total_events', 0)} events)")
+    table.add_column("Step", justify="right", style="bold")
+    table.add_column("Description")
+    table.add_column("Model calls", justify="right")
+    table.add_column("Tool calls", justify="right")
+
+    for s in steps:
+        table.add_row(
+            str(s.get("step")),
+            (s.get("description") or "")[:60],
+            str(len(s.get("model_responses", []))),
+            str(len(s.get("tool_calls", []))),
+        )
+    console.print(table)
+
+
+@runs_app.command("replay")
+def runs_replay(
+    run_id: str = typer.Argument(..., help="Run ID to replay"),
+):
+    """Deterministically replay a run from its log (no model/tool calls)."""
+    try:
+        result = client.post(f"/api/runs/{run_id}/replay")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(
+        f"[green]Replayed {run_id[:8]}[/green] — "
+        f"{len(result.get('steps', []))} steps, "
+        f"{result.get('total_events', 0)} events, 0 model calls."
+    )
+    output = result.get("replayed_output") or result.get("output") or ""
+    if output:
+        console.print(Panel(str(output)[:2000], title="Replayed output", border_style="cyan"))
+
+
+@runs_app.command("fork")
+def runs_fork(
+    run_id: str = typer.Argument(..., help="Parent run ID"),
+    from_step: int = typer.Option(..., "--from-step", "-s", help="Step to rewind to (1-indexed)"),
+    prompt: str = typer.Option("", "--prompt", "-p", help="Override the system prompt"),
+    user_input: str = typer.Option("", "--input", "-i", help="Override the run input"),
+):
+    """Fork a run at a step with optional edits, re-running forward.
+
+    Steps before the edit are served from the parent's recorded log and are not
+    re-billed; only the edited step and later steps call the model.
+    """
+    edits: dict = {}
+    if prompt:
+        edits["prompt"] = prompt
+    if user_input:
+        edits["user_input"] = user_input
+
+    try:
+        result = client.post(
+            f"/api/runs/{run_id}/fork",
+            json={"from_step": from_step, "edits": edits},
+        )
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    served = result.get("served_from_cache_steps", [])
+    recomputed = result.get("recomputed_steps", [])
+    console.print(
+        f"[green]Forked {run_id[:8]} → {result.get('child_run_id', '')[:8]}[/green] "
+        f"at step {result.get('from_step')}\n"
+        f"[dim]Served from cache (no re-bill): {served or '—'}[/dim]\n"
+        f"[dim]Recomputed: {recomputed or '—'}[/dim]"
+    )
+    output = result.get("output") or ""
+    if output:
+        console.print(Panel(str(output)[:2000], title="Fork output", border_style="green"))
+
+
 messages_app = typer.Typer(help="View inter-agent messages")
 
 

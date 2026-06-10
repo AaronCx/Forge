@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.models.attachment import RunRequest
@@ -14,6 +15,19 @@ from app.services.agent_executor import AgentRunner
 from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["runs"])
+
+
+class ForkRequest(BaseModel):
+    """Body for POST /runs/{id}/fork — rewind to ``from_step`` and apply ``edits``.
+
+    ``edits`` may carry: ``prompt`` (new system prompt), ``user_input`` (new run
+    input), ``tool_result`` ({step, value}), and/or ``step_result``
+    ({step, content}). The earliest edited step (or ``from_step``) is where real
+    recompute begins; everything before it is served from the parent's log.
+    """
+
+    from_step: int = Field(ge=1, description="Step to rewind to (1-indexed).")
+    edits: dict = Field(default_factory=dict)
 
 
 @router.get("/runs", response_model=list[RunResponse])
@@ -97,8 +111,12 @@ async def run_agent(
     except Exception:
         heartbeat_id = None
 
-    # Create a per-request runner with the user's provider configs
-    agent_runner = AgentRunner(user_id=user.id)
+    # Create a per-request runner with the user's provider configs, plus a
+    # recorder so this run is captured in the append-only event log (powers the
+    # time-travel debugger: replay + edit-and-fork).
+    from app.services.timetravel.recorder import RunRecorder
+
+    agent_runner = AgentRunner(user_id=user.id, recorder=RunRecorder(run_id))
 
     async def event_stream():
         step_logs = []
@@ -163,6 +181,73 @@ async def run_agent(
             yield f"data: {json.dumps({'type': 'error', 'data': 'Agent execution failed. Check run details for more info.'})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+def _assert_run_owner(run_id: str, user_id: str) -> dict:
+    """Fetch a run and 404 unless it belongs to ``user_id``."""
+    result = get_db().table("runs").select("*").eq("id", run_id).single().execute()
+    if not result.data or result.data.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return dict(result.data)
+
+
+@router.get("/runs/{run_id}/events")
+async def get_run_events(
+    run_id: str,
+    user=Depends(get_current_user),  # noqa: B008
+):
+    """Return the append-only event log for a run (the time-travel timeline)."""
+    from app.services.timetravel import build_timeline, load_events
+
+    _assert_run_owner(run_id, user.id)
+    events = load_events(run_id)
+    return {
+        "run_id": run_id,
+        "events": events,
+        "timeline": build_timeline(events),
+    }
+
+
+@router.post("/runs/{run_id}/replay")
+async def replay_run(
+    run_id: str,
+    user=Depends(get_current_user),  # noqa: B008
+):
+    """Deterministically replay a run from its log (zero model/tool calls)."""
+    from app.services.timetravel import replay_with_executor
+
+    _assert_run_owner(run_id, user.id)
+    try:
+        return await replay_with_executor(run_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/runs/{run_id}/fork")
+@limiter.limit("20/hour")
+async def fork_run(
+    run_id: str,
+    request: Request,  # noqa: ARG001 - required by slowapi limiter
+    body: ForkRequest,
+    user=Depends(get_current_user),  # noqa: B008
+):
+    """Edit-and-fork: rewind to a step, apply edits, re-run forward.
+
+    Unchanged steps before the edit are served from the parent's recorded log
+    (never re-billed); only the edited step and later steps call the model/tools.
+    """
+    from app.services.timetravel import fork_service
+
+    _assert_run_owner(run_id, user.id)
+    try:
+        return await fork_service.fork(
+            parent_run_id=run_id,
+            user_id=user.id,
+            from_step=body.from_step,
+            edits=body.edits,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/stats")
