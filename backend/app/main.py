@@ -28,6 +28,7 @@ from app.routers import (
     mcp,
     messages,
     onboarding,
+    optimizer,
     orchestration,
     organizations,
     preferences,
@@ -138,6 +139,7 @@ app.include_router(evals.router, prefix="/api")
 app.include_router(approvals.router, prefix="/api")
 app.include_router(traces.router, prefix="/api")
 app.include_router(prompt_versions.router, prefix="/api")
+app.include_router(optimizer.router, prefix="/api")
 app.include_router(knowledge.router, prefix="/api")
 app.include_router(marketplace.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")

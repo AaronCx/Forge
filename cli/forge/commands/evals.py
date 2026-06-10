@@ -21,6 +21,8 @@ _app = typer.Typer()
 
 evals_app = typer.Typer(help="Manage eval suites and runs")
 
+optimize_app = typer.Typer(help="Eval-driven self-optimization of agent prompts")
+
 
 
 @evals_app.command("list")
@@ -229,6 +231,125 @@ def evals_results(
             )
         console.print(table)
     console.print()
+
+
+@optimize_app.command("run")
+def optimize_run(
+    agent_id: str = typer.Argument(..., help="Agent ID to optimize"),
+    suite_id: str = typer.Option(..., "--suite", "-s", help="Eval suite ID (must target the agent)"),
+    n_variants: int = typer.Option(3, "--variants", "-n", help="Number of prompt variants to try"),
+    model: str = typer.Option("", "--model", "-m", help="Override model for evals/generation"),
+):
+    """Run a self-optimization attempt: baseline eval, generate + score variants, gate the winner."""
+    console.print(f"[bold]Optimizing agent {agent_id[:8]} against suite {suite_id[:8]}...[/bold]")
+    try:
+        body: dict = {"agent_id": agent_id, "suite_id": suite_id, "n_variants": n_variants}
+        if model:
+            body["model"] = model
+        result = client.post("/api/optimizer/runs", json=body)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    status = result.get("status", "?")
+    console.print(f"  Status: [bold]{status}[/bold]")
+    console.print(f"  Baseline score: {result.get('baseline_score') or 0:.3f}")
+    if result.get("winner_score") is not None:
+        console.print(f"  Winner score: {result.get('winner_score') or 0:.3f}")
+        console.print(f"  Delta: [green]{result.get('score_delta') or 0:+.3f}[/green]")
+    if result.get("summary"):
+        console.print(f"  {result['summary']}")
+    if status == "awaiting_approval":
+        console.print(
+            f"\n[yellow]Winner is gated behind approval {str(result.get('approval_id', ''))[:8]}.[/yellow]"
+        )
+        console.print("  Approve it (forge ops approvals) then: "
+                      f"forge evals optimize apply {result.get('approval_id', '')[:8]}...")
+    console.print(f"  Run ID: {result.get('id', '')[:8]}")
+
+
+@optimize_app.command("list")
+def optimize_list(
+    agent_id: str = typer.Option("", "--agent", "-a", help="Filter by agent ID"),
+):
+    """List optimization runs (lineage)."""
+    try:
+        params = {"agent_id": agent_id} if agent_id else None
+        runs = client.get("/api/optimizer/runs", params=params)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not runs:
+        console.print("[dim]No optimization runs.[/dim]")
+        return
+
+    table = Table(title="Optimization Runs")
+    table.add_column("ID", style="dim", max_width=8)
+    table.add_column("Agent", style="dim", max_width=8)
+    table.add_column("Status")
+    table.add_column("Baseline", justify="right")
+    table.add_column("Winner", justify="right")
+    table.add_column("Delta", justify="right")
+    for r in runs:
+        base = f"{r['baseline_score']:.3f}" if r.get("baseline_score") is not None else "—"
+        win = f"{r['winner_score']:.3f}" if r.get("winner_score") is not None else "—"
+        delta = f"{r['score_delta']:+.3f}" if r.get("score_delta") is not None else "—"
+        table.add_row(r["id"][:8], (r.get("agent_id") or "")[:8], r.get("status", "?"), base, win, delta)
+    console.print(table)
+
+
+@optimize_app.command("show")
+def optimize_show(
+    run_id: str = typer.Argument(..., help="Optimization run ID"),
+):
+    """Show an optimization run with its variant lineage."""
+    try:
+        run = client.get(f"/api/optimizer/runs/{run_id}")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold]Optimization Run {run['id'][:8]}[/bold]")
+    console.print(f"  Status: {run.get('status', '?')}")
+    console.print(f"  Baseline score: {run.get('baseline_score') or 0:.3f}")
+    if run.get("summary"):
+        console.print(f"  {run['summary']}")
+
+    variants = run.get("variants", [])
+    if variants:
+        table = Table(title="Variants")
+        table.add_column("Idx", justify="right")
+        table.add_column("Score", justify="right")
+        table.add_column("Pass rate", justify="right")
+        table.add_column("Winner")
+        for v in variants:
+            table.add_row(
+                str(v.get("variant_index", "?")),
+                f"{v.get('score') or 0:.3f}",
+                f"{(v.get('pass_rate') or 0) * 100:.0f}%",
+                "[green]★[/green]" if v.get("is_winner") else "",
+            )
+        console.print(table)
+    console.print()
+
+
+@optimize_app.command("apply")
+def optimize_apply(
+    approval_id: str = typer.Argument(..., help="Approved optimization approval ID"),
+):
+    """Promote an approved optimization winner to the agent's active prompt."""
+    try:
+        result = client.post(f"/api/optimizer/approvals/{approval_id}/apply")
+        console.print(f"[green]Promoted to prompt version {result.get('version_number', '?')}.[/green]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# Attach the optimize sub-app at module import — main.py mounts evals_app directly
+# (it does not call register()), so sub-apps must be wired here.
+evals_app.add_typer(optimize_app, name="optimize")
 
 
 def register(parent: typer.Typer) -> None:
