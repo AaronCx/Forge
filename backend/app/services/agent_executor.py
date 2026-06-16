@@ -4,8 +4,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import create_agent
 
 from app.mcp.tool_registry import tool_registry
 from app.providers.registry import provider_registry
@@ -300,23 +299,28 @@ class AgentRunner:
             # No OpenAI key — fall back to non-tool step via provider registry
             return await self._execute_step(system_prompt, step, user_input, context, model=self.model)
 
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", f"{system_prompt}\n\nCurrent task: {step}"),
-            ("human", "{input}"),
-            MessagesPlaceholder("agent_scratchpad"),
-        ])
-
-        agent = create_openai_tools_agent(llm, tools, prompt)
-        executor = AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=5)
+        # langchain>=1.0: the legacy AgentExecutor/create_openai_tools_agent
+        # combo was removed in favour of the prebuilt ``create_agent`` graph,
+        # which runs the model<->tool loop internally. It takes a messages-style
+        # input and returns ``{"messages": [...]}`` with the final answer in the
+        # last AIMessage's ``content`` (vs. the old ``{"output": ...}``).
+        agent = create_agent(
+            model=llm,
+            tools=tools,
+            system_prompt=f"{system_prompt}\n\nCurrent task: {step}",
+        )
 
         full_input = user_input
         if context:
             full_input = f"{user_input}\n\nPrevious step results:\n{context}"
 
-        result = await executor.ainvoke({"input": full_input})
+        result = await agent.ainvoke({"messages": [{"role": "user", "content": full_input}]})
+
+        messages = result.get("messages", []) if isinstance(result, dict) else []
+        content = messages[-1].content if messages else ""
 
         out = {
-            "content": result.get("output", ""),
+            "content": content,
             "tokens": 0,
         }
         # Record the tool-augmented step's outcome as a model_call so replay and
