@@ -69,9 +69,18 @@ class KnowledgeService:
 
     async def delete_collection(self, collection_id: str, user_id: str) -> bool:
         """Delete a collection and all its documents/chunks."""
-        get_db().table("knowledge_collections").delete().eq(
-            "id", collection_id
-        ).eq("user_id", user_id).execute()
+        owned = (
+            get_db().table("knowledge_collections")
+            .select("id").eq("id", collection_id).eq("user_id", user_id).single().execute()
+        ).data
+        if not owned:
+            return False
+        # Delete children explicitly — SQLite drops the ON DELETE CASCADE that
+        # Supabase declares, so chunks/documents would otherwise be orphaned
+        # (deleted content keeps resurfacing in search) or 500 on SQLite.
+        get_db().table("knowledge_chunks").delete().eq("collection_id", collection_id).execute()
+        get_db().table("knowledge_documents").delete().eq("collection_id", collection_id).eq("user_id", user_id).execute()
+        get_db().table("knowledge_collections").delete().eq("id", collection_id).eq("user_id", user_id).execute()
         return True
 
     # === Document management ===
@@ -238,6 +247,8 @@ class KnowledgeService:
         if not doc:
             return False
 
+        # Delete the document's chunks first — SQLite has no ON DELETE cascade.
+        get_db().table("knowledge_chunks").delete().eq("document_id", document_id).execute()
         get_db().table("knowledge_documents").delete().eq(
             "id", document_id
         ).eq("user_id", user_id).execute()
@@ -260,6 +271,9 @@ class KnowledgeService:
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
         """Search for relevant chunks using embedding similarity."""
+        # Guard against negative/zero top_k from the blueprint-config path
+        # (scored[:-1] would silently drop the most relevant result).
+        top_k = max(1, top_k)
         collection = await self.get_collection(collection_id, user_id)
         if not collection:
             return []
