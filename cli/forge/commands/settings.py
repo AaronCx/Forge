@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from forge import client
-from forge.config import CONFIG_FILE, ensure_config, get_config
+from forge.config import CONFIG_FILE, ensure_config, get_config, set_config_value
 
 PIDS_FILE = Path.home() / ".forge" / "pids.json"
 
@@ -63,20 +63,15 @@ def config_set(
         console.print("[dim]Valid keys: api-key, api-url, default-model[/dim]")
         raise typer.Exit(1)
 
-    ensure_config()
-    # Read existing config and update
-    lines = []
-    found = False
-    if CONFIG_FILE.exists():
-        for line in CONFIG_FILE.read_text().splitlines():
-            if line.strip().startswith(f"{config_key} "):
-                lines.append(f'{config_key} = "{value}"')
-                found = True
-            else:
-                lines.append(line)
-    if not found:
-        lines.append(f'{config_key} = "{value}"')
-    CONFIG_FILE.write_text("\n".join(lines) + "\n")
+    # Write to the nested layout the loader actually reads (forge init writes
+    # [api]/[defaults]); a flat top-level line was silently ignored.
+    section_map = {
+        "api_key": ("api", "key"),
+        "api_url": ("api", "url"),
+        "default_model": ("defaults", "model"),
+    }
+    section, nested_key = section_map[config_key]
+    set_config_value(section, nested_key, value)
 
     display_value = f"{value[:4]}...{value[-4:]}" if config_key == "api_key" and len(value) > 8 else value
     console.print(f"[green]Set {config_key} = {display_value}[/green]")
