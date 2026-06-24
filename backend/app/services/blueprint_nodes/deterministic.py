@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from app.services.extract import extract_text
-from app.services.security.url_validator import validate_url
+from app.services.security.url_validator import safe_get, validate_url
 
 
 async def execute_fetch_url(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -21,10 +21,11 @@ async def execute_fetch_url(config: dict, inputs: dict[str, Any]) -> dict[str, A
 
     validate_url(url)
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url, follow_redirects=True)
-        resp.raise_for_status()
-        text = resp.text[:50_000]  # Cap at 50KB
+    # safe_get re-validates every redirect hop so a public URL cannot 302 into
+    # an internal/metadata target.
+    resp = await safe_get(url, timeout=30)
+    resp.raise_for_status()
+    text = resp.text[:50_000]  # Cap at 50KB
 
     return {"text": text}
 
