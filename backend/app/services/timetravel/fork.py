@@ -142,7 +142,15 @@ class ForkService:
         # from there — the override seeds the served prefix.)
         self._apply_result_overrides(cache, edits)
 
-        served_steps = sorted(range(1, cut_step))
+        # Report the steps ACTUALLY served from cache, not the whole prefix range.
+        # A prefix step whose model_call event was lost (recorder swallows insert
+        # failures) isn't in the cache → it gets recomputed and re-billed, so it
+        # must not be reported as served (the old range(1, cut_step) silently
+        # over-reported cache hits / under-reported re-billing).
+        served_steps = sorted({
+            step for (kind, step, _ordinal) in cache._responses
+            if kind == "model" and step < cut_step
+        })
 
         # --- Resume the executor forward ----------------------------------
         from app.services.agent_executor import AgentRunner
