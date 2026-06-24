@@ -241,3 +241,36 @@ def test_dispatch_rejects_bad_token(client):
         mock_db.auth.get_user.side_effect = Exception("nope")
         resp = client.post("/api/dispatch?token=bad", json={"message": "hi"})
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_run_agent_rejects_other_users_agent():
+    """IDOR regression: _run_agent must refuse an agent owned by another user."""
+    from app.routers.dispatch import _run_agent
+
+    with patch("app.db._db") as mock_db:
+        agent_row = MagicMock()
+        agent_row.data = {"id": "a1", "user_id": "owner-user", "is_template": False}
+        mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = agent_row
+
+        events = [ev async for ev in _run_agent("attacker-user", "a1", "hi", [])]
+
+    assert any("error" in e and "not found" in e for e in events)
+    # The run must never be created for a non-owned agent.
+    assert not mock_db.table.return_value.insert.called
+
+
+@pytest.mark.asyncio
+async def test_run_blueprint_rejects_other_users_blueprint():
+    """IDOR regression: _run_blueprint must refuse a blueprint owned by another user."""
+    from app.routers.dispatch import _run_blueprint
+
+    with patch("app.db._db") as mock_db:
+        bp_row = MagicMock()
+        bp_row.data = {"id": "bp1", "user_id": "owner-user", "is_template": False}
+        mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = bp_row
+
+        events = [ev async for ev in _run_blueprint("attacker-user", "bp1", "hi", [])]
+
+    assert any("error" in e and "not found" in e for e in events)
+    assert not mock_db.table.return_value.insert.called

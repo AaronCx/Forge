@@ -66,6 +66,10 @@ async def get_org(
     org = await org_service.get_org(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    # Membership check — the service-role key bypasses RLS, so scope to members.
+    role = await org_service.get_user_role(org_id, user.id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
     return org
 
 
