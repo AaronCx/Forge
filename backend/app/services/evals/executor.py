@@ -75,6 +75,7 @@ class EvalExecutor:
         results = []
         passed_count = 0
         total_score = 0.0
+        pending_count = 0  # human cases awaiting review — excluded from pass_rate
 
         for case in cases:
             try:
@@ -86,6 +87,9 @@ class EvalExecutor:
                     prompt_override=prompt_override,
                 )
                 results.append(result)
+                if (result.get("grading_details") or {}).get("status") == "pending_review":
+                    pending_count += 1
+                    continue
                 if result.get("passed"):
                     passed_count += 1
                 total_score += result.get("score", 0.0)
@@ -104,10 +108,12 @@ class EvalExecutor:
                 results.append(result)
                 self._save_result(run_id, result)
 
-        # Update run with results
+        # Update run with results. Pass rate is over the GRADED cases only —
+        # human cases pending review are not failures.
         total = len(cases)
-        pass_rate = passed_count / total if total > 0 else 0.0
-        avg_score = total_score / total if total > 0 else 0.0
+        graded = total - pending_count
+        pass_rate = passed_count / graded if graded > 0 else 0.0
+        avg_score = total_score / graded if graded > 0 else 0.0
 
         get_db().table("eval_runs").update({
             "status": "completed",
@@ -122,6 +128,7 @@ class EvalExecutor:
             "suite_id": suite_id,
             "total_cases": total,
             "passed_cases": passed_count,
+            "pending_cases": pending_count,
             "pass_rate": pass_rate,
             "avg_score": avg_score,
             "status": "completed",

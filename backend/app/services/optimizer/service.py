@@ -385,6 +385,9 @@ class OptimizerService:
         ctx = approval.get("context") or {}
         if ctx.get("kind") != "prompt_optimization":
             return None
+        if ctx.get("applied"):
+            # Already promoted — idempotent no-op (was creating duplicate versions).
+            return None
 
         agent_id = ctx["agent_id"]
         new_prompt = ctx["system_prompt"]
@@ -399,6 +402,12 @@ class OptimizerService:
         get_db().table("agents").update(
             {"system_prompt": new_prompt}
         ).eq("id", agent_id).eq("user_id", user_id).execute()
+        # Mark the approval consumed (status has a CHECK constraint, so flag it in
+        # the context JSON) — the guard above makes re-applying a no-op instead of
+        # duplicating the promoted prompt version.
+        get_db().table("approvals").update(
+            {"context": {**ctx, "applied": True}}
+        ).eq("id", approval_id).eq("user_id", user_id).execute()
         return version
 
 

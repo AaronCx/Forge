@@ -10,6 +10,17 @@ from typing import Any
 from app.providers.registry import provider_registry
 
 
+def _ocr_image_file(path: str) -> str:
+    """OCR an image file's text via pytesseract; '' if OCR isn't available."""
+    try:
+        import pytesseract
+        from PIL import Image
+
+        return str(pytesseract.image_to_string(Image.open(path)))
+    except Exception:
+        return ""
+
+
 def grade_exact_match(actual: str, expected: str, _config: dict[str, Any]) -> dict[str, Any]:
     """Exact string match (case-sensitive by default)."""
     case_sensitive = _config.get("case_sensitive", True)
@@ -28,15 +39,20 @@ def grade_contains(actual: str, expected: str, config: dict[str, Any]) -> dict[s
 
     case_sensitive = config.get("case_sensitive", False)
     check_actual = actual if case_sensitive else actual.lower()
+    is_regex = bool(config.get("regex"))
+    flags = 0 if case_sensitive else re.IGNORECASE
 
     matches = 0
     for pattern in patterns:
-        check_pattern = pattern if case_sensitive else pattern.lower()
-        if config.get("regex"):
-            if re.search(check_pattern, check_actual):
+        if is_regex:
+            # Lowercasing a regex source corrupts it (\D→\d, [A-Z]→[a-z]); use the
+            # IGNORECASE flag against the original text for case-insensitive matching.
+            if re.search(pattern, actual, flags):
                 matches += 1
-        elif check_pattern in check_actual:
-            matches += 1
+        else:
+            check_pattern = pattern if case_sensitive else pattern.lower()
+            if check_pattern in check_actual:
+                matches += 1
 
     total = len(patterns) if patterns else 1
     score = matches / total if total > 0 else 0.0
@@ -80,7 +96,11 @@ def grade_json_schema(actual: str, _expected: str, config: dict[str, Any]) -> di
                 "boolean": bool, "array": list, "object": dict,
             }
             expected_cls = type_map.get(expected_type)
-            if expected_cls and not isinstance(value, expected_cls):  # type: ignore[arg-type]
+            # bool is a subclass of int, so a JSON true/false would wrongly pass
+            # an integer/number type — reject it explicitly.
+            if expected_type in ("integer", "number") and isinstance(value, bool):
+                errors.append(f"Key '{key}' expected {expected_type}, got boolean")
+            elif expected_cls and not isinstance(value, expected_cls):  # type: ignore[arg-type]
                 errors.append(f"Key '{key}' expected {expected_type}, got {type(value).__name__}")
 
     score = 1.0 - (len(errors) / max(len(required) + len(properties), 1))
@@ -120,9 +140,15 @@ async def grade_llm_judge(actual: str, expected: str, config: dict[str, Any]) ->
 
         try:
             result = json.loads(response.content)
+            # The judge may return score as a string ("0.9"); coerce before any
+            # numeric comparison so `score >= 0.7` can't raise a TypeError.
+            try:
+                score_val = float(result.get("score", 0))
+            except (TypeError, ValueError):
+                score_val = 0.0
             return {
-                "passed": result.get("passed", result.get("score", 0) >= 0.7),
-                "score": float(result.get("score", 0)),
+                "passed": bool(result.get("passed", score_val >= 0.7)),
+                "score": score_val,
                 "method": "llm_judge",
                 "reasoning": result.get("reasoning", ""),
                 "judge_tokens": response.input_tokens + response.output_tokens,
@@ -209,21 +235,14 @@ def grade_screenshot_match(actual: str, expected: str, config: dict[str, Any]) -
             "threshold": threshold,
         }
     except ImportError:
-        # Fallback: file size comparison as rough heuristic
-        import os
-
-        try:
-            size_actual = os.path.getsize(actual)
-            size_expected = os.path.getsize(expected)
-            ratio = min(size_actual, size_expected) / max(size_actual, size_expected) if max(size_actual, size_expected) > 0 else 0
-            return {
-                "passed": ratio >= threshold,
-                "score": round(ratio, 4),
-                "method": "screenshot_match",
-                "note": "Pillow/imagehash not installed — used file size comparison",
-            }
-        except OSError as e:
-            return {"passed": False, "score": 0.0, "method": "screenshot_match", "error": str(e)}
+        # No bogus file-size heuristic — it has no relation to visual content and
+        # would pass dissimilar images. Fail honestly so the gap is visible.
+        return {
+            "passed": False,
+            "score": 0.0,
+            "method": "screenshot_match",
+            "error": "Pillow/imagehash not installed — cannot compare images",
+        }
     except Exception as e:
         return {"passed": False, "score": 0.0, "method": "screenshot_match", "error": str(e)}
 
@@ -242,25 +261,18 @@ def grade_ocr_contains(actual: str, _expected: str, config: dict[str, Any]) -> d
     if not texts:
         return {"passed": False, "score": 0.0, "method": "ocr_contains", "error": "No texts to check"}
 
-    # Try to extract text from a screenshot file via OCR, or treat actual as text
+    # If `actual` is an image file, OCR the FILE (the old code ran `steer ocr`
+    # with no path, OCR-ing the live screen). Otherwise treat actual as text.
     import os
-    import subprocess
 
-    ocr_text = ""
     if os.path.isfile(actual):
-        try:
-            result = subprocess.run(
-                ["steer", "ocr"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            ocr_text = result.stdout.lower() if result.returncode == 0 else ""
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-
-    if not ocr_text:
-        # Treat actual as text content directly
+        ocr_text = _ocr_image_file(actual).lower()
+        if not ocr_text:
+            return {
+                "passed": False, "score": 0.0, "method": "ocr_contains",
+                "error": "OCR unavailable (install pytesseract+Pillow) for the image file",
+            }
+    else:
         ocr_text = actual.lower()
 
     matches = sum(1 for t in texts if t.lower() in ocr_text)
