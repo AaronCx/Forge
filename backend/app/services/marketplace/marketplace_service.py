@@ -5,9 +5,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from fastapi import HTTPException
+
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
+
+
+def _assert_owns_blueprint(blueprint_id: str, user_id: str) -> None:
+    """Raise 404 unless ``user_id`` owns ``blueprint_id``."""
+    bp = (
+        get_db().table("blueprints")
+        .select("user_id").eq("id", blueprint_id).single().execute()
+    ).data
+    if not bp or bp.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Blueprint not found")
 
 
 class MarketplaceService:
@@ -28,6 +40,9 @@ class MarketplaceService:
         org_id: str | None = None,
     ) -> dict[str, Any]:
         """Publish a blueprint to the marketplace."""
+        # Only the owner may publish a blueprint (else any user could publish
+        # another tenant's private blueprint to the public marketplace).
+        _assert_owns_blueprint(blueprint_id, user_id)
         row = {
             "user_id": user_id,
             "blueprint_id": blueprint_id,
@@ -202,9 +217,12 @@ class MarketplaceService:
     ) -> dict[str, Any]:
         """Record a fork of a marketplace listing."""
         listing = await self.get_listing(listing_id)
-        if not listing:
-            msg = "Listing not found"
-            raise ValueError(msg)
+        # Only published listings are forkable (don't expose another tenant's
+        # draft/unlisted/archived listing).
+        if not listing or listing.get("status") != "published":
+            raise HTTPException(status_code=404, detail="Listing not found")
+        # The caller must own the blueprint they claim to have forked.
+        _assert_owns_blueprint(forked_blueprint_id, user_id)
 
         result = get_db().table("marketplace_forks").insert({
             "listing_id": listing_id,

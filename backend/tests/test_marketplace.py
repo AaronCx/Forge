@@ -127,9 +127,20 @@ async def test_marketplace_publish():
             "title": "My Workflow",
             "status": "published",
         }
-        mock_result = MagicMock()
-        mock_result.data = [listing_data]
-        mock_db.table.return_value.insert.return_value.execute.return_value = mock_result
+        bp = MagicMock()
+        bp.data = {"user_id": "u1"}  # caller owns the blueprint
+        listing_result = MagicMock()
+        listing_result.data = [listing_data]
+
+        def _table(name):
+            t = MagicMock()
+            if name == "blueprints":
+                t.select.return_value.eq.return_value.single.return_value.execute.return_value = bp
+            else:  # marketplace_listings
+                t.insert.return_value.execute.return_value = listing_result
+            return t
+
+        mock_db.table.side_effect = _table
 
         result = await svc.publish_listing(
             user_id="u1",
@@ -211,20 +222,29 @@ async def test_marketplace_fork():
 
     svc = MarketplaceService()
     with patch("app.db._db") as mock_db:
-        # Mock get_listing
-        listing_data = {"id": "listing-1", "blueprint_id": "bp-1", "user_id": "u1", "fork_count": 0}
+        # Published listing owned by u1, forked blueprint owned by the caller u2.
         mock_listing = MagicMock()
-        mock_listing.data = listing_data
-        mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_listing
-
-        # Mock fork insert
-        fork_data = {"id": "f-1", "listing_id": "listing-1", "user_id": "u2"}
+        mock_listing.data = {
+            "id": "listing-1", "blueprint_id": "bp-1", "user_id": "u1",
+            "status": "published", "fork_count": 0,
+        }
+        bp = MagicMock()
+        bp.data = {"user_id": "u2"}
         mock_fork = MagicMock()
-        mock_fork.data = [fork_data]
-        mock_db.table.return_value.insert.return_value.execute.return_value = mock_fork
+        mock_fork.data = [{"id": "f-1", "listing_id": "listing-1", "user_id": "u2"}]
 
-        # Mock fork count update
-        mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        def _table(name):
+            t = MagicMock()
+            if name == "marketplace_listings":
+                t.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_listing
+                t.update.return_value.eq.return_value.execute.return_value = MagicMock()
+            elif name == "blueprints":
+                t.select.return_value.eq.return_value.single.return_value.execute.return_value = bp
+            else:  # marketplace_forks
+                t.insert.return_value.execute.return_value = mock_fork
+            return t
+
+        mock_db.table.side_effect = _table
 
         result = await svc.fork_listing(
             listing_id="listing-1", user_id="u2", forked_blueprint_id="bp-2"
