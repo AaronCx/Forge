@@ -45,6 +45,19 @@ class ActionRateLimiter:
 cu_rate_limiter = ActionRateLimiter(max_per_minute=cu_config.max_actions_per_minute)
 
 
+def check_approval_required(action: str = "action") -> None:
+    """Enforce CU_REQUIRE_APPROVAL for autonomous computer-use actions.
+
+    When approval is required, fail safe by refusing autonomous execution (there
+    is no interactive approve-and-wait flow yet) so the flag is no longer a no-op.
+    """
+    if cu_config.require_approval:
+        raise ValueError(
+            f"Computer-use {action} blocked: CU_REQUIRE_APPROVAL is enabled and "
+            "no approval flow is available. Disable it to allow autonomous actions."
+        )
+
+
 def check_app_blocklist(app_name: str) -> None:
     """Raise ValueError if the app is in the blocklist."""
     for blocked in cu_config.app_blocklist:

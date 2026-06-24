@@ -10,6 +10,7 @@ from typing import Any
 from app.config.agent_backends import get_backend
 from app.services.computer_use.executor import execute
 from app.services.computer_use.safety import (
+    check_approval_required,
     check_command_blocklist,
     check_rate_limit,
     log_action,
@@ -39,6 +40,7 @@ class AgentRunner:
     ) -> dict[str, Any]:
         """Spawn a coding agent in a new tmux session."""
         check_rate_limit()
+        check_approval_required(f"spawn {backend_name}")
         backend = get_backend(backend_name)
         if not backend:
             raise ValueError(f"Unknown agent backend: {backend_name}")
@@ -99,6 +101,7 @@ class AgentRunner:
     ) -> dict[str, Any]:
         """Send a task prompt to a running agent."""
         check_rate_limit()
+        check_approval_required("agent prompt")
         backend = get_backend(backend_name) if backend_name else None
 
         if backend and backend.prompt_method == "stdin":
