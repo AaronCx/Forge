@@ -21,6 +21,7 @@ export function TerminalPanel({ workspaceId, token }: TerminalProps) {
     let terminal: InstanceType<any> = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let fitAddon: InstanceType<any> = null;
+    let cancelled = false;
 
     async function init() {
       const { Terminal } = await import("@xterm/xterm");
@@ -57,6 +58,12 @@ export function TerminalPanel({ workspaceId, token }: TerminalProps) {
       // Connect WebSocket
       const wsUrl = API_URL.replace(/^http/, "ws");
       const ws = new WebSocket(`${wsUrl}/ws/terminal/${workspaceId}?token=${encodeURIComponent(token)}`);
+      // If the component unmounted while the dynamic imports were loading, close
+      // the socket we just opened instead of leaking it.
+      if (cancelled) {
+        ws.close();
+        return;
+      }
       wsRef.current = ws;
 
       ws.binaryType = "arraybuffer";
@@ -99,6 +106,7 @@ export function TerminalPanel({ workspaceId, token }: TerminalProps) {
     const cleanup = init();
 
     return () => {
+      cancelled = true;
       cleanup.then((fn) => fn?.());
       wsRef.current?.close();
       termRef.current?.dispose();

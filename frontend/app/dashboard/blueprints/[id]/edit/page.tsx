@@ -62,6 +62,11 @@ export default function BlueprintEditorPage() {
   const [mounted, setMounted] = useState(false);
 
   const tokenRef = useRef<string>("");
+  const runAbortRef = useRef<AbortController | null>(null);
+
+  // Abort an in-flight run stream when the editor unmounts (was leaking the SSE
+  // reader and doing setState-after-unmount).
+  useEffect(() => () => runAbortRef.current?.abort(), []);
 
   useEffect(() => {
     setMounted(true);
@@ -288,7 +293,9 @@ export default function BlueprintEditorPage() {
     await handleSave();
 
     const url = api.blueprints.run(blueprintId);
+    runAbortRef.current?.abort(); // cancel any previous run still streaming
     const controller = new AbortController();
+    runAbortRef.current = controller;
 
     try {
       const res = await fetch(url, {

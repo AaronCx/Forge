@@ -93,5 +93,6 @@ async def seed_templates(supabase_client):
             # Use a system-level user_id; look up the first existing user to satisfy FK
             first_user = supabase_client.table("agents").select("user_id").limit(1).execute()
             system_uid = first_user.data[0]["user_id"] if first_user.data else "00000000-0000-0000-0000-000000000000"
-            template["user_id"] = system_uid
-            supabase_client.table("agents").insert(template).execute()
+            # Insert a copy — mutating the shared module-global TEMPLATES dict
+            # permanently stamped a user_id onto the singleton.
+            supabase_client.table("agents").insert({**template, "user_id": system_uid}).execute()
