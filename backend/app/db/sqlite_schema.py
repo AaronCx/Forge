@@ -87,8 +87,8 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
 -- ===================== 005_agent_heartbeats =====================
 CREATE TABLE IF NOT EXISTS agent_heartbeats (
     id             TEXT PRIMARY KEY,
-    agent_id       TEXT NOT NULL REFERENCES agents(id),
-    run_id         TEXT REFERENCES runs(id),
+    agent_id       TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    run_id         TEXT REFERENCES runs(id) ON DELETE CASCADE,
     state          TEXT NOT NULL DEFAULT 'idle'
                    CHECK (state IN ('idle','starting','running','stalled','completed','failed')),
     current_step   INTEGER DEFAULT 0,
@@ -108,8 +108,8 @@ CREATE INDEX IF NOT EXISTS idx_heartbeats_updated_at ON agent_heartbeats(updated
 -- ===================== 006_token_usage =====================
 CREATE TABLE IF NOT EXISTS token_usage (
     id            TEXT PRIMARY KEY,
-    run_id        TEXT REFERENCES runs(id),
-    agent_id      TEXT REFERENCES agents(id),
+    run_id        TEXT REFERENCES runs(id) ON DELETE CASCADE,
+    agent_id      TEXT REFERENCES agents(id) ON DELETE SET NULL,
     user_id       TEXT NOT NULL,
     step_number   INTEGER NOT NULL DEFAULT 1,
     model         TEXT NOT NULL DEFAULT 'gpt-4o-mini',
@@ -146,9 +146,9 @@ CREATE INDEX IF NOT EXISTS idx_task_groups_status ON task_groups(status);
 -- ===================== 007_hierarchy: task_group_members =====================
 CREATE TABLE IF NOT EXISTS task_group_members (
     id               TEXT PRIMARY KEY,
-    group_id         TEXT NOT NULL REFERENCES task_groups(id),
-    agent_id         TEXT REFERENCES agents(id),
-    run_id           TEXT REFERENCES runs(id),
+    group_id         TEXT NOT NULL REFERENCES task_groups(id) ON DELETE CASCADE,
+    agent_id         TEXT REFERENCES agents(id) ON DELETE CASCADE,
+    run_id           TEXT REFERENCES runs(id) ON DELETE CASCADE,
     task_description TEXT NOT NULL,
     dependencies     TEXT DEFAULT '[]',
     status           TEXT DEFAULT 'pending'
@@ -163,7 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_task_group_members_group ON task_group_members(gr
 -- ===================== 008_agent_messages =====================
 CREATE TABLE IF NOT EXISTS agent_messages (
     id             TEXT PRIMARY KEY,
-    group_id       TEXT REFERENCES task_groups(id),
+    group_id       TEXT REFERENCES task_groups(id) ON DELETE CASCADE,
     sender_index   INTEGER NOT NULL,
     receiver_index INTEGER,
     message_type   TEXT NOT NULL DEFAULT 'info'
@@ -200,7 +200,7 @@ CREATE INDEX IF NOT EXISTS idx_blueprints_is_template ON blueprints(is_template)
 -- ===================== 20260312_blueprints: blueprint_runs =====================
 CREATE TABLE IF NOT EXISTS blueprint_runs (
     id                          TEXT PRIMARY KEY,
-    blueprint_id                TEXT NOT NULL REFERENCES blueprints(id),
+    blueprint_id                TEXT NOT NULL REFERENCES blueprints(id) ON DELETE CASCADE,
     user_id                     TEXT NOT NULL,
     status                      TEXT NOT NULL DEFAULT 'pending',
     input_payload               TEXT NOT NULL DEFAULT '{}',
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS eval_suites (
 -- ===================== 20260312_eval_hitl: eval_cases =====================
 CREATE TABLE IF NOT EXISTS eval_cases (
     id              TEXT PRIMARY KEY,
-    suite_id        TEXT NOT NULL REFERENCES eval_suites(id),
+    suite_id        TEXT NOT NULL REFERENCES eval_suites(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
     input           TEXT NOT NULL,
     expected_output TEXT,
@@ -268,7 +268,7 @@ CREATE INDEX IF NOT EXISTS idx_eval_cases_suite ON eval_cases(suite_id);
 -- ===================== 20260312_eval_hitl: eval_runs =====================
 CREATE TABLE IF NOT EXISTS eval_runs (
     id           TEXT PRIMARY KEY,
-    suite_id     TEXT NOT NULL REFERENCES eval_suites(id),
+    suite_id     TEXT NOT NULL REFERENCES eval_suites(id) ON DELETE CASCADE,
     triggered_by TEXT DEFAULT 'manual',
     model_used   TEXT,
     status       TEXT DEFAULT 'pending'
@@ -287,8 +287,8 @@ CREATE INDEX IF NOT EXISTS idx_eval_runs_suite ON eval_runs(suite_id);
 -- ===================== 20260312_eval_hitl: eval_results =====================
 CREATE TABLE IF NOT EXISTS eval_results (
     id              TEXT PRIMARY KEY,
-    run_id          TEXT NOT NULL REFERENCES eval_runs(id),
-    case_id         TEXT NOT NULL REFERENCES eval_cases(id),
+    run_id          TEXT NOT NULL REFERENCES eval_runs(id) ON DELETE CASCADE,
+    case_id         TEXT NOT NULL REFERENCES eval_cases(id) ON DELETE CASCADE,
     actual_output   TEXT,
     score           REAL,
     passed          INTEGER,
@@ -355,7 +355,7 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_collections_user ON knowledge_collectio
 CREATE TABLE IF NOT EXISTS knowledge_documents (
     id            TEXT PRIMARY KEY,
     user_id       TEXT NOT NULL,
-    collection_id TEXT NOT NULL REFERENCES knowledge_collections(id),
+    collection_id TEXT NOT NULL REFERENCES knowledge_collections(id) ON DELETE CASCADE,
     filename      TEXT NOT NULL,
     content_type  TEXT DEFAULT 'text/plain',
     file_size     INTEGER DEFAULT 0,
@@ -375,8 +375,8 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_documents_status     ON knowledge_docum
 CREATE TABLE IF NOT EXISTS knowledge_chunks (
     id            TEXT PRIMARY KEY,
     user_id       TEXT NOT NULL,
-    document_id   TEXT NOT NULL REFERENCES knowledge_documents(id),
-    collection_id TEXT NOT NULL REFERENCES knowledge_collections(id),
+    document_id   TEXT NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+    collection_id TEXT NOT NULL REFERENCES knowledge_collections(id) ON DELETE CASCADE,
     chunk_index   INTEGER NOT NULL DEFAULT 0,
     content       TEXT NOT NULL,
     embedding     TEXT,
@@ -407,7 +407,7 @@ CREATE INDEX IF NOT EXISTS idx_organizations_owner ON organizations(owner_id);
 -- ===================== 20260312_marketplace_teams: org_members =====================
 CREATE TABLE IF NOT EXISTS org_members (
     id         TEXT PRIMARY KEY,
-    org_id     TEXT NOT NULL REFERENCES organizations(id),
+    org_id     TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id    TEXT NOT NULL,
     role       TEXT NOT NULL DEFAULT 'member',
     invited_by TEXT,
@@ -421,9 +421,9 @@ CREATE INDEX IF NOT EXISTS idx_org_members_user ON org_members(user_id);
 -- ===================== 20260312_marketplace_teams: marketplace_listings =====================
 CREATE TABLE IF NOT EXISTS marketplace_listings (
     id            TEXT PRIMARY KEY,
-    blueprint_id  TEXT NOT NULL REFERENCES blueprints(id),
+    blueprint_id  TEXT NOT NULL REFERENCES blueprints(id) ON DELETE CASCADE,
     user_id       TEXT NOT NULL,
-    org_id        TEXT REFERENCES organizations(id),
+    org_id        TEXT REFERENCES organizations(id) ON DELETE CASCADE,
     title         TEXT NOT NULL,
     description   TEXT DEFAULT '',
     category      TEXT DEFAULT 'general',
@@ -448,7 +448,7 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_rating   ON marketplace_listings(rati
 -- ===================== 20260312_marketplace_teams: marketplace_ratings =====================
 CREATE TABLE IF NOT EXISTS marketplace_ratings (
     id         TEXT PRIMARY KEY,
-    listing_id TEXT NOT NULL REFERENCES marketplace_listings(id),
+    listing_id TEXT NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
     user_id    TEXT NOT NULL,
     rating     INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     review     TEXT DEFAULT '',
@@ -461,9 +461,9 @@ CREATE INDEX IF NOT EXISTS idx_ratings_listing ON marketplace_ratings(listing_id
 -- ===================== 20260312_marketplace_teams: marketplace_forks =====================
 CREATE TABLE IF NOT EXISTS marketplace_forks (
     id                   TEXT PRIMARY KEY,
-    listing_id           TEXT NOT NULL REFERENCES marketplace_listings(id),
-    source_blueprint_id  TEXT NOT NULL REFERENCES blueprints(id),
-    forked_blueprint_id  TEXT NOT NULL REFERENCES blueprints(id),
+    listing_id           TEXT NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
+    source_blueprint_id  TEXT NOT NULL REFERENCES blueprints(id) ON DELETE CASCADE,
+    forked_blueprint_id  TEXT NOT NULL REFERENCES blueprints(id) ON DELETE CASCADE,
     user_id              TEXT NOT NULL,
     created_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -503,7 +503,7 @@ CREATE INDEX IF NOT EXISTS idx_triggers_type_enabled ON triggers(type, enabled);
 -- ===================== 20260312_mcp_triggers: trigger_history =====================
 CREATE TABLE IF NOT EXISTS trigger_history (
     id         TEXT PRIMARY KEY,
-    trigger_id TEXT NOT NULL REFERENCES triggers(id),
+    trigger_id TEXT NOT NULL REFERENCES triggers(id) ON DELETE CASCADE,
     payload    TEXT DEFAULT '{}',
     run_id     TEXT,
     status     TEXT DEFAULT 'fired',
@@ -557,12 +557,12 @@ CREATE TABLE IF NOT EXISTS comparison_runs (
 CREATE TABLE IF NOT EXISTS traces (
     id               TEXT PRIMARY KEY,
     user_id          TEXT NOT NULL,
-    run_id           TEXT REFERENCES runs(id),
-    blueprint_run_id TEXT REFERENCES blueprint_runs(id),
-    agent_id         TEXT REFERENCES agents(id),
+    run_id           TEXT REFERENCES runs(id) ON DELETE CASCADE,
+    blueprint_run_id TEXT REFERENCES blueprint_runs(id) ON DELETE SET NULL,
+    agent_id         TEXT REFERENCES agents(id) ON DELETE CASCADE,
     span_type        TEXT NOT NULL DEFAULT 'llm_call',
     span_name        TEXT NOT NULL DEFAULT '',
-    parent_span_id   TEXT REFERENCES traces(id),
+    parent_span_id   TEXT REFERENCES traces(id) ON DELETE SET NULL,
     model            TEXT,
     provider         TEXT,
     input_tokens     INTEGER DEFAULT 0,
@@ -590,7 +590,7 @@ CREATE INDEX IF NOT EXISTS idx_traces_span_type        ON traces(span_type);
 CREATE TABLE IF NOT EXISTS prompt_versions (
     id                  TEXT PRIMARY KEY,
     user_id             TEXT NOT NULL,
-    agent_id            TEXT REFERENCES agents(id),
+    agent_id            TEXT REFERENCES agents(id) ON DELETE CASCADE,
     version_number      INTEGER NOT NULL DEFAULT 1,
     system_prompt       TEXT NOT NULL,
     change_summary      TEXT DEFAULT '',
@@ -642,17 +642,17 @@ CREATE INDEX IF NOT EXISTS idx_ws_changes_time      ON workspace_changes(created
 CREATE TABLE IF NOT EXISTS optimization_runs (
     id                  TEXT PRIMARY KEY,
     user_id             TEXT NOT NULL,
-    agent_id            TEXT NOT NULL REFERENCES agents(id),
-    suite_id            TEXT NOT NULL REFERENCES eval_suites(id),
+    agent_id            TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    suite_id            TEXT NOT NULL REFERENCES eval_suites(id) ON DELETE CASCADE,
     status              TEXT NOT NULL DEFAULT 'running'
                         CHECK (status IN ('running','no_improvement','no_failures','awaiting_approval','failed')),
     parent_prompt       TEXT NOT NULL DEFAULT '',
-    baseline_run_id     TEXT REFERENCES eval_runs(id),
+    baseline_run_id     TEXT REFERENCES eval_runs(id) ON DELETE SET NULL,
     baseline_score      REAL,
     winner_variant_id   TEXT,
     winner_score        REAL,
     score_delta         REAL,
-    approval_id         TEXT REFERENCES approvals(id),
+    approval_id         TEXT REFERENCES approvals(id) ON DELETE SET NULL,
     summary             TEXT DEFAULT '',
     error               TEXT,
     created_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -667,11 +667,11 @@ CREATE INDEX IF NOT EXISTS idx_optimization_runs_agent ON optimization_runs(agen
 -- was scored by and its resulting suite score.
 CREATE TABLE IF NOT EXISTS optimization_variants (
     id                  TEXT PRIMARY KEY,
-    optimization_run_id TEXT NOT NULL REFERENCES optimization_runs(id),
+    optimization_run_id TEXT NOT NULL REFERENCES optimization_runs(id) ON DELETE CASCADE,
     variant_index       INTEGER NOT NULL DEFAULT 0,
     system_prompt       TEXT NOT NULL,
     rationale           TEXT DEFAULT '',
-    eval_run_id         TEXT REFERENCES eval_runs(id),
+    eval_run_id         TEXT REFERENCES eval_runs(id) ON DELETE SET NULL,
     score               REAL,
     pass_rate           REAL,
     is_winner           INTEGER NOT NULL DEFAULT 0,
@@ -690,7 +690,7 @@ CREATE INDEX IF NOT EXISTS idx_optimization_variants_run ON optimization_variant
 -- so unchanged steps are never re-billed.
 CREATE TABLE IF NOT EXISTS run_events (
     id          TEXT PRIMARY KEY,
-    run_id      TEXT NOT NULL REFERENCES runs(id),
+    run_id      TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     seq         INTEGER NOT NULL,
     step        INTEGER NOT NULL DEFAULT 0,
     event_type  TEXT NOT NULL
@@ -708,8 +708,8 @@ CREATE INDEX IF NOT EXISTS idx_run_events_run_step ON run_events(run_id, step);
 -- UI/CLI can show "forked from <parent> at step N".
 CREATE TABLE IF NOT EXISTS run_forks (
     id            TEXT PRIMARY KEY,
-    parent_run_id TEXT NOT NULL REFERENCES runs(id),
-    child_run_id  TEXT NOT NULL REFERENCES runs(id),
+    parent_run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    child_run_id  TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     user_id       TEXT NOT NULL,
     from_step     INTEGER NOT NULL,
     edits         TEXT NOT NULL DEFAULT '{}',
