@@ -74,6 +74,7 @@ class ForkService:
         recon = reconstruct_agent_config(events)
         agent_config = recon["agent_config"]
         user_input = recon["user_input"]
+        attachments = recon.get("attachments") or None
 
         # Pull the parent agent's real config (system prompt + tools) — the event
         # log records workflow/model but the system prompt lives on the agent.
@@ -158,7 +159,9 @@ class ForkService:
         total_tokens = 0
         recomputed_steps: list[int] = []
         try:
-            async for event in runner.execute(agent_config, user_input, run_id=child_run_id, user_id=user_id):
+            async for event in runner.execute(
+                agent_config, user_input, run_id=child_run_id, user_id=user_id, attachments=attachments
+            ):
                 if event.get("type") == "token":
                     final_output += event.get("content", "")
                 total_tokens += event.get("tokens", 0)
