@@ -5,7 +5,7 @@ from __future__ import annotations
 import hmac
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.mcp.scheduler import CronScheduler
@@ -117,7 +117,7 @@ async def toggle_trigger(
 @router.get("/triggers/{trigger_id}/history")
 async def trigger_history(
     trigger_id: str,
-    limit: int = 20,
+    limit: int = Query(20, ge=1, le=200),  # noqa: B008
     user: Any = Depends(get_current_user)  # noqa: B008,
 ) -> list[dict[str, Any]]:
     """Get recent trigger firings."""

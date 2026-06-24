@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.config.computer_use import cu_config
 from app.routers.auth import get_current_user
@@ -52,7 +52,7 @@ async def test_remote(_user=Depends(get_current_user)):  # noqa: B008
 
 
 @router.get("/computer-use/audit-log")
-async def audit_log(limit: int = 50, user=Depends(get_current_user)):  # noqa: B008
+async def audit_log(limit: int = Query(50, ge=1, le=500), user=Depends(get_current_user)):  # noqa: B008
     """Return the current user's recent computer use audit log entries."""
     from app.db import get_db
 

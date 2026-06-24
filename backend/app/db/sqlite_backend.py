@@ -354,7 +354,7 @@ class SQLiteQueryBuilder(QueryBuilder):
                     result[k] = v
             elif k in ("is_template", "is_active", "enabled", "is_default", "is_enabled",
                        "computer_use_ready", "success", "steer_available", "drive_available",
-                       "tmux_available"):
+                       "tmux_available", "getting_started_dismissed", "passed", "is_winner"):
                 result[k] = bool(v) if v is not None else False
             else:
                 result[k] = v
@@ -536,13 +536,20 @@ class SQLiteQueryBuilder(QueryBuilder):
                 data.setdefault("updated_at", now)
 
             serialized = self._serialize_json(data)
+            # Filter to real columns (parity with insert/update) — an unknown key
+            # raised here while being silently dropped on insert.
+            serialized = {k: v for k, v in serialized.items() if k in table_cols}
             cols = ", ".join(serialized.keys())
             placeholders = ", ".join("?" for _ in serialized)
             values = list(serialized.values())
 
             if self._upsert_conflict:
                 conflict_cols = self._upsert_conflict
-                update_cols = [k for k in serialized if k not in conflict_cols.split(",")]
+                # Don't reset created_at on a conflict-update (preserve original).
+                update_cols = [
+                    k for k in serialized
+                    if k not in conflict_cols.split(",") and k != "created_at"
+                ]
                 update_set = ", ".join(f"{k} = excluded.{k}" for k in update_cols)
                 sql = f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders}) ON CONFLICT({conflict_cols}) DO UPDATE SET {update_set}"
             else:
