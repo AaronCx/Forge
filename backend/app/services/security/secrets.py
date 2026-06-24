@@ -56,9 +56,12 @@ def decrypt_secret(value: str) -> str:
     fernet = _get_fernet()
     if fernet is None:
         return value
+    from cryptography.fernet import InvalidToken
+
     try:
         decrypted: str = fernet.decrypt(value.encode()).decode()
         return decrypted
-    except Exception:
+    except InvalidToken:
         # Legacy plaintext row (or a value encrypted with a different key).
+        # Narrow except so unexpected errors surface instead of being masked.
         return value

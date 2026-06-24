@@ -487,6 +487,11 @@ class SQLiteQueryBuilder(QueryBuilder):
         if "updated_at" in table_cols:
             data["updated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         serialized = self._serialize_json(data)
+        # Only update columns that actually exist. Mirrors _exec_insert and keeps
+        # unknown/caller-supplied keys out of the interpolated identifier list.
+        serialized = {k: v for k, v in serialized.items() if k in table_cols}
+        if not serialized:
+            return QueryResult(data=[])
 
         set_clauses = ", ".join(f"{k} = ?" for k in serialized)
         set_params = list(serialized.values())
