@@ -148,6 +148,14 @@ class BlueprintEngine:
                         if k not in upstream:
                             upstream[k] = v
 
+                # Inject engine-controlled trusted identifiers (override any
+                # client-supplied value) so nodes like approval_gate,
+                # knowledge_retrieval, and computer-use audit logging can
+                # attribute actions correctly and cannot be spoofed via inputs.
+                upstream["_user_id"] = user_id
+                upstream["_run_id"] = run_id
+                upstream["_node_id"] = node_id
+
                 start_time = time.time()
                 output: dict[str, Any] = {}
                 node_tokens = {"input_tokens": 0, "output_tokens": 0}

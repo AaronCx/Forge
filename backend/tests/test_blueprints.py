@@ -336,3 +336,15 @@ def test_delete_blueprint_not_owner(auth_client):
 def test_blueprints_require_auth(client):
     response = client.get("/api/blueprints")
     assert response.status_code == 422
+
+
+def test_text_splitter_terminates_when_overlap_exceeds_chunk_size():
+    """Regression: overlap >= chunk_size must not infinite-loop (overlap is clamped)."""
+    import asyncio
+
+    from app.services.blueprint_nodes.deterministic import execute_text_splitter
+
+    result = asyncio.run(
+        execute_text_splitter({"text": "abcdefghij", "chunk_size": 3, "overlap": 5}, {})
+    )
+    assert result["chunk_count"] > 0
