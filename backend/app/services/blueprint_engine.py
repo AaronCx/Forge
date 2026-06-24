@@ -51,9 +51,12 @@ def _topological_sort(nodes: list[dict]) -> list[list[int]]:
         deps = node.get("dependencies", [])
         for dep_id in deps:
             dep_idx = node_map.get(dep_id)
-            if dep_idx is not None:
-                in_degree[i] += 1
-                dependents[dep_idx].append(i)
+            if dep_idx is None:
+                # A dangling dependency was silently dropped, making the node a
+                # root that ran immediately with missing inputs — fail instead.
+                raise ValueError(f"Node '{node['id']}' depends on unknown node '{dep_id}'")
+            in_degree[i] += 1
+            dependents[dep_idx].append(i)
 
     # BFS layering
     layers: list[list[int]] = []
@@ -136,12 +139,19 @@ class BlueprintEngine:
                 if not node_type:
                     raise ValueError(f"Unknown node type: {node_type_key}")
 
-                # Gather inputs from dependencies
+                # Gather inputs from dependencies. On a fan-in (multiple deps
+                # emitting the same canonical key, e.g. "text"), combine string
+                # values instead of letting the last dependency overwrite the rest.
                 dep_ids = node.get("dependencies", [])
-                upstream = {}
+                upstream: dict[str, Any] = {}
                 for dep_id in dep_ids:
-                    if dep_id in node_outputs:
-                        upstream.update(node_outputs[dep_id])
+                    if dep_id not in node_outputs:
+                        continue
+                    for k, v in node_outputs[dep_id].items():
+                        if k in upstream and isinstance(upstream[k], str) and isinstance(v, str) and upstream[k] != v:
+                            upstream[k] = f"{upstream[k]}\n\n{v}"
+                        else:
+                            upstream[k] = v
                 # Also include global input
                 if "_input" in node_outputs:
                     for k, v in node_outputs["_input"].items():
