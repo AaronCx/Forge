@@ -26,27 +26,3 @@ export async function getLanguageExtension(filename: string): Promise<Extension 
   if (!loader) return null;
   return loader();
 }
-
-export function getLanguageName(filename: string): string {
-  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-  const names: Record<string, string> = {
-    js: "JavaScript",
-    jsx: "JavaScript (JSX)",
-    ts: "TypeScript",
-    tsx: "TypeScript (TSX)",
-    py: "Python",
-    json: "JSON",
-    md: "Markdown",
-    html: "HTML",
-    css: "CSS",
-    scss: "SCSS",
-    toml: "TOML",
-    yaml: "YAML",
-    yml: "YAML",
-    sh: "Shell",
-    bash: "Shell",
-    sql: "SQL",
-    txt: "Text",
-  };
-  return names[ext] ?? "Plain Text";
-}

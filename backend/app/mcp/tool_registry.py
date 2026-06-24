@@ -120,11 +120,5 @@ class ToolRegistry:
             except Exception:
                 logger.warning("Failed to refresh tools from %s", server_url, exc_info=True)
 
-    async def call_mcp_tool(
-        self, server_url: str, tool_name: str, arguments: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Call a tool on an MCP server."""
-        return await mcp_client.call_tool(server_url, tool_name, arguments)
-
 
 tool_registry = ToolRegistry()

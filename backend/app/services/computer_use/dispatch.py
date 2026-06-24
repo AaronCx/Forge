@@ -82,10 +82,6 @@ class DispatchService:
             for t in self._targets.values()
         ]
 
-    def get_target(self, target_id: str) -> ExecutionTarget | None:
-        """Get a specific target."""
-        return self._targets.get(target_id)
-
     async def health_check(self, target_id: str) -> dict[str, Any]:
         """Run a health check on a target."""
         target = self._targets.get(target_id)

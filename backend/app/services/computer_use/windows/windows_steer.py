@@ -9,14 +9,6 @@ import tempfile
 from typing import Any
 
 
-def _check_deps() -> None:
-    """Verify Windows dependencies are available."""
-    try:
-        import pyautogui  # noqa: F401
-    except ImportError:
-        raise RuntimeError("pyautogui is required for Windows computer use: pip install pyautogui") from None
-
-
 async def windows_steer_see(target: str = "screen", region: str = "") -> dict[str, Any]:
     """Capture a screenshot using pyautogui."""
     import pyautogui

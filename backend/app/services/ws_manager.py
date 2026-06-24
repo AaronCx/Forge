@@ -46,9 +46,6 @@ class ConnectionManager:
         for ws in dead:
             self.disconnect(workspace_id, ws)
 
-    def connection_count(self, workspace_id: str) -> int:
-        return len(self.active_connections.get(workspace_id, []))
-
     def has_connections(self, workspace_id: str) -> bool:
         return workspace_id in self.active_connections and len(self.active_connections[workspace_id]) > 0
 
