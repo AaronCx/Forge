@@ -24,6 +24,11 @@ class ExecutionTarget:
     capabilities: dict[str, Any] = field(default_factory=dict)
     status: str = "unknown"  # "healthy", "unhealthy", "unknown"
     last_health_check: str = ""
+    user_id: str = ""  # owner; "" == shared (the built-in local target)
+
+    def _visible_to(self, user_id: str) -> bool:
+        """A target is visible to its owner, or to anyone if it's shared (local)."""
+        return self.user_id == "" or self.user_id == user_id
 
 
 class DispatchService:
@@ -47,8 +52,9 @@ class DispatchService:
         listen_url: str = "",
         api_key: str = "",
         platform: str = "macos",
+        user_id: str = "",
     ) -> ExecutionTarget:
-        """Register a new execution target."""
+        """Register a new execution target owned by ``user_id``."""
         target = ExecutionTarget(
             id=target_id,
             name=name,
@@ -56,18 +62,22 @@ class DispatchService:
             listen_url=listen_url,
             api_key=api_key,
             platform=platform,
+            user_id=user_id,
         )
         self._targets[target_id] = target
         return target
 
-    def remove_target(self, target_id: str) -> bool:
-        """Remove an execution target."""
+    def remove_target(self, target_id: str, user_id: str = "") -> bool:
+        """Remove an execution target the caller owns."""
         if target_id == "local":
-            return False  # Can't remove local
+            return False  # Can't remove the shared local target
+        target = self._targets.get(target_id)
+        if not target or not target._visible_to(user_id):
+            return False
         return self._targets.pop(target_id, None) is not None
 
-    def list_targets(self) -> list[dict[str, Any]]:
-        """List all targets with current status."""
+    def list_targets(self, user_id: str = "") -> list[dict[str, Any]]:
+        """List the caller's targets (plus the shared local target)."""
         return [
             {
                 "id": t.id,
@@ -80,16 +90,17 @@ class DispatchService:
                 "last_health_check": t.last_health_check,
             }
             for t in self._targets.values()
+            if t._visible_to(user_id)
         ]
 
     def get_target(self, target_id: str) -> ExecutionTarget | None:
         """Get a specific target."""
         return self._targets.get(target_id)
 
-    async def health_check(self, target_id: str) -> dict[str, Any]:
-        """Run a health check on a target."""
+    async def health_check(self, target_id: str, user_id: str = "") -> dict[str, Any]:
+        """Run a health check on a target the caller can see."""
         target = self._targets.get(target_id)
-        if not target:
+        if not target or not target._visible_to(user_id):
             return {"error": f"Unknown target: {target_id}"}
 
         if target.target_type == "local":
