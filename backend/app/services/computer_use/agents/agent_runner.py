@@ -106,9 +106,14 @@ class AgentRunner:
         self,
         session_name: str,
         lines: int = 100,
+        *,
+        count_toward_rate_limit: bool = True,
     ) -> dict[str, Any]:
         """Capture current output from a running agent's tmux pane."""
-        check_rate_limit()
+        # Internal completion-polling passes count_toward_rate_limit=False so a
+        # long wait_for_completion isn't throttled/aborted by the action limit.
+        if count_toward_rate_limit:
+            check_rate_limit()
         args = ["logs", "--session", session_name, "--lines", str(lines)]
         result = await execute("drive", args)
         output = str(result.get("output", ""))
@@ -136,7 +141,7 @@ class AgentRunner:
         last_output = ""
 
         while elapsed < timeout:
-            result = await self.monitor(session_name)
+            result = await self.monitor(session_name, count_toward_rate_limit=False)
             current_output = result["output"]
 
             # Check if output matches completion pattern
