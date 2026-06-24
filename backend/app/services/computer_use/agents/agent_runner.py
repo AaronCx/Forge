@@ -216,14 +216,14 @@ class AgentRunner:
             await execute("drive", send_args)
             await asyncio.sleep(1)
         except Exception:
-            pass
+            logger.debug("Graceful Ctrl-C failed for %s", session_name, exc_info=True)
 
         # Kill the tmux session
         try:
             kill_args = ["session", "kill", session_name]
             await execute("drive", kill_args)
         except Exception:
-            pass
+            logger.debug("Session kill failed for %s", session_name, exc_info=True)
 
         log_action(
             node_type="agent_stop",

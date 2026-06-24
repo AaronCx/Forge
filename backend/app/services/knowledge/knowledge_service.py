@@ -93,7 +93,7 @@ class KnowledgeService:
 
                 return decrypt_secret(str(result.data["api_key_encrypted"]))
         except Exception:
-            pass
+            logger.debug("Could not load OpenAI key for user %s", user_id, exc_info=True)
         return None
 
     async def add_document(
