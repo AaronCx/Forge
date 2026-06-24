@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import tempfile
 from typing import Any
+
+
+def _read_b64(path: str) -> str:
+    """Read a file and return its base64 encoding (run via asyncio.to_thread)."""
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 
 async def _run(cmd: list[str], timeout: int = 30) -> str:
@@ -38,9 +45,7 @@ async def linux_steer_see(target: str = "screen", region: str = "") -> dict[str,
             pass
         await _run(["scrot", "-u", path])
 
-    import base64
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
+    b64 = await asyncio.to_thread(_read_b64, path)
 
     return {"screenshot_path": path, "screenshot_base64": b64}
 

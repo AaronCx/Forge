@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import subprocess
@@ -51,9 +52,11 @@ async def execute_run_linter(config: dict, inputs: dict[str, Any]) -> dict[str, 
     if language != "python":
         return {"result": code, "has_errors": False}
 
-    # Use ruff for Python linting (check mode)
+    # Use ruff for Python linting (check mode). Run the blocking subprocess in a
+    # worker thread so it doesn't stall the event loop.
     try:
-        proc = subprocess.run(
+        proc = await asyncio.to_thread(
+            subprocess.run,
             ["python3", "-m", "ruff", "check", "--stdin-filename=code.py", "-"],
             input=code,
             capture_output=True,
