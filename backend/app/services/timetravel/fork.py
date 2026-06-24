@@ -105,12 +105,16 @@ class ForkService:
             user_input = edits["user_input"]
             cut_step = 1
 
+        # An override pins step N's result, so steps 1..N must be SERVED (with N
+        # overridden) and recompute resumes at N+1. cut_step is the first
+        # recomputed step, so it must be N+1 — using N excluded the overridden
+        # step from the served prefix range(1, cut_step), dropping the override.
         tool_override = edits.get("tool_result")
         if isinstance(tool_override, dict) and "step" in tool_override:
-            cut_step = min(cut_step, int(tool_override["step"]))
+            cut_step = min(cut_step, int(tool_override["step"]) + 1)
         step_override = edits.get("step_result")
         if isinstance(step_override, dict) and "step" in step_override:
-            cut_step = min(cut_step, int(step_override["step"]))
+            cut_step = min(cut_step, int(step_override["step"]) + 1)
 
         cut_step = max(1, cut_step)
 
