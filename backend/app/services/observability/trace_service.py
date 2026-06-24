@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.db import get_db
@@ -206,12 +206,14 @@ class TraceService:
 
     async def get_trace_stats(self, user_id: str, *, days: int = 7) -> dict[str, Any]:
         """Get aggregated trace statistics."""
-        # Get recent traces for stats
+        # Get traces from the last `days` days (was hardcoded to midnight today,
+        # ignoring the parameter).
+        since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         traces = (
             get_db().table("traces")
             .select("span_type,status,input_tokens,output_tokens,latency_ms")
             .eq("user_id", user_id)
-            .gte("created_at", datetime.now(UTC).replace(hour=0, minute=0, second=0).isoformat())
+            .gte("created_at", since)
             .execute()
         ).data or []
 

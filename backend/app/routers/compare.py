@@ -115,13 +115,18 @@ async def get_comparison(
     user=Depends(get_current_user),  # noqa: B008
 ):
     """Get a previous comparison run result."""
-    result = (
-        get_db().table("comparison_runs")
-        .select("*")
-        .eq("id", run_id)
-        .single()
-        .execute()
-    )
+    # .single() raises on 0 rows on the Supabase backend (→ 500); catch it so a
+    # missing/!owned comparison returns 404 (SQLite returns None).
+    try:
+        result = (
+            get_db().table("comparison_runs")
+            .select("*")
+            .eq("id", run_id)
+            .single()
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Comparison not found") from exc
     if not result.data or result.data["user_id"] != user.id:
         raise HTTPException(status_code=404, detail="Comparison not found")
 

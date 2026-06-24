@@ -125,7 +125,10 @@ class TokenTracker:
 
         for row in rows:
             if group_by == "agent":
-                key = row.get("agents", {}).get("name", "Unknown") if row.get("agents") else row.get("agent_id", "Unknown")
+                agents = row.get("agents")
+                # Dispatcher/agentless rows have agent_id=None — bucket them
+                # explicitly instead of grouping under a None key.
+                key = (agents.get("name") if agents else None) or row.get("agent_id") or "Dispatcher"
             elif group_by == "provider":
                 key = row.get("provider", "openai")
             else:

@@ -166,7 +166,7 @@ async def test_create_first_version():
     }]
 
     with patch("app.db._db") as mock_sb:
-        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
+        mock_sb.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_insert
 
         result = await service.create_version(
@@ -200,7 +200,7 @@ async def test_create_subsequent_version():
     }]
 
     with patch("app.db._db") as mock_sb:
-        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
+        mock_sb.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_deactivate
         mock_sb.table.return_value.insert.return_value.execute.return_value = mock_insert
 
@@ -261,7 +261,7 @@ async def test_rollback():
         # get_version
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_target
         # create_version -> get prev
-        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
+        mock_sb.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_prev
         # deactivate
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_deactivate
         # insert
