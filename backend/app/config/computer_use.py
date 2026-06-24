@@ -23,8 +23,11 @@ class ComputerUseConfig:
     app_blocklist: list[str] = None  # type: ignore[assignment]
     command_blocklist: list[str] = None  # type: ignore[assignment]
 
-    # Screenshot settings
-    screenshot_dir: str = os.getenv("CU_SCREENSHOT_DIR", "/tmp/forge-screenshots")
+    # Screenshot settings. Default to a per-user dir, not world-readable /tmp —
+    # screenshots can capture sensitive on-screen content.
+    screenshot_dir: str = os.getenv(
+        "CU_SCREENSHOT_DIR", os.path.expanduser("~/.forge/screenshots")
+    )
     redact_screenshots: bool = os.getenv("CU_REDACT_SCREENSHOTS", "false").lower() == "true"
 
     # Dry-run mode for testing
