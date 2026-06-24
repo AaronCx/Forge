@@ -27,6 +27,7 @@ async def run_local(binary: str, args: list[str], timeout: int = 30) -> dict[str
             "dry_run": True,
         }
 
+    proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -56,6 +57,14 @@ async def run_local(binary: str, args: list[str], timeout: int = 30) -> dict[str
             }
 
     except TimeoutError:
+        # Kill the orphaned child — wait_for only cancels communicate(), it does
+        # not terminate the underlying process.
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.kill()
+                await proc.wait()
+            except ProcessLookupError:
+                pass
         return {
             "success": False,
             "output": f"Command timed out after {timeout}s",

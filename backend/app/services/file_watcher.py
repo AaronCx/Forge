@@ -49,6 +49,10 @@ class WorkspaceEventHandler(FileSystemEventHandler):  # type: ignore[misc]
         if now - last < self._debounce_ms:
             return True
         self._last_events[path] = now
+        # Prevent unbounded growth — the map keeps one entry per touched path.
+        if len(self._last_events) > 1000:
+            cutoff = now - self._debounce_ms * 10
+            self._last_events = {p: t for p, t in self._last_events.items() if t >= cutoff}
         return False
 
     def _relative_path(self, path: str) -> str:

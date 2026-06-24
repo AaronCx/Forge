@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -26,11 +27,13 @@ class CronScheduler:
         self._task = asyncio.create_task(self._run_loop())
         logger.info("Cron scheduler started")
 
-    def stop(self) -> None:
-        """Stop the scheduler."""
+    async def stop(self) -> None:
+        """Stop the scheduler and await the loop task's cancellation."""
         self._running = False
         if self._task:
             self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
             self._task = None
         logger.info("Cron scheduler stopped")
 
