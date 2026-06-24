@@ -24,10 +24,12 @@ export class WorkspaceSocket {
   private maxReconnectDelay = 30000;
   private workspaceId = "";
   private token = "";
+  private closed = false;
 
   connect(workspaceId: string, token: string): void {
     this.workspaceId = workspaceId;
     this.token = token;
+    this.closed = false;
     this._connect();
   }
 
@@ -55,7 +57,9 @@ export class WorkspaceSocket {
     };
 
     this.ws.onclose = () => {
-      this._scheduleReconnect();
+      // ws.close() fires this asynchronously; don't reconnect if the caller
+      // intentionally disconnected (would leak a socket / reconnect-storm).
+      if (!this.closed) this._scheduleReconnect();
     };
 
     this.ws.onerror = () => {
@@ -64,7 +68,7 @@ export class WorkspaceSocket {
   }
 
   private _scheduleReconnect(): void {
-    if (this.reconnectTimer) return;
+    if (this.closed || this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
@@ -73,6 +77,7 @@ export class WorkspaceSocket {
   }
 
   disconnect(): void {
+    this.closed = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

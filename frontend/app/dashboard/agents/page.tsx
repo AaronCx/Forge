@@ -24,7 +24,10 @@ export default function AgentsPage() {
     }
     async function load() {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return;
+      if (!data.session) {
+        setLoading(false); // else the page is stuck on "Loading agents..." forever
+        return;
+      }
 
       try {
         const [userAgents, templateAgents] = await Promise.all([

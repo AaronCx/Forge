@@ -792,8 +792,8 @@ export const api = {
       request<{ ok: boolean }>(`/api/workspaces/${id}/files/${path}`, { method: "PUT", body: JSON.stringify({ content }), token }),
     deleteFile: (id: string, path: string, token: string) =>
       request<{ ok: boolean }>(`/api/workspaces/${id}/files/${path}`, { method: "DELETE", token }),
-    search: (id: string, query: string, token: string) =>
-      request<{ path: string; line: number; content: string }[]>(`/api/workspaces/${id}/files/search`, { method: "POST", body: JSON.stringify({ query }), token }),
+    search: (id: string, query: string, token: string, glob?: string) =>
+      request<{ path: string; line: number; content: string }[]>(`/api/workspaces/${id}/files/search`, { method: "POST", body: JSON.stringify(glob ? { query, glob } : { query }), token }),
     history: (id: string, token: string, path?: string) =>
       request<Record<string, unknown>[]>(`/api/workspaces/${id}/history${path ? `?path=${encodeURIComponent(path)}` : ""}`, { token }),
   },
