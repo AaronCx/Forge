@@ -22,6 +22,6 @@ bcrypt>=5.0.0
 # Provider API key encryption at rest (FORGE_ENCRYPTION_KEY)
 cryptography>=42.0.0
 # Workspace file watching
-watchdog>=4.0.0
+watchdog>=6.0.0
 # Optional: Supabase backend (install with: pip install supabase)
 supabase==2.11.0
