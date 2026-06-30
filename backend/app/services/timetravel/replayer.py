@@ -113,6 +113,7 @@ def reconstruct_agent_config(events: list[dict[str, Any]]) -> dict[str, Any]:
     """
     user_input = ""
     model: str | None = None
+    attachments: list[dict[str, Any]] = []
     workflow: list[tuple[int, str]] = []
     for ev in events:
         etype = ev.get("event_type")
@@ -120,6 +121,7 @@ def reconstruct_agent_config(events: list[dict[str, Any]]) -> dict[str, Any]:
         if etype == "run_start":
             user_input = payload.get("user_input", "")
             model = payload.get("model")
+            attachments = payload.get("attachments") or []
         elif etype == EVENT_STEP_BOUNDARY:
             workflow.append((int(ev.get("step", 0) or 0), payload.get("description", "")))
     workflow.sort(key=lambda t: t[0])
@@ -130,6 +132,7 @@ def reconstruct_agent_config(events: list[dict[str, Any]]) -> dict[str, Any]:
             "workflow_steps": [d for _s, d in workflow],
             "model": model,
         },
+        "attachments": attachments,
         "user_input": user_input,
     }
 

@@ -136,7 +136,9 @@ class AgentRunner:
 
         # Open the run's event log (no-op when no recorder is attached).
         self._current_step = 0
-        self.recorder.run_start(agent_id=agent_id, user_input=user_input, model=model)
+        self.recorder.run_start(
+            agent_id=agent_id, user_input=user_input, model=model, attachments=attachments
+        )
 
         yield {"type": "step", "content": f"Starting agent: {agent_config.get('name', 'Unnamed')}", "tokens": 0}
         for note in notes:

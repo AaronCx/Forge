@@ -391,3 +391,19 @@ def test_replay_route_no_model_calls(sqlite_backend, auth_client, mock_user):
     assert resp.status_code == 200
     assert replay_mock.await_count == 0
     assert len(resp.json()["steps"]) == 2
+
+
+def test_reconstruct_carries_attachments():
+    """run_start attachments must survive into the reconstructed config so a fork
+    reattaches them (else recomputed steps diverge from the original)."""
+    from app.services.timetravel.replayer import reconstruct_agent_config
+
+    atts = [{"kind": "document", "name": "spec.pdf", "url": "https://x/spec.pdf"}]
+    events = [
+        {"event_type": "run_start", "step": 0,
+         "payload": {"agent_id": "a1", "user_input": "hi", "model": "gpt-4o", "attachments": atts}},
+        {"event_type": "step_boundary", "step": 1, "payload": {"description": "do it"}},
+    ]
+    recon = reconstruct_agent_config(events)
+    assert recon["attachments"] == atts
+    assert recon["user_input"] == "hi"
