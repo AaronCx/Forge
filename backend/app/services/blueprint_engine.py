@@ -157,7 +157,24 @@ class BlueprintEngine:
                     if not executor:
                         raise ValueError(f"No executor for deterministic node: {node_type_key}")
 
-                    output = await executor(node_config, upstream)
+                    # Execute with retry (same policy as agent nodes)
+                    last_error = None
+                    for attempt in range(max_retries + 1):
+                        try:
+                            output = await executor(node_config, upstream)
+                            last_error = None
+                            break
+                        except Exception as e:
+                            last_error = e
+                            if attempt < max_retries:
+                                logger.warning(
+                                    "Deterministic node %s attempt %d failed: %s",
+                                    node_id, attempt + 1, e,
+                                )
+                                continue
+
+                    if last_error:
+                        raise last_error
 
                 elif node_type.node_class == "agent":
                     executor = _ALL_AGENT.get(node_type_key)
@@ -255,8 +272,18 @@ class BlueprintEngine:
 
             yield {"type": "layer_done", "data": {"layer": layer_idx}}
 
-        # Get final output from the last node
-        last_node_id = nodes[-1]["id"]
+        # Get final output from the topological sink (last node of the last
+        # non-empty executed layer), not the authored array order.
+        sink_node_idx: int | None = None
+        for layer in reversed(layers):
+            if layer:
+                sink_node_idx = layer[-1]
+                break
+        if sink_node_idx is not None:
+            last_node_id = nodes[sink_node_idx]["id"]
+        else:
+            # Fallback (should not happen given non-empty nodes): array order.
+            last_node_id = nodes[-1]["id"]
         final_output = node_outputs.get(last_node_id, {})
 
         # Format final result
