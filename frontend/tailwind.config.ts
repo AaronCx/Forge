@@ -51,7 +51,8 @@ const config: Config = {
       },
     },
   },
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  plugins: [require("tailwindcss-animate")],
+  // Animations are provided by `tw-animate-css` (the Tailwind v4 replacement for
+  // `tailwindcss-animate`), imported from app/globals.css.
+  plugins: [],
 };
 export default config;
