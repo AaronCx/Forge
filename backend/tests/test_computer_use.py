@@ -598,6 +598,22 @@ def test_dispatch_register_target():
     assert service.remove_target("local") is False  # Can't remove local
 
 
+def test_dispatch_targets_are_user_scoped():
+    """A user can't see, remove, or health-check another user's target (#19)."""
+    from app.services.computer_use.dispatch import DispatchService
+
+    service = DispatchService()
+    service.register_target(target_id="t-a", name="A's box", user_id="user-a")
+
+    ids_b = {t["id"] for t in service.list_targets("user-b")}
+    assert "t-a" not in ids_b and "local" in ids_b  # only the shared local target
+    ids_a = {t["id"] for t in service.list_targets("user-a")}
+    assert "t-a" in ids_a
+
+    assert service.remove_target("t-a", "user-b") is False  # not yours
+    assert service.remove_target("t-a", "user-a") is True   # owner can
+
+
 def test_dispatch_resolve_fallback():
     """Dispatch resolves to local target by default."""
     from app.services.computer_use.dispatch import DispatchService

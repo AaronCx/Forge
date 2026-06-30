@@ -25,7 +25,7 @@ def _read_b64(path: str) -> str:
 
 def _screenshot_path() -> str:
     """Generate a unique screenshot file path."""
-    os.makedirs(cu_config.screenshot_dir, exist_ok=True)
+    os.makedirs(cu_config.screenshot_dir, mode=0o700, exist_ok=True)
     return os.path.join(cu_config.screenshot_dir, f"steer_{uuid.uuid4().hex[:12]}.png")
 
 

@@ -268,6 +268,27 @@ def test_fork_serves_prefix_from_cache_and_only_pays_from_edit(sqlite_backend):
     assert child_step1["model_responses"][0]["content"] == parent_step1_output
 
 
+def test_fork_excludes_lost_prefix_recording_from_served_steps(sqlite_backend):
+    """A prefix step whose recording was lost is recomputed, not reported as
+    served (the old code reported the whole prefix range unconditionally)."""
+    db = sqlite_backend
+    run_id, _ = _run(_record_run(db, user_id="u1", steps=3))
+    # Simulate a lost recording: drop step 1's model_call event.
+    db.table("run_events").delete().eq("run_id", run_id).eq(
+        "event_type", "model_call"
+    ).eq("step", 1).execute()
+
+    fork_mock, _ = _make_complete_mock()
+    with patch("app.providers.registry.provider_registry.complete", fork_mock):
+        result = _run(
+            fork_service.fork(parent_run_id=run_id, user_id="u1", from_step=3, edits={})
+        )
+
+    # Step 1's recording is gone → not served from cache; step 2 still is.
+    assert 1 not in result["served_from_cache_steps"]
+    assert 2 in result["served_from_cache_steps"]
+
+
 def test_fork_with_prompt_edit_changes_downstream_and_recomputes_all(sqlite_backend):
     """A prompt edit invalidates the whole run; downstream output changes."""
     db = sqlite_backend
@@ -370,3 +391,19 @@ def test_replay_route_no_model_calls(sqlite_backend, auth_client, mock_user):
     assert resp.status_code == 200
     assert replay_mock.await_count == 0
     assert len(resp.json()["steps"]) == 2
+
+
+def test_reconstruct_carries_attachments():
+    """run_start attachments must survive into the reconstructed config so a fork
+    reattaches them (else recomputed steps diverge from the original)."""
+    from app.services.timetravel.replayer import reconstruct_agent_config
+
+    atts = [{"kind": "document", "name": "spec.pdf", "url": "https://x/spec.pdf"}]
+    events = [
+        {"event_type": "run_start", "step": 0,
+         "payload": {"agent_id": "a1", "user_input": "hi", "model": "gpt-4o", "attachments": atts}},
+        {"event_type": "step_boundary", "step": 1, "payload": {"description": "do it"}},
+    ]
+    recon = reconstruct_agent_config(events)
+    assert recon["attachments"] == atts
+    assert recon["user_input"] == "hi"

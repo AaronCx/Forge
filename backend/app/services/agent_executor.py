@@ -169,7 +169,9 @@ class AgentRunner:
 
         # Open the run's event log (no-op when no recorder is attached).
         self._current_step = 0
-        self.recorder.run_start(agent_id=agent_id, user_input=user_input, model=model)
+        self.recorder.run_start(
+            agent_id=agent_id, user_input=user_input, model=model, attachments=attachments
+        )
 
         yield {"type": "step", "content": f"Starting agent: {agent_config.get('name', 'Unnamed')}", "tokens": 0}
         for note in notes:
@@ -379,6 +381,16 @@ class AgentRunner:
         content = _content_to_text(messages[-1].content) if messages else ""
         input_tokens, output_tokens = _sum_usage(messages)
 
+        # Record each individual tool invocation so the run event log / timeline
+        # captures the model<->tool loop ``create_agent`` runs internally. This
+        # is purely additive: an AIMessage carries ``.tool_calls`` (name/args/id)
+        # and the matching ToolMessage carries the result via ``.tool_call_id``.
+        # Wrapped so a recording failure never breaks the run.
+        try:
+            self._record_tool_calls(messages)
+        except Exception:
+            logger.warning("Failed to record tool calls", exc_info=True)
+
         out = {
             "content": content,
             "tokens": input_tokens + output_tokens,
@@ -389,6 +401,51 @@ class AgentRunner:
         # fork can reconstruct it without re-running the agent loop.
         self.recorder.model_call(self._current_step, request=request, response=out)
         return out
+
+    @staticmethod
+    def _field(obj: Any, name: str, default: Any = None) -> Any:
+        """Read ``name`` from a langchain message object OR a plain dict."""
+        if isinstance(obj, dict):
+            return obj.get(name, default)
+        return getattr(obj, name, default)
+
+    def _record_tool_calls(self, messages: list) -> None:
+        """Record each tool invocation found in ``create_agent``'s messages.
+
+        Walks the returned messages: an AIMessage's ``.tool_calls`` lists the
+        invocations (each with ``name``/``args``/``id``) and the matching
+        ToolMessage carries the result via ``.tool_call_id``. Messages may be
+        langchain objects or dicts, so every field read goes through
+        :meth:`_field`. Best-effort — skips anything malformed and no-ops when
+        there are no tool calls.
+        """
+        if not messages:
+            return
+
+        # Index tool results by the call id they answer (ToolMessage carries
+        # ``tool_call_id`` + ``content``). Some messages expose this only via
+        # a ``type`` discriminator, so we key off whatever has a tool_call_id.
+        results_by_id: dict[str, Any] = {}
+        for msg in messages:
+            call_id = self._field(msg, "tool_call_id")
+            if call_id is not None:
+                results_by_id[str(call_id)] = self._field(msg, "content")
+
+        for msg in messages:
+            tool_calls = self._field(msg, "tool_calls") or []
+            for call in tool_calls:
+                try:
+                    name = self._field(call, "name")
+                    args = self._field(call, "args", {}) or {}
+                    call_id = self._field(call, "id")
+                    result = results_by_id.get(str(call_id)) if call_id is not None else None
+                    if name is None:
+                        continue
+                    self.recorder.tool_call(
+                        self._current_step, name=name, args=args, result=result
+                    )
+                except Exception:
+                    logger.warning("Failed to record a tool call", exc_info=True)
 
     async def _execute_step(
         self,

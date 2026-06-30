@@ -348,3 +348,35 @@ def test_text_splitter_terminates_when_overlap_exceeds_chunk_size():
         execute_text_splitter({"text": "abcdefghij", "chunk_size": 3, "overlap": 5}, {})
     )
     assert result["chunk_count"] > 0
+
+
+def test_engine_result_comes_from_topological_sink():
+    """execute() returns the DAG SINK's output, not the authored array order.
+
+    Nodes are authored [b, a] where a -> b, so nodes[-1] is the source `a` while
+    the sink (no dependents) is `b`. The run result must reflect `b`.
+    """
+    import asyncio
+
+    from app.services.blueprint_engine import blueprint_engine
+
+    blueprint = {
+        "nodes": [
+            {"id": "b", "type": "template_renderer", "config": {"template": "SINK"}, "dependencies": ["a"]},
+            {"id": "a", "type": "template_renderer", "config": {"template": "SOURCE"}, "dependencies": []},
+        ],
+    }
+
+    async def run():
+        events = []
+        with patch("app.db._db", MagicMock()):
+            async for ev in blueprint_engine.execute(
+                blueprint=blueprint, input_payload={"text": ""}, user_id="u1", run_id="r1"
+            ):
+                events.append(ev)
+        return events
+
+    events = asyncio.run(run())
+    result = next(e for e in events if e.get("type") == "result")
+    assert "SINK" in result["data"]
+    assert "SOURCE" not in result["data"]

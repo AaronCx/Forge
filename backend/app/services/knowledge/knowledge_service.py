@@ -269,8 +269,14 @@ class KnowledgeService:
         collection_id: str,
         query: str,
         top_k: int = 5,
+        query_embedding: list[float] | None = None,
     ) -> list[dict[str, Any]]:
-        """Search for relevant chunks using embedding similarity."""
+        """Search for relevant chunks using embedding similarity.
+
+        If ``query_embedding`` is provided it is used directly, skipping the
+        embedding call (the caller is responsible for embedding with the
+        collection's embedding model).
+        """
         # Guard against negative/zero top_k from the blueprint-config path
         # (scored[:-1] would silently drop the most relevant result).
         top_k = max(1, top_k)
@@ -278,12 +284,14 @@ class KnowledgeService:
         if not collection:
             return []
 
-        embed_model = collection.get("embedding_model", "text-embedding-3-small")
-
-        # Generate query embedding
-        user_key = self._get_user_openai_key(user_id)
-        query_embeddings = await generate_embeddings([query], model=embed_model, api_key=user_key)
-        query_embedding = query_embeddings[0]
+        # Generate query embedding unless one was supplied by the caller.
+        if query_embedding is None:
+            embed_model = collection.get("embedding_model", "text-embedding-3-small")
+            user_key = self._get_user_openai_key(user_id)
+            query_embeddings = await generate_embeddings(
+                [query], model=embed_model, api_key=user_key
+            )
+            query_embedding = query_embeddings[0]
 
         # Fetch all chunks for this collection (for small collections)
         # For production, use pgvector extension
@@ -323,11 +331,37 @@ class KnowledgeService:
         query: str,
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        """Search across multiple collections."""
+        """Search across multiple collections.
+
+        The query is embedded once per distinct embedding model: collections
+        sharing a model reuse the same embedding, avoiding redundant embedding
+        calls, while collections with different models get the correct one.
+        """
+        user_key = self._get_user_openai_key(user_id)
+        # Cache of embedding_model -> query embedding, computed lazily.
+        embeddings_by_model: dict[str, list[float]] = {}
+
         all_results: list[dict[str, Any]] = []
         for cid in collection_ids:
+            collection = await self.get_collection(cid, user_id)
+            if not collection:
+                continue
+
+            embed_model = collection.get("embedding_model", "text-embedding-3-small")
+            query_embedding = embeddings_by_model.get(embed_model)
+            if query_embedding is None:
+                query_embeddings = await generate_embeddings(
+                    [query], model=embed_model, api_key=user_key
+                )
+                query_embedding = query_embeddings[0]
+                embeddings_by_model[embed_model] = query_embedding
+
             results = await self.search(
-                user_id=user_id, collection_id=cid, query=query, top_k=top_k,
+                user_id=user_id,
+                collection_id=cid,
+                query=query,
+                top_k=top_k,
+                query_embedding=query_embedding,
             )
             for r in results:
                 r["collection_id"] = cid

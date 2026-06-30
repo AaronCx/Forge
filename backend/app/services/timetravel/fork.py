@@ -74,6 +74,7 @@ class ForkService:
         recon = reconstruct_agent_config(events)
         agent_config = recon["agent_config"]
         user_input = recon["user_input"]
+        attachments = recon.get("attachments") or None
 
         # Pull the parent agent's real config (system prompt + tools) — the event
         # log records workflow/model but the system prompt lives on the agent.
@@ -146,7 +147,15 @@ class ForkService:
         # from there — the override seeds the served prefix.)
         self._apply_result_overrides(cache, edits)
 
-        served_steps = sorted(range(1, cut_step))
+        # Report the steps ACTUALLY served from cache, not the whole prefix range.
+        # A prefix step whose model_call event was lost (recorder swallows insert
+        # failures) isn't in the cache → it gets recomputed and re-billed, so it
+        # must not be reported as served (the old range(1, cut_step) silently
+        # over-reported cache hits / under-reported re-billing).
+        served_steps = sorted({
+            step for (kind, step, _ordinal) in cache._responses
+            if kind == "model" and step < cut_step
+        })
 
         # --- Resume the executor forward ----------------------------------
         from app.services.agent_executor import AgentRunner
@@ -162,7 +171,9 @@ class ForkService:
         total_tokens = 0
         recomputed_steps: list[int] = []
         try:
-            async for event in runner.execute(agent_config, user_input, run_id=child_run_id, user_id=user_id):
+            async for event in runner.execute(
+                agent_config, user_input, run_id=child_run_id, user_id=user_id, attachments=attachments
+            ):
                 if event.get("type") == "token":
                     final_output += event.get("content", "")
                 total_tokens += event.get("tokens", 0)

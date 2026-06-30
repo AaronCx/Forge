@@ -65,11 +65,22 @@ class RunRecorder:
             logger.warning("Failed to record run event %s for run %s", event_type, self.run_id, exc_info=True)
         return row
 
-    def run_start(self, *, agent_id: str | None, user_input: str, model: str | None) -> None:
+    def run_start(
+        self,
+        *,
+        agent_id: str | None,
+        user_input: str,
+        model: str | None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> None:
+        # Record attachment refs (small url/kind/name dicts, not content) so a
+        # fork/replay can reattach them — otherwise recomputed steps diverge from
+        # the original, which had the document/image context.
         self._append(EVENT_RUN_START, 0, {
             "agent_id": agent_id,
             "user_input": user_input,
             "model": model,
+            "attachments": attachments or [],
         })
 
     def step_boundary(self, step: int, description: str) -> None:

@@ -27,14 +27,14 @@ class TargetUpdate(BaseModel):
 
 
 @router.get("")
-async def list_targets(user: dict = Depends(get_current_user)):  # noqa: B008
-    """List all registered execution targets."""
-    return dispatch_service.list_targets()
+async def list_targets(user=Depends(get_current_user)):  # noqa: B008
+    """List the caller's execution targets (plus the shared local target)."""
+    return dispatch_service.list_targets(user.id)
 
 
 @router.post("")
-async def create_target(body: TargetCreate, user: dict = Depends(get_current_user)):  # noqa: B008
-    """Register a new execution target."""
+async def create_target(body: TargetCreate, user=Depends(get_current_user)):  # noqa: B008
+    """Register a new execution target owned by the caller."""
     import uuid
     target_id = str(uuid.uuid4())
     target = dispatch_service.register_target(
@@ -44,23 +44,24 @@ async def create_target(body: TargetCreate, user: dict = Depends(get_current_use
         listen_url=body.listen_url,
         api_key=body.api_key,
         platform=body.platform,
+        user_id=user.id,
     )
     return {"id": target.id, "name": target.name, "status": target.status}
 
 
 @router.delete("/{target_id}")
-async def remove_target(target_id: str, user: dict = Depends(get_current_user)):  # noqa: B008
-    """Remove an execution target."""
-    removed = dispatch_service.remove_target(target_id)
+async def remove_target(target_id: str, user=Depends(get_current_user)):  # noqa: B008
+    """Remove an execution target the caller owns."""
+    removed = dispatch_service.remove_target(target_id, user.id)
     if not removed:
         return {"error": "Target not found or cannot be removed", "removed": False}
     return {"removed": True}
 
 
 @router.post("/{target_id}/health")
-async def health_check_target(target_id: str, user: dict = Depends(get_current_user)):  # noqa: B008
-    """Run a health check on a specific target."""
-    return await dispatch_service.health_check(target_id)
+async def health_check_target(target_id: str, user=Depends(get_current_user)):  # noqa: B008
+    """Run a health check on a target the caller can see."""
+    return await dispatch_service.health_check(target_id, user.id)
 
 
 @router.get("/capabilities")
