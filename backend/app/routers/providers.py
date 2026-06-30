@@ -190,10 +190,11 @@ async def list_provider_configs(user=Depends(get_current_user)):  # noqa: B008
     result = get_db().table("provider_configs").select("*").eq("user_id", user.id).execute()
     configs = result.data or []
 
-    # Mask API keys
+    # Mask API keys — disclose only the last 4 chars (a leading prefix would leak
+    # the provider-key prefix, e.g. "sk-proj-...").
     for c in configs:
         key = decrypt_secret(c.get("api_key_encrypted", ""))
-        c["api_key_masked"] = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+        c["api_key_masked"] = f"••••{key[-4:]}" if len(key) >= 4 else "***"
         del c["api_key_encrypted"]
 
     return configs

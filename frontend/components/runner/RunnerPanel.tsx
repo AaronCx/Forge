@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { getToken } from "@/lib/auth-client";
 import { api, Agent } from "@/lib/api";
 import { isDemoMode } from "@/lib/demo-data";
 import { Button } from "@/components/ui/button";
@@ -46,14 +46,16 @@ export function RunnerPanel({ agent }: RunnerPanelProps) {
     setLogs([]);
     setError("");
 
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
+    // Use the unified auth client so the runner works in local (non-Supabase)
+    // mode too, not just when a Supabase session exists.
+    const token = await getToken();
+    if (!token) {
       setError("Not authenticated");
       setRunning(false);
       return;
     }
 
-    const url = api.runs.start(agent.id, { text: input }, data.session.access_token);
+    const url = api.runs.start(agent.id, { text: input }, token);
     const controller = new AbortController();
     abortRef.current = controller;
 

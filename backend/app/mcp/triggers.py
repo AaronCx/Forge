@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -10,6 +11,69 @@ from typing import Any
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
+
+# Keep references to fire-and-forget execution tasks so they aren't GC'd mid-run.
+_bg_tasks: set[asyncio.Task] = set()
+
+
+def _spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+
+
+async def _run_triggered_agent(run_id: str, agent_id: str, user_id: str, input_text: str) -> None:
+    """Drive a triggered agent run to completion — nothing else consumes pending runs."""
+    from app.services.agent_executor import AgentRunner
+
+    agent_config = (
+        get_db().table("agents").select("*").eq("id", agent_id).single().execute()
+    ).data
+    if not agent_config:
+        get_db().table("runs").update({"status": "failed"}).eq("id", run_id).execute()
+        return
+    get_db().table("runs").update({"status": "running"}).eq("id", run_id).execute()
+    final_output = ""
+    step_logs: list[dict] = []
+    try:
+        async for event in AgentRunner(user_id=user_id).execute(
+            agent_config, input_text, run_id=run_id, user_id=user_id
+        ):
+            etype = event.get("type")
+            if etype == "token":
+                final_output += event.get("content", "")
+            elif etype == "step":
+                step_logs.append({"step": len(step_logs) + 1, "result": event.get("content", "")})
+        get_db().table("runs").update(
+            {"status": "completed", "output": final_output, "step_logs": step_logs}
+        ).eq("id", run_id).execute()
+    except Exception:
+        logger.exception("Triggered agent run %s failed", run_id)
+        get_db().table("runs").update(
+            {"status": "failed", "step_logs": step_logs}
+        ).eq("id", run_id).execute()
+
+
+async def _run_triggered_blueprint(run_id: str, blueprint_id: str, user_id: str, payload: dict) -> None:
+    """Drive a triggered blueprint run to completion."""
+    from app.services.blueprint_engine import blueprint_engine
+
+    blueprint = (
+        get_db().table("blueprints").select("*").eq("id", blueprint_id).single().execute()
+    ).data
+    if not blueprint:
+        get_db().table("blueprint_runs").update({"status": "failed"}).eq("id", run_id).execute()
+        return
+    get_db().table("blueprint_runs").update({"status": "running"}).eq("id", run_id).execute()
+    try:
+        async for _event in blueprint_engine.execute(
+            blueprint=blueprint, input_payload=payload, user_id=user_id, run_id=run_id
+        ):
+            pass
+        get_db().table("blueprint_runs").update({"status": "completed"}).eq("id", run_id).execute()
+    except Exception:
+        logger.exception("Triggered blueprint run %s failed", run_id)
+        get_db().table("blueprint_runs").update({"status": "failed"}).eq("id", run_id).execute()
 
 
 class TriggerService:
@@ -156,16 +220,19 @@ class TriggerService:
             input_text = json.dumps(payload)
 
         run_id = str(uuid.uuid4())
+        input_text = input_text[:10000]
         get_db().table("runs").insert({
             "id": run_id,
             "agent_id": agent_id,
             "user_id": user_id,
-            "input_text": input_text[:10000],
+            "input_text": input_text,
             "status": "pending",
             "tokens_used": 0,
             "step_logs": [],
         }).execute()
 
+        # Actually execute the run in the background (was left 'pending' forever).
+        _spawn(_run_triggered_agent(run_id, agent_id, user_id, input_text))
         return {"run_id": run_id}
 
     async def _start_blueprint_run(
@@ -182,6 +249,8 @@ class TriggerService:
             "execution_trace": [],
         }).execute()
 
+        # Actually execute the run in the background (was left 'pending' forever).
+        _spawn(_run_triggered_blueprint(run_id, blueprint_id, user_id, payload))
         return {"run_id": run_id}
 
     async def get_trigger_history(

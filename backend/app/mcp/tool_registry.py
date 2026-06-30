@@ -99,7 +99,10 @@ class ToolRegistry:
 
         connections: list of dicts with keys: id, name, server_url
         """
-        self._mcp_tools.clear()
+        # Build into a fresh dict and swap atomically. Clearing first and then
+        # awaiting discover_tools() inside the loop left a window where concurrent
+        # requests saw an empty/partial registry.
+        fresh: dict[str, ToolInfo] = {}
         for conn in connections:
             server_id = conn["id"]
             server_name = conn.get("name", server_id)
@@ -108,7 +111,7 @@ class ToolRegistry:
                 tools = await mcp_client.discover_tools(server_url, server_id, server_name)
                 for t in tools:
                     key = f"{server_id}:{t.name}"
-                    self._mcp_tools[key] = ToolInfo(
+                    fresh[key] = ToolInfo(
                         name=t.name,
                         display_name=t.name.replace("_", " ").title(),
                         description=t.description,
@@ -119,12 +122,7 @@ class ToolRegistry:
                     )
             except Exception:
                 logger.warning("Failed to refresh tools from %s", server_url, exc_info=True)
-
-    async def call_mcp_tool(
-        self, server_url: str, tool_name: str, arguments: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Call a tool on an MCP server."""
-        return await mcp_client.call_tool(server_url, tool_name, arguments)
+        self._mcp_tools = fresh
 
 
 tool_registry = ToolRegistry()

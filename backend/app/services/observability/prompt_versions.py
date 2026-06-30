@@ -23,12 +23,13 @@ class PromptVersionService:
         change_summary: str = "",
     ) -> dict[str, Any]:
         """Create a new prompt version, computing diff from previous."""
-        # Get the current active version
-        prev = (
+        # Highest version number across ALL versions (not just the active one).
+        # Keying off is_active=True collapsed next_version to 1 whenever no row
+        # was active (e.g. after a rollback), duplicating numbers / losing history.
+        latest = (
             get_db().table("prompt_versions")
             .select("*")
             .eq("agent_id", agent_id)
-            .eq("is_active", True)
             .order("version_number", desc=True)
             .limit(1)
             .execute()
@@ -37,13 +38,14 @@ class PromptVersionService:
         previous_prompt = ""
         next_version = 1
 
-        if prev:
-            previous_prompt = prev[0].get("system_prompt", "")
-            next_version = prev[0].get("version_number", 0) + 1
-            # Deactivate previous version
-            get_db().table("prompt_versions").update(
-                {"is_active": False}
-            ).eq("id", prev[0]["id"]).execute()
+        if latest:
+            previous_prompt = latest[0].get("system_prompt", "")
+            next_version = latest[0].get("version_number", 0) + 1
+
+        # Deactivate any currently-active version(s) for this agent.
+        get_db().table("prompt_versions").update(
+            {"is_active": False}
+        ).eq("agent_id", agent_id).eq("is_active", True).execute()
 
         # Compute diff
         diff = self._compute_diff(previous_prompt, system_prompt)
@@ -82,14 +84,19 @@ class PromptVersionService:
         self, version_id: str, user_id: str
     ) -> dict[str, Any] | None:
         """Get a specific version with full prompt text."""
-        result = (
-            get_db().table("prompt_versions")
-            .select("*")
-            .eq("id", version_id)
-            .eq("user_id", user_id)
-            .single()
-            .execute()
-        )
+        # .single() raises on 0 rows on the Supabase backend (→ 500); catch it so
+        # a missing/!owned version returns None (→ 404), matching SQLite.
+        try:
+            result = (
+                get_db().table("prompt_versions")
+                .select("*")
+                .eq("id", version_id)
+                .eq("user_id", user_id)
+                .single()
+                .execute()
+            )
+        except Exception:
+            return None
         version_data: dict[str, Any] | None = result.data
         return version_data
 
@@ -144,6 +151,9 @@ class PromptVersionService:
         a = await self.get_version(version_a_id, user_id)
         b = await self.get_version(version_b_id, user_id)
         if not a or not b:
+            return None
+        if a.get("agent_id") != b.get("agent_id"):
+            # Refuse a meaningless cross-agent diff.
             return None
 
         diff = self._compute_diff(a["system_prompt"], b["system_prompt"])

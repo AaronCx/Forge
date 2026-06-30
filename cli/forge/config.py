@@ -67,3 +67,44 @@ def ensure_config():
             'api_url = "http://localhost:8000"\n'
             'api_key = ""\n'
         )
+
+
+def set_config_value(section: str, key: str, value: str) -> None:
+    """Set ``[section] key = "value"`` in the TOML config, nested-section aware.
+
+    ``forge init`` writes the nested ``[api]``/``[defaults]`` layout that
+    :func:`get_config` reads with precedence, so writing a flat top-level line
+    was silently ignored. This places ``key`` under ``[section]`` (creating the
+    section if needed) and invalidates the in-process cache.
+    """
+    global _config
+    ensure_config()
+    lines = CONFIG_FILE.read_text().splitlines() if CONFIG_FILE.exists() else []
+    target = f"[{section}]"
+    in_section = False
+    section_seen = False
+    written = False
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_section and not written:
+                out.append(f'{key} = "{value}"')
+                written = True
+            in_section = stripped == target
+            if in_section:
+                section_seen = True
+            out.append(line)
+            continue
+        if in_section and "=" in stripped and stripped.split("=", 1)[0].strip() == key:
+            out.append(f'{key} = "{value}"')
+            written = True
+            continue
+        out.append(line)
+    if in_section and not written:
+        out.append(f'{key} = "{value}"')
+        written = True
+    if not section_seen:
+        out.extend(["", target, f'{key} = "{value}"'])
+    CONFIG_FILE.write_text("\n".join(out) + "\n")
+    _config = None  # invalidate cache so the next get_config() re-reads

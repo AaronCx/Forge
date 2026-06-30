@@ -130,6 +130,11 @@ async def _run_agent(
         yield _sse({"type": "error", "data": "Routed agent not found."})
         return
     agent_config = agent_result.data
+    # Ownership check — the override path bypasses routing, so enforce here that
+    # the caller owns the agent (or it's a shared template). Mirrors runs.py:88.
+    if agent_config.get("user_id") != user_id and not agent_config.get("is_template"):
+        yield _sse({"type": "error", "data": "Routed agent not found."})
+        return
 
     first_url = attachments[0]["url"] if attachments else None
     run_result = get_db().table("runs").insert({
@@ -201,6 +206,10 @@ async def _run_blueprint(
         yield _sse({"type": "error", "data": "Routed blueprint not found."})
         return
     blueprint = bp_result.data
+    # Ownership check — the override path bypasses routing. Mirrors blueprints.py:184.
+    if blueprint.get("user_id") != user_id and not blueprint.get("is_template"):
+        yield _sse({"type": "error", "data": "Routed blueprint not found."})
+        return
 
     input_payload: dict = {"text": input_text}
     if attachments:

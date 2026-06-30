@@ -69,9 +69,18 @@ class KnowledgeService:
 
     async def delete_collection(self, collection_id: str, user_id: str) -> bool:
         """Delete a collection and all its documents/chunks."""
-        get_db().table("knowledge_collections").delete().eq(
-            "id", collection_id
-        ).eq("user_id", user_id).execute()
+        owned = (
+            get_db().table("knowledge_collections")
+            .select("id").eq("id", collection_id).eq("user_id", user_id).single().execute()
+        ).data
+        if not owned:
+            return False
+        # Delete children explicitly — SQLite drops the ON DELETE CASCADE that
+        # Supabase declares, so chunks/documents would otherwise be orphaned
+        # (deleted content keeps resurfacing in search) or 500 on SQLite.
+        get_db().table("knowledge_chunks").delete().eq("collection_id", collection_id).execute()
+        get_db().table("knowledge_documents").delete().eq("collection_id", collection_id).eq("user_id", user_id).execute()
+        get_db().table("knowledge_collections").delete().eq("id", collection_id).eq("user_id", user_id).execute()
         return True
 
     # === Document management ===
@@ -93,7 +102,7 @@ class KnowledgeService:
 
                 return decrypt_secret(str(result.data["api_key_encrypted"]))
         except Exception:
-            pass
+            logger.debug("Could not load OpenAI key for user %s", user_id, exc_info=True)
         return None
 
     async def add_document(
@@ -238,6 +247,8 @@ class KnowledgeService:
         if not doc:
             return False
 
+        # Delete the document's chunks first — SQLite has no ON DELETE cascade.
+        get_db().table("knowledge_chunks").delete().eq("document_id", document_id).execute()
         get_db().table("knowledge_documents").delete().eq(
             "id", document_id
         ).eq("user_id", user_id).execute()
@@ -266,6 +277,9 @@ class KnowledgeService:
         embedding call (the caller is responsible for embedding with the
         collection's embedding model).
         """
+        # Guard against negative/zero top_k from the blueprint-config path
+        # (scored[:-1] would silently drop the most relevant result).
+        top_k = max(1, top_k)
         collection = await self.get_collection(collection_id, user_id)
         if not collection:
             return []

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.routers.auth import get_current_user
 from app.services.knowledge.knowledge_service import knowledge_service
@@ -18,8 +18,16 @@ class CreateCollectionRequest(BaseModel):
     name: str
     description: str = ""
     embedding_model: str = "text-embedding-3-small"
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
+    chunk_size: int = Field(1000, ge=1, le=100_000)
+    # Must be < chunk_size, else the text splitter raises and bricks the
+    # collection (every ingest fails). Validated against chunk_size below.
+    chunk_overlap: int = Field(200, ge=0, le=100_000)
+
+    @model_validator(mode="after")
+    def _overlap_below_size(self) -> CreateCollectionRequest:
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap must be less than chunk_size")
+        return self
 
 
 class AddDocumentRequest(BaseModel):
@@ -30,13 +38,13 @@ class AddDocumentRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int = Field(5, ge=1, le=100)
 
 
 class MultiSearchRequest(BaseModel):
     collection_ids: list[str]
     query: str
-    top_k: int = 5
+    top_k: int = Field(5, ge=1, le=100)
 
 
 # === Collections ===
@@ -84,7 +92,9 @@ async def delete_collection(
     user: Any = Depends(get_current_user),  # noqa: B008
 ) -> dict[str, str]:
     """Delete a knowledge collection."""
-    await knowledge_service.delete_collection(collection_id, user.id)
+    deleted = await knowledge_service.delete_collection(collection_id, user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Collection not found")
     return {"status": "deleted"}
 
 

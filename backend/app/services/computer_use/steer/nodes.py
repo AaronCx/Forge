@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import uuid
@@ -14,6 +15,12 @@ from app.services.computer_use.safety import (
     check_rate_limit,
     log_action,
 )
+
+
+def _read_b64(path: str) -> str:
+    """Read a file and return its base64 encoding (run via asyncio.to_thread)."""
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 def _screenshot_path() -> str:
@@ -44,8 +51,7 @@ async def execute_steer_see(config: dict, inputs: dict[str, Any]) -> dict[str, A
 
     screenshot_data = ""
     if os.path.exists(output_path):
-        with open(output_path, "rb") as f:
-            screenshot_data = base64.b64encode(f.read()).decode("utf-8")
+        screenshot_data = await asyncio.to_thread(_read_b64, output_path)
 
     log_action(
         node_type="steer_see",
@@ -140,8 +146,7 @@ async def execute_steer_click(config: dict, inputs: dict[str, Any]) -> dict[str,
 
     after_b64 = ""
     if os.path.exists(after_path):
-        with open(after_path, "rb") as f:
-            after_b64 = base64.b64encode(f.read()).decode("utf-8")
+        after_b64 = await asyncio.to_thread(_read_b64, after_path)
 
     log_action(
         node_type="steer_click",
@@ -306,8 +311,7 @@ async def execute_steer_focus(config: dict, inputs: dict[str, Any]) -> dict[str,
 
     screenshot_b64 = ""
     if os.path.exists(screenshot_path):
-        with open(screenshot_path, "rb") as f:
-            screenshot_b64 = base64.b64encode(f.read()).decode("utf-8")
+        screenshot_b64 = await asyncio.to_thread(_read_b64, screenshot_path)
 
     log_action(
         node_type="steer_focus",

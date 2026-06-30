@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import subprocess
@@ -10,7 +11,7 @@ from typing import Any
 import httpx
 
 from app.services.extract import extract_text
-from app.services.security.url_validator import validate_url
+from app.services.security.url_validator import safe_get, validate_url
 
 
 async def execute_fetch_url(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -21,10 +22,11 @@ async def execute_fetch_url(config: dict, inputs: dict[str, Any]) -> dict[str, A
 
     validate_url(url)
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url, follow_redirects=True)
-        resp.raise_for_status()
-        text = resp.text[:50_000]  # Cap at 50KB
+    # safe_get re-validates every redirect hop so a public URL cannot 302 into
+    # an internal/metadata target.
+    resp = await safe_get(url, timeout=30)
+    resp.raise_for_status()
+    text = resp.text[:50_000]  # Cap at 50KB
 
     return {"text": text}
 
@@ -50,9 +52,11 @@ async def execute_run_linter(config: dict, inputs: dict[str, Any]) -> dict[str, 
     if language != "python":
         return {"result": code, "has_errors": False}
 
-    # Use ruff for Python linting (check mode)
+    # Use ruff for Python linting (check mode). Run the blocking subprocess in a
+    # worker thread so it doesn't stall the event loop.
     try:
-        proc = subprocess.run(
+        proc = await asyncio.to_thread(
+            subprocess.run,
             ["python3", "-m", "ruff", "check", "--stdin-filename=code.py", "-"],
             input=code,
             capture_output=True,
@@ -92,8 +96,11 @@ async def execute_json_validator(config: dict, inputs: dict[str, Any]) -> dict[s
 async def execute_text_splitter(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
     """Split text into chunks with configurable size and overlap."""
     text = config.get("text") or inputs.get("text", "")
-    chunk_size = int(config.get("chunk_size", 2000))
+    chunk_size = max(1, int(config.get("chunk_size", 2000)))
     overlap = int(config.get("overlap", 200))
+    # Guarantee forward progress: overlap must be strictly less than chunk_size,
+    # otherwise `start = end - overlap` never advances (infinite loop).
+    overlap = min(max(overlap, 0), chunk_size - 1)
 
     if not text:
         return {"chunks": [], "chunk_count": 0}
@@ -208,7 +215,8 @@ async def execute_knowledge_retrieval(config: dict, inputs: dict[str, Any]) -> d
     collection_id = config.get("collection_id") or inputs.get("collection_id", "")
     query = config.get("query") or inputs.get("query", "")
     top_k = config.get("top_k", 5)
-    user_id = config.get("_user_id", "")
+    # Trusted identifier injected by the engine (see blueprint_engine.execute).
+    user_id = inputs.get("_user_id", "")
 
     if not collection_id or not query:
         raise ValueError("knowledge_retrieval: 'collection_id' and 'query' are required")

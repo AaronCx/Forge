@@ -109,7 +109,3 @@ class ResponseCache:
     def get_tool(self, step: int) -> tuple[bool, Any]:
         """Get the next recorded tool response for a step, if cached."""
         return self._next("tool", step)
-
-    def has_step(self, step: int) -> bool:
-        """True if any model/tool response is cached for ``step``."""
-        return any(s == step for (_k, s, _o) in self._responses)

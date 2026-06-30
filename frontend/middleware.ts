@@ -34,10 +34,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Legacy /demo route — redirect to dashboard
+  // Legacy /demo route — redirect to dashboard. Only enable demo mode on an
+  // actual demo deployment; never let /demo poison a production session with
+  // mock data (the other cookie-setting branches are gated on forceDemo too).
   if (pathname.startsWith("/demo")) {
     const response = NextResponse.redirect(new URL("/dashboard", request.url));
-    response.cookies.set("forge_demo", "1", { path: "/" });
+    if (forceDemo) {
+      response.cookies.set("forge_demo", "1", { path: "/" });
+    }
     return response;
   }
 

@@ -106,6 +106,12 @@ settings_app.add_typer(_settings_mod.teams_app, name="team")  # spec rename: tea
 settings_app.add_typer(_settings_mod.keys_app, name="api-keys")
 settings_app.add_typer(_settings_mod.config_app, name="config")
 
+# Re-export the leaf sub-apps so tooling/tests can import them from forge.main.
+cu_app = _connections_mod.cu_app
+backends_app = _connections_mod.backends_app
+targets_app = _connections_mod.targets_app
+recordings_app = _ops_mod.recordings_app
+
 # Evals and Marketplace keep their existing top-level names — those names ALREADY are
 # the workspace. We just attach with the Workspaces help panel so they group visually
 # alongside the new workspace parents.

@@ -98,10 +98,12 @@ async def workspace_websocket(websocket: WebSocket, workspace_id: str, token: st
         pass
     finally:
         ws_manager.disconnect(workspace_id, websocket)
-        # Stop watcher if no more clients
-        if not ws_manager.has_connections(workspace_id):
-            try:
-                from app.services.file_watcher import watcher_manager
-                watcher_manager.stop_watching(workspace_id)
-            except ImportError:
-                pass
+        # Balance the per-connect start_watching() on EVERY disconnect.
+        # stop_watching() ref-counts internally and only stops the observer at 0;
+        # the old `if not has_connections` guard under-decremented when more than
+        # one client was connected, leaking the observer thread.
+        try:
+            from app.services.file_watcher import watcher_manager
+            watcher_manager.stop_watching(workspace_id)
+        except ImportError:
+            pass

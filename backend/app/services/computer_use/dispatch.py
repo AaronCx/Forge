@@ -108,7 +108,8 @@ class DispatchService:
             report = capability_detector.detect()
             target.capabilities = report.to_dict()
             target.status = "healthy"
-            target.platform = "macos" if report.is_macos else "linux"
+            # Use the detector's resolved name so Windows isn't misreported as linux.
+            target.platform = report.platform_name
         else:
             try:
                 result = await test_remote_connection()
@@ -164,7 +165,7 @@ class DispatchService:
             caps = target.capabilities
             if requires_gui and caps.get("steer_available"):
                 return target
-            if requires_terminal and caps.get("drive_available") or caps.get("tmux_available"):
+            if requires_terminal and (caps.get("drive_available") or caps.get("tmux_available")):
                 return target
 
         # 4. Fall back to local

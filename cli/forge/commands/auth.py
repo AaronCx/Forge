@@ -102,12 +102,9 @@ def auth_login(
 @auth_app.command("logout")
 def auth_logout():
     """Clear stored session token."""
-    ensure_config()
-    if CONFIG_FILE.exists():
-        lines = CONFIG_FILE.read_text().splitlines()
-        lines = [l for l in lines if not l.strip().startswith("api_key")]
-        lines.append('api_key = ""')
-        CONFIG_FILE.write_text("\n".join(lines) + "\n")
+    # The token lives in [api].key (written by _save_session_token); stripping a
+    # flat `api_key` line left it intact. Reuse the nested writer to clear it.
+    _save_session_token("")
     console.print("[green]Logged out. Token cleared.[/green]")
 
 
@@ -180,15 +177,8 @@ def login(
 @_app.command()
 def logout():
     """Clear stored credentials."""
-    ensure_config()
-    if CONFIG_FILE.exists():
-        lines = []
-        for line in CONFIG_FILE.read_text().splitlines():
-            if line.strip().startswith("api_key "):
-                lines.append('api_key = ""')
-            else:
-                lines.append(line)
-        CONFIG_FILE.write_text("\n".join(lines) + "\n")
+    # Clear the token where it actually lives: [api].key (see _save_session_token).
+    _save_session_token("")
     console.print("[green]Logged out — API key cleared.[/green]")
 
 

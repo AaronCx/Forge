@@ -16,6 +16,13 @@ async def _cu_llm_call(
     json_mode: bool = False,
 ) -> dict[str, Any]:
     """Make an LLM call for computer use reasoning."""
+    if json_mode:
+        # complete() has no provider response_format param (Ollama can't use one
+        # anyway), so reinforce JSON in the prompt — the flag was being ignored.
+        system_prompt = (
+            f"{system_prompt}\n\nIMPORTANT: respond with ONLY a single valid JSON "
+            "object — no surrounding prose, explanation, or markdown fences."
+        )
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},

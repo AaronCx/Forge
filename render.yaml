@@ -15,6 +15,10 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
+      # Required: encrypts provider API keys at rest. Without it, encrypt_secret
+      # silently passes through and keys are stored plaintext in api_key_encrypted.
+      - key: FORGE_ENCRYPTION_KEY
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: SERPAPI_KEY

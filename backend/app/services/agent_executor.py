@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
+from langgraph.errors import GraphRecursionError
 
 from app.mcp.tool_registry import tool_registry
 from app.providers.registry import provider_registry
@@ -18,6 +19,38 @@ from app.services.tools.web_search import web_search
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+# Bound the model<->tool loop. langgraph's recursion_limit is ~2*max_iterations+1;
+# this mirrors the legacy AgentExecutor(max_iterations=5) cap that the 1.x
+# migration dropped (default was ~5000), preventing runaway tool loops.
+_TOOL_RECURSION_LIMIT = 12
+
+
+def _content_to_text(content: Any) -> str:
+    """Coerce a message's content to text. langchain 1.x AIMessage.content may
+    be a list of content blocks rather than a plain string."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                parts.append(block)
+        return "".join(parts)
+    return str(content)
+
+
+def _sum_usage(messages: list) -> tuple[int, int]:
+    """Sum input/output tokens across AIMessages' usage_metadata."""
+    input_tokens = output_tokens = 0
+    for msg in messages:
+        usage = getattr(msg, "usage_metadata", None)
+        if usage:
+            input_tokens += usage.get("input_tokens", 0) or 0
+            output_tokens += usage.get("output_tokens", 0) or 0
+    return input_tokens, output_tokens
 
 TOOL_REGISTRY = {
     "web_search": web_search,
@@ -165,7 +198,9 @@ class AgentRunner:
             step_images = image_blocks if i == 1 else None
 
             if tools:
-                result = await self._execute_with_tools(system_prompt, step, user_input, accumulated_context, tools)
+                result = await self._execute_with_tools(
+                    system_prompt, step, user_input, accumulated_context, tools, image_blocks=step_images,
+                )
             else:
                 result = await self._execute_step(
                     system_prompt, step, user_input, accumulated_context, model=model, image_blocks=step_images,
@@ -285,7 +320,8 @@ class AgentRunner:
         return "\n\n".join(doc_parts), image_blocks, notes
 
     async def _execute_with_tools(
-        self, system_prompt: str, step: str, user_input: str, context: str, tools: list
+        self, system_prompt: str, step: str, user_input: str, context: str, tools: list,
+        *, image_blocks: list[dict] | None = None,
     ) -> dict:
         """Execute a step using LangChain agent with tools."""
         # Replay/fork: a cached step result is served verbatim — the LangChain
@@ -299,7 +335,9 @@ class AgentRunner:
         llm = await self._get_llm()
         if not llm:
             # No OpenAI key — fall back to non-tool step via provider registry
-            return await self._execute_step(system_prompt, step, user_input, context, model=self.model)
+            return await self._execute_step(
+                system_prompt, step, user_input, context, model=self.model, image_blocks=image_blocks
+            )
 
         # langchain>=1.0: the legacy AgentExecutor/create_openai_tools_agent
         # combo was removed in favour of the prebuilt ``create_agent`` graph,
@@ -316,10 +354,32 @@ class AgentRunner:
         if context:
             full_input = f"{user_input}\n\nPrevious step results:\n{context}"
 
-        result = await agent.ainvoke({"messages": [{"role": "user", "content": full_input}]})
+        # Multimodal first message when vision image blocks are present.
+        user_content: str | list[dict] = (
+            [{"type": "text", "text": full_input}, *image_blocks] if image_blocks else full_input
+        )
+
+        request = {"system_prompt": system_prompt, "step": step, "input": full_input, "tools": True}
+        try:
+            result = await agent.ainvoke(
+                {"messages": [{"role": "user", "content": user_content}]},
+                config={"recursion_limit": _TOOL_RECURSION_LIMIT},
+            )
+        except GraphRecursionError:
+            logger.warning(
+                "Agent tool loop hit recursion limit (%d) on step %d",
+                _TOOL_RECURSION_LIMIT, self._current_step,
+            )
+            out = {
+                "content": "The agent reached its tool-iteration limit before completing this step.",
+                "tokens": 0, "input_tokens": 0, "output_tokens": 0,
+            }
+            self.recorder.model_call(self._current_step, request=request, response=out)
+            return out
 
         messages = result.get("messages", []) if isinstance(result, dict) else []
-        content = messages[-1].content if messages else ""
+        content = _content_to_text(messages[-1].content) if messages else ""
+        input_tokens, output_tokens = _sum_usage(messages)
 
         # Record each individual tool invocation so the run event log / timeline
         # captures the model<->tool loop ``create_agent`` runs internally. This
@@ -333,15 +393,13 @@ class AgentRunner:
 
         out = {
             "content": content,
-            "tokens": 0,
+            "tokens": input_tokens + output_tokens,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
         }
         # Record the tool-augmented step's outcome as a model_call so replay and
         # fork can reconstruct it without re-running the agent loop.
-        self.recorder.model_call(
-            self._current_step,
-            request={"system_prompt": system_prompt, "step": step, "input": full_input, "tools": True},
-            response=out,
-        )
+        self.recorder.model_call(self._current_step, request=request, response=out)
         return out
 
     @staticmethod

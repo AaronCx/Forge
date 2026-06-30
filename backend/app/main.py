@@ -94,8 +94,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start cron scheduler for scheduled triggers
     cron_scheduler.start()
     yield
-    cron_scheduler.stop()
+    await cron_scheduler.stop()
     watcher_manager.stop_all()
+    from app.mcp.client import mcp_client
+    await mcp_client.close()
     await db.close()
 
 

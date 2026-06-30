@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.db import get_db
 from app.models.workspace import (
@@ -230,7 +230,7 @@ async def search_files(
 async def get_history(
     workspace_id: str,
     path: str = "",
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=500),  # noqa: B008
     user=Depends(get_current_user),  # noqa: B008
 ):
     """Get change history for a workspace or specific file."""

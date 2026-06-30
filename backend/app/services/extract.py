@@ -13,12 +13,11 @@ import io
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-import httpx
 from docx import Document
 from pypdf import PdfReader
 
 from app.services import storage
-from app.services.security.url_validator import validate_url
+from app.services.security.url_validator import safe_get, validate_url
 
 # Cap extracted text so a large upload can't blow up a prompt/context window.
 MAX_CHARS = 10_000
@@ -49,8 +48,8 @@ async def _load(file_url: str) -> tuple[bytes, str, str]:
 
     if parsed.scheme in ("http", "https"):
         validate_url(file_url)  # SSRF guard — blocks internal/private targets
-        async with httpx.AsyncClient() as client:
-            response = await client.get(file_url, timeout=30.0, follow_redirects=True)
+        # safe_get re-validates each redirect hop (no public→internal 302 bypass).
+        response = await safe_get(file_url, timeout=30.0)
         response.raise_for_status()
         return response.content, response.headers.get("content-type", ""), parsed.path
 

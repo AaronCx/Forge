@@ -463,17 +463,22 @@ def mcp_server(
     `forge login` session for auth. Add to an MCP client config with:
     command `forge`, args `["mcp-server"]`.
     """
+    from rich.console import Console
+
     from forge.mcp_server import ForgeMCPError, serve
 
+    # Rich's Console.print() has no `stderr` kwarg (that's a Console() ctor arg),
+    # so status/errors go through a dedicated stderr console — stdout is reserved
+    # for the stdio MCP protocol.
+    err_console = Console(stderr=True)
     if transport == "stdio":
-        # stdio owns stdout for the protocol — status messages go to stderr.
-        console.print(f"[dim]Forge MCP server starting on {transport}…[/dim]", stderr=True)
+        err_console.print(f"[dim]Forge MCP server starting on {transport}…[/dim]")
     else:
         console.print(f"[bold]Forge MCP server[/bold] starting on {transport}…")
     try:
         serve(transport=transport)
     except ForgeMCPError as e:
-        console.print(f"[red]Error: {e}[/red]", stderr=True)
+        err_console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
 
 

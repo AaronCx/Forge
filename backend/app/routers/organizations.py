@@ -66,6 +66,10 @@ async def get_org(
     org = await org_service.get_org(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    # Membership check — the service-role key bypasses RLS, so scope to members.
+    role = await org_service.get_user_role(org_id, user.id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
     return org
 
 
@@ -138,6 +142,9 @@ async def update_member_role(
     role = await org_service.get_user_role(org_id, user.id)
     if role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
+    # An admin must not be able to demote the org owner.
+    if await org_service.get_user_role(org_id, member_user_id) == "owner":
+        raise HTTPException(status_code=403, detail="Cannot change the organization owner's role")
     result = await org_service.update_member_role(org_id, member_user_id, body.role)
     if not result:
         raise HTTPException(status_code=404, detail="Member not found or invalid role")
@@ -154,4 +161,7 @@ async def remove_member(
     role = await org_service.get_user_role(org_id, user.id)
     if role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
+    # An admin must not be able to remove the org owner.
+    if await org_service.get_user_role(org_id, member_user_id) == "owner":
+        raise HTTPException(status_code=403, detail="Cannot remove the organization owner")
     await org_service.remove_member(org_id, member_user_id)
