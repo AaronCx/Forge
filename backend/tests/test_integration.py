@@ -442,7 +442,9 @@ def test_cross_feature_prompt_versioning_structure():
     """18.5 — Prompt versioning + eval integration."""
     from app.main import app
 
-    routes = [r.path for r in app.routes]
+    from tests.route_utils import app_route_paths
+
+    routes = app_route_paths(app)
     # Prompt routes use /agents/{agent_id}/prompts pattern
     prompt_routes = [r for r in routes if "prompts" in r]
     assert len(prompt_routes) >= 1
@@ -453,7 +455,9 @@ def test_cross_feature_marketplace_org_integration(auth_client):
     """18.1 — Marketplace + teams integration."""
     from app.main import app
 
-    routes = [r.path for r in app.routes]
+    from tests.route_utils import app_route_paths
+
+    routes = app_route_paths(app)
     assert "/api/marketplace/listings" in routes
     assert "/api/organizations" in routes
 
@@ -462,7 +466,9 @@ def test_cross_feature_traces_exist_for_runs():
     """18.4 — Traces endpoint exists alongside runs."""
     from app.main import app
 
-    routes = [r.path for r in app.routes]
+    from tests.route_utils import app_route_paths
+
+    routes = app_route_paths(app)
     assert "/api/traces" in routes
     assert "/api/runs" in routes
     assert "/api/traces/stats" in routes

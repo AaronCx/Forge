@@ -131,7 +131,7 @@ class TestPromptInjectionBlueprints:
             execute_template_renderer,
         )
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             execute_template_renderer(
                 {"template": "Hello {{name}}, {{__import__('os').system('ls')}}"},
                 {"name": "World"},
@@ -346,7 +346,7 @@ class TestAuthSecurity:
         from app.routers.auth import get_current_user
 
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 get_current_user("InvalidTokenNoBearer")
             )
         assert exc_info.value.status_code == 401
@@ -363,7 +363,7 @@ class TestAuthSecurity:
         with patch("app.db._db") as mock_sb:
             mock_sb.auth.get_user.side_effect = Exception("Invalid token")
             with pytest.raises(HTTPException) as exc_info:
-                asyncio.get_event_loop().run_until_complete(
+                asyncio.run(
                     get_current_user("Bearer ")
                 )
             assert exc_info.value.status_code == 401
@@ -990,7 +990,7 @@ class TestSecretsExposure:
 
         from app.main import health
 
-        result = asyncio.get_event_loop().run_until_complete(health())
+        result = asyncio.run(health())
         assert "key" not in str(result).lower()
         assert "secret" not in str(result).lower()
         assert "password" not in str(result).lower()
@@ -1001,7 +1001,7 @@ class TestSecretsExposure:
 
         from app.main import root
 
-        result = asyncio.get_event_loop().run_until_complete(root())
+        result = asyncio.run(root())
         assert "key" not in str(result).lower()
         assert "secret" not in str(result).lower()
 
@@ -1206,10 +1206,11 @@ class TestInjectionSurface:
             "/api/marketplace/listings/{listing_id}/forks",
         }
 
-        for route in app.routes:
+        from tests.route_utils import iter_app_routes
+
+        for path, route in iter_app_routes(app):
             if not hasattr(route, "methods"):
                 continue
-            path = getattr(route, "path", "")
             methods = getattr(route, "methods", set())
 
             # Skip public/read routes
