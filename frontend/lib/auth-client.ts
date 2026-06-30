@@ -27,10 +27,21 @@ export interface AuthUser {
  */
 export async function getToken(): Promise<string | null> {
   if (isSupabaseMode) {
-    // Use Supabase client
+    // getSession returns { data, error }. A genuine logout yields null with NO
+    // error, but a transient error (network blip) also left data.session null —
+    // which callers treat as logged-out and silently skip data loads. Retry once
+    // on an error; only give up (null) after the retry also fails.
     const { supabase } = await import("@/lib/supabase");
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase.auth.getSession();
+      if (!error) return data.session?.access_token ?? null;
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      console.warn("getToken: could not read Supabase session", error);
+    }
+    return null;
   }
 
   // Local mode — token in localStorage
