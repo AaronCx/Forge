@@ -8,7 +8,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-FROM node:20-alpine AS runner
+FROM node:26-alpine AS runner
 
 WORKDIR /app
 
