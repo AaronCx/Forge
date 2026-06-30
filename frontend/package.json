@@ -62,7 +62,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^8",
     "eslint-config-next": "15.5.15",
     "jsdom": "^28.1.0",
