@@ -16,7 +16,7 @@ anthropic==0.115.0
 tiktoken==0.13.0
 croniter==5.0.1
 # Database backends (SQLite is default, Supabase is optional)
-aiosqlite>=0.20.0
+aiosqlite>=0.22.1
 PyJWT>=2.13.0
 bcrypt>=5.0.0
 # Provider API key encryption at rest (FORGE_ENCRYPTION_KEY)
