@@ -14,7 +14,7 @@ python-docx==1.2.0
 slowapi==0.1.10
 anthropic==0.115.0
 tiktoken==0.13.0
-croniter==5.0.1
+croniter==6.2.3
 # Database backends (SQLite is default, Supabase is optional)
 aiosqlite>=0.20.0
 PyJWT>=2.13.0
