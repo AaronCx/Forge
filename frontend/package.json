@@ -49,7 +49,7 @@
     "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
     "lucide-react": "^1.21.0",
-    "next": "15.5.18",
+    "next": "16.2.10",
     "react": "^18",
     "react-dom": "^18",
     "shadcn": "^4.0.2",
