@@ -45,8 +45,8 @@ def test_code_executor_ast_blocks_dangerous_code_any_backend(monkeypatch):
 
     # Even with the docker backend selected, the AST allowlist runs first.
     monkeypatch.setenv("FORGE_CODE_EXEC_BACKEND", "docker")
-    assert "Blocked" in code_executor.invoke("import os; os.system('id')")
-    assert "Blocked" in code_executor.invoke("__import__('os').system('ls')")
+    assert "Blocked" in code_executor("import os; os.system('id')")
+    assert "Blocked" in code_executor("__import__('os').system('ls')")
 
 
 def test_code_executor_falls_back_to_ast_when_docker_unavailable(monkeypatch):
@@ -54,7 +54,7 @@ def test_code_executor_falls_back_to_ast_when_docker_unavailable(monkeypatch):
 
     monkeypatch.setenv("FORGE_CODE_EXEC_BACKEND", "docker")
     with patch.object(mod, "_docker_available", return_value=False):
-        out = mod.code_executor.invoke("print(6 * 7)")
+        out = mod.code_executor("print(6 * 7)")
     assert "42" in out
 
 
@@ -66,7 +66,7 @@ def test_code_executor_uses_docker_when_available(monkeypatch):
         patch.object(mod, "_docker_available", return_value=True),
         patch.object(mod, "_run_docker", return_value="docker-ran") as docker,
     ):
-        out = mod.code_executor.invoke("print(1)")
+        out = mod.code_executor("print(1)")
     assert out == "docker-ran"
     docker.assert_called_once()
 

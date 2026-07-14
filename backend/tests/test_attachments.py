@@ -13,7 +13,7 @@ import pytest
 from docx import Document
 
 from app.models.attachment import Attachment, RunRequest
-from app.services.agent_executor import AgentRunner, _is_vision_capable
+from app.services.agent_executor import AgentRunner, _model_supports_vision
 from app.services.extract import extract_text
 
 # --- Shared extractor ---------------------------------------------------------
@@ -74,12 +74,12 @@ async def test_extract_text_rejects_unsupported_scheme():
 
 
 def test_vision_capable_detection():
-    assert _is_vision_capable("gpt-4o")
-    assert _is_vision_capable("gpt-4o-mini")
-    assert _is_vision_capable("gpt-4-turbo")
-    assert not _is_vision_capable("gpt-3.5-turbo")
-    assert not _is_vision_capable("ollama/llama3.2:3b")
-    assert not _is_vision_capable(None)
+    assert _model_supports_vision("gpt-4o")
+    assert _model_supports_vision("gpt-4o-mini")
+    assert _model_supports_vision("gpt-4-turbo")
+    assert not _model_supports_vision("gpt-3.5-turbo")
+    assert not _model_supports_vision("ollama/llama3.2:3b")
+    assert not _model_supports_vision(None)
 
 
 # --- Attachment preparation ---------------------------------------------------

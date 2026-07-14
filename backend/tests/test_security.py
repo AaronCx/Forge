@@ -70,7 +70,7 @@ class TestPromptInjectionAgents:
         # Verify _execute_step builds messages with correct roles
         import inspect
 
-        source = inspect.getsource(runner._execute_step)
+        source = inspect.getsource(runner._model_call)
         assert '"role": "system"' in source or "'role': 'system'" in source
         assert '"role": "user"' in source or "'role': 'user'" in source
 
@@ -459,7 +459,7 @@ class TestDataExfiltration:
 
         from app.services.agent_executor import AgentRunner
 
-        source = inspect.getsource(AgentRunner.execute)
+        source = inspect.getsource(AgentRunner._execute_native)
         assert "[:500]" in source
 
     def test_blueprint_output_preview_bounded(self):
@@ -829,7 +829,7 @@ class TestDoS:
         """14.8 Code executor has 10KB size limit."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("x" * 10001)
+        result = code_executor("x" * 10001)
         assert "Blocked" in result or "exceeds" in result
 
     def test_code_executor_timeout(self):
@@ -1111,70 +1111,70 @@ class TestInjectionSurface:
         """19.1 Code executor blocks os.system."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("import os; os.system('whoami')")
+        result = code_executor("import os; os.system('whoami')")
         assert "Blocked" in result
 
     def test_code_executor_blocks_subprocess(self):
         """19.2 Code executor blocks subprocess."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("import subprocess; subprocess.run(['ls'])")
+        result = code_executor("import subprocess; subprocess.run(['ls'])")
         assert "Blocked" in result
 
     def test_code_executor_blocks_eval(self):
         """19.3 Code executor blocks eval."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("eval('__import__(\"os\").system(\"ls\")')")
+        result = code_executor("eval('__import__(\"os\").system(\"ls\")')")
         assert "Blocked" in result
 
     def test_code_executor_blocks_exec(self):
         """19.4 Code executor blocks exec."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("exec('import os')")
+        result = code_executor("exec('import os')")
         assert "Blocked" in result
 
     def test_code_executor_blocks_dunder_import(self):
         """19.5 Code executor blocks __import__."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("__import__('os')")
+        result = code_executor("__import__('os')")
         assert "Blocked" in result
 
     def test_code_executor_blocks_open(self):
         """19.6 Code executor blocks open()."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("open('/etc/passwd').read()")
+        result = code_executor("open('/etc/passwd').read()")
         assert "Blocked" in result
 
     def test_code_executor_blocks_socket(self):
         """19.7 Code executor blocks socket."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("import socket; socket.socket()")
+        result = code_executor("import socket; socket.socket()")
         assert "Blocked" in result
 
     def test_code_executor_blocks_base64_bypass(self):
         """19.8 Code executor blocks base64 decode attempts."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("import base64; exec(base64.b64decode('...'))")
+        result = code_executor("import base64; exec(base64.b64decode('...'))")
         assert "Blocked" in result
 
     def test_code_executor_blocks_pickle(self):
         """19.9 Code executor blocks pickle."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("import pickle")
+        result = code_executor("import pickle")
         assert "Blocked" in result
 
     def test_code_executor_blocks_breakpoint(self):
         """19.10 Code executor blocks breakpoint()."""
         from app.services.tools.code_executor import code_executor
 
-        result = code_executor.invoke("breakpoint()")
+        result = code_executor("breakpoint()")
         assert "Blocked" in result
 
     def test_supabase_orm_used_everywhere(self):

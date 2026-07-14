@@ -21,7 +21,7 @@ AGENT_CONFIG = {
 }
 
 
-async def _fake_step(self, system_prompt, step, user_input, context, *, model=None, image_blocks=None):
+async def _fake_step(self, system_prompt, step, user_input, context, model=None, image_blocks=None):
     _fake_step.captured = system_prompt  # type: ignore[attr-defined]
     return {"content": "ok", "tokens": 0, "input_tokens": 0, "output_tokens": 0,
             "latency_ms": 0, "model": model, "provider": "ollama"}
@@ -31,7 +31,7 @@ async def _fake_step(self, system_prompt, step, user_input, context, *, model=No
 async def test_runner_injects_custom_instructions():
     runner = AgentRunner(user_id="u1")
     with patch("app.services.tailoring.load_custom_instructions", return_value="I work in Rust, prefer terse output."), \
-         patch.object(AgentRunner, "_execute_step", new=_fake_step):
+         patch.object(AgentRunner, "_model_call", new=_fake_step):
         async for _ in runner.execute(AGENT_CONFIG, "hi", user_id="u1"):
             pass
 
@@ -44,7 +44,7 @@ async def test_runner_injects_custom_instructions():
 async def test_runner_no_block_when_instructions_empty():
     runner = AgentRunner(user_id="u1")
     with patch("app.services.tailoring.load_custom_instructions", return_value=""), \
-         patch.object(AgentRunner, "_execute_step", new=_fake_step):
+         patch.object(AgentRunner, "_model_call", new=_fake_step):
         async for _ in runner.execute(AGENT_CONFIG, "hi", user_id="u1"):
             pass
 
