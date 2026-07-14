@@ -101,6 +101,49 @@ def models_list(
     console.print(table)
 
 
+@models_app.command("cards")
+def models_cards():
+    """Show model cards (data-driven capabilities) merged with your overrides."""
+    try:
+        cards = client.get("/api/providers/model-cards")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not cards:
+        console.print("[dim]No model cards available.[/dim]")
+        return
+
+    table = Table(title="Model Cards")
+    table.add_column("Model ID", style="bold")
+    table.add_column("Provider")
+    table.add_column("Context", justify="right")
+    table.add_column("Vision")
+    table.add_column("Tools")
+    table.add_column("Thinking")
+    for c in cards:
+        table.add_row(
+            c["id"],
+            c["provider"],
+            f"{c['context_window']:,}",
+            "Yes" if c.get("vision") else "No",
+            "Yes" if c.get("tools") else "No",
+            "Yes" if c.get("thinking") else "No",
+        )
+    console.print(table)
+
+
+@models_app.command("refresh")
+def models_refresh():
+    """Pull each configured provider's live model list into your model cards."""
+    try:
+        cards = client.post("/api/providers/models/refresh")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[green]Refreshed model cards.[/green] {len(cards)} models known.")
+
+
 @models_app.command("health")
 def models_health():
     """Check health of all configured providers."""

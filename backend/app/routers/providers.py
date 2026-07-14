@@ -256,6 +256,41 @@ async def list_provider_models(
     ]
 
 
+# --- Model cards (data-driven model knowledge, harness-plan.md Phase 1) ---
+
+
+class ModelCardResponse(BaseModel):
+    id: str
+    provider: str
+    display_name: str
+    context_window: int
+    max_output: int
+    vision: bool
+    tools: bool
+    thinking: bool
+    family: str
+    input_price_per_1m: float | None = None
+    output_price_per_1m: float | None = None
+
+
+@router.get("/providers/model-cards", response_model=list[ModelCardResponse])
+async def list_model_cards(user=Depends(get_current_user)):  # noqa: B008
+    """Bundled model cards merged with this user's stored overrides."""
+    from app.services.model_cards import get_user_model_cards
+
+    cards = await get_user_model_cards(user.id)
+    return [ModelCardResponse(**c.to_dict()) for c in cards]
+
+
+@router.post("/providers/models/refresh", response_model=list[ModelCardResponse])
+async def refresh_model_cards(user=Depends(get_current_user)):  # noqa: B008
+    """Pull each configured provider's live model list into per-user overrides."""
+    from app.services.model_cards import refresh_user_model_cards
+
+    cards = await refresh_user_model_cards(user.id)
+    return [ModelCardResponse(**c.to_dict()) for c in cards]
+
+
 # --- Health ---
 
 
