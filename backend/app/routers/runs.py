@@ -149,6 +149,12 @@ async def run_agent(
                 elif event.get("type") == "tool_call":
                     yield f"data: {json.dumps({'type': 'tool_call', 'data': event})}\n\n"
 
+                elif event.get("type") in ("tool_use", "tool_result", "thinking", "usage"):
+                    # Rich kernel-loop events (harness-plan.md Phase 4). Forwarded
+                    # verbatim; the frontend renders them when present, ignores
+                    # them otherwise.
+                    yield f"data: {json.dumps({'type': event['type'], 'data': event})}\n\n"
+
                 total_tokens += event.get("tokens", 0)
 
             duration_ms = int((time.time() - start_time) * 1000)

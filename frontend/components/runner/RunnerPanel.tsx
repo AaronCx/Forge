@@ -104,6 +104,20 @@ export function RunnerPanel({ agent }: RunnerPanelProps) {
                 ...prev,
                 { type: "tool", data: `Tool: ${event.data?.tool || "unknown"}` },
               ]);
+            } else if (event.type === "tool_use") {
+              // Kernel-loop event (Phase 4): the model requested a tool.
+              setLogs((prev) => [
+                ...prev,
+                { type: "tool", data: `→ ${event.data?.name || "tool"}` },
+              ]);
+            } else if (event.type === "tool_result") {
+              const status = event.data?.is_error ? "✗" : "✓";
+              setLogs((prev) => [
+                ...prev,
+                { type: "tool", data: `${status} ${event.data?.tool || "tool"}` },
+              ]);
+            } else if (event.type === "thinking") {
+              setLogs((prev) => [...prev, { type: "step", data: "thinking…" }]);
             } else if (event.type === "error") {
               setError(event.data);
             } else if (event.type === "done") {
