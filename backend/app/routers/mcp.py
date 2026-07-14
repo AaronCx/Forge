@@ -23,6 +23,17 @@ class MCPConnectRequest(BaseModel):
     server_url: str = Field(..., min_length=1)
 
 
+class MCPConnectV2Request(BaseModel):
+    """Create a real-MCP (JSON-RPC 2.0) connection over stdio or http."""
+
+    name: str = Field(..., min_length=1, max_length=200)
+    transport: str = Field(..., pattern="^(stdio|http)$")
+    command: str = ""
+    args: list[str] = Field(default_factory=list)
+    url: str = ""
+    oauth: dict[str, Any] = Field(default_factory=dict)
+
+
 class MCPConnectionResponse(BaseModel):
     id: str
     name: str
@@ -73,6 +84,51 @@ async def connect_mcp_server(
         "last_connected_at": datetime.now(UTC).isoformat(),
     }
 
+    result = get_db().table("mcp_connections").insert(row).execute()
+    return result.data[0] if result.data else row
+
+
+@router.post("/mcp/connect-v2")
+async def connect_mcp_server_v2(
+    req: MCPConnectV2Request, user: Any = Depends(get_current_user)  # noqa: B008
+) -> dict[str, Any]:
+    """Add a real-MCP server (stdio or Streamable HTTP) and discover its tools."""
+    from app.mcp.client_v2 import MCPServerConfig, list_tools
+
+    if req.transport == "http":
+        try:
+            validate_url(req.url)
+        except SSRFError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    elif not req.command:
+        raise HTTPException(status_code=400, detail="stdio transport requires a command")
+
+    config = MCPServerConfig(
+        transport=req.transport, command=req.command, args=req.args,
+        url=req.url, oauth=req.oauth, server_name=req.name,
+    )
+    try:
+        tools = await list_tools(config)
+    except Exception as exc:  # noqa: BLE001 - surface a clean 400
+        raise HTTPException(status_code=400, detail=f"MCP connect failed: {exc}") from exc
+
+    tools_json = [
+        {"name": t.name, "description": t.description, "input_schema": t.input_schema}
+        for t in tools
+    ]
+    row = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.id,
+        "name": req.name,
+        "server_url": req.url,
+        "status": "connected",
+        "transport": req.transport,
+        "command": req.command,
+        "args_json": req.args,
+        "oauth_json": req.oauth,
+        "tools_discovered": tools_json,
+        "last_connected_at": datetime.now(UTC).isoformat(),
+    }
     result = get_db().table("mcp_connections").insert(row).execute()
     return result.data[0] if result.data else row
 
