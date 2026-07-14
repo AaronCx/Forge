@@ -15,10 +15,13 @@ import os
 _TRUTHY = {"1", "true", "yes", "on"}
 
 # Flag name -> default when the env var is unset.
+# Phase 8 (cutover) flipped these on: the native loop is now the only stack, and
+# sessions/MCP-v2 are the supported surfaces. Set the env var to a falsy value to
+# opt out on a given install.
 _DEFAULTS: dict[str, bool] = {
-    "FORGE_NATIVE_LOOP": False,
-    "FORGE_MCP_V2": False,
-    "FORGE_SESSIONS": False,
+    "FORGE_NATIVE_LOOP": True,
+    "FORGE_MCP_V2": True,
+    "FORGE_SESSIONS": True,
 }
 
 
