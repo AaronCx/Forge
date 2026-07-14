@@ -22,6 +22,7 @@ import {
   GitBranch,
   Key,
   LayoutDashboard,
+  MessageSquare,
   ListChecks,
   Menu,
   Play,
@@ -50,7 +51,10 @@ type NavGroup = {
 const NAV_GROUPS: NavGroup[] = [
   {
     label: null,
-    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Chat", href: "/dashboard/chat", icon: MessageSquare },
+    ],
   },
   {
     label: "Studio",

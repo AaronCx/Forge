@@ -744,6 +744,36 @@ CREATE TABLE IF NOT EXISTS run_forks (
 CREATE INDEX IF NOT EXISTS idx_run_forks_parent ON run_forks(parent_run_id);
 CREATE INDEX IF NOT EXISTS idx_run_forks_child  ON run_forks(child_run_id);
 CREATE INDEX IF NOT EXISTS idx_run_forks_user   ON run_forks(user_id);
+
+-- ===================== 20260714_sessions (harness-plan.md Phase 6) =====================
+-- Durable conversations. session_events is an append-only log of kernel
+-- messages and tool records. Compaction is reversible (originals are kept).
+CREATE TABLE IF NOT EXISTS sessions (
+    id             TEXT PRIMARY KEY,
+    user_id        TEXT NOT NULL,
+    title          TEXT DEFAULT '',
+    model          TEXT DEFAULT '',
+    workspace_root TEXT DEFAULT '',
+    system_prompt  TEXT DEFAULT '',
+    policy_json    TEXT DEFAULT '{}',
+    token_budget   INTEGER DEFAULT 0,
+    status         TEXT DEFAULT 'active',
+    created_at     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, updated_at);
+
+CREATE TABLE IF NOT EXISTS session_events (
+    id           TEXT PRIMARY KEY,
+    session_id   TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    seq          INTEGER NOT NULL,
+    kind         TEXT NOT NULL,
+    payload_json TEXT DEFAULT '{}',
+    created_at   TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_events_session ON session_events(session_id, seq);
 """
 
 # ---------------------------------------------------------------------------
@@ -776,6 +806,8 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "workspaces":              {"settings"},
     "run_events":              {"payload"},
     "run_forks":               {"edits"},
+    "sessions":                {"policy_json"},
+    "session_events":          {"payload_json"},
 }
 
 # ---------------------------------------------------------------------------
@@ -841,6 +873,7 @@ FK_MAP: dict[tuple[str, str], tuple[str, str]] = {
     ("run_events", "runs"):                       ("run_id", "id"),
     # run_forks has two FKs to runs (parent_run_id, child_run_id); store parent as primary.
     ("run_forks", "runs"):                        ("parent_run_id", "id"),
+    ("session_events", "sessions"):               ("session_id", "id"),
 }
 
 

@@ -16,6 +16,14 @@ Build AI-powered workflows that chain LLM reasoning with deterministic logic, au
 
 ## Features
 
+### Chat & Sessions
+Durable, resumable conversations with any model and the full tool plane available
+(`dashboard/chat`, `forge chat`, or headless `forge agent run --json`). Switch
+models mid-thread, and long threads are compacted automatically (the oldest span
+is summarized into a pinned note while the originals are kept, so it is
+reversible). When a session has a workspace root, its `AGENTS.md` (falling back
+to `CLAUDE.md`) is injected into the system prompt.
+
 ### Visual Blueprint System
 Drag-and-drop DAG workflow builder with 44 node types across 9 categories. Topological execution engine with concurrent layer resolution, context assembly with token budgets, retry policies, and SSE-streamed execution traces.
 
