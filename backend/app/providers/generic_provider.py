@@ -104,6 +104,39 @@ class GenericOpenAIProvider(LLMProvider):
                 provider=self.provider_name,
             )
 
+    async def turn(
+        self,
+        messages: list[Any],
+        model: str,
+        *,
+        tools: list[Any] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> Any:
+        from app.providers.kernel_bridge import openai_style_turn
+
+        return await openai_style_turn(
+            self.client, self.provider_name, messages, model,
+            tools=tools, temperature=temperature, max_tokens=max_tokens,
+        )
+
+    async def stream_turn(
+        self,
+        messages: list[Any],
+        model: str,
+        *,
+        tools: list[Any] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> AsyncIterator[Any]:
+        from app.providers.kernel_bridge import openai_style_stream_turn
+
+        async for ev in openai_style_stream_turn(
+            self.client, self.provider_name, messages, model,
+            tools=tools, temperature=temperature, max_tokens=max_tokens,
+        ):
+            yield ev
+
     async def count_tokens(self, text: str, model: str) -> int:
         return len(text) // 4
 
