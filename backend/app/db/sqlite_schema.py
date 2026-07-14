@@ -495,6 +495,12 @@ CREATE TABLE IF NOT EXISTS mcp_connections (
     server_url        TEXT NOT NULL,
     status            TEXT DEFAULT 'disconnected',
     tools_discovered  TEXT DEFAULT '[]',
+    -- Real MCP transport (harness-plan.md Phase 5). Existing rows default to
+    -- 'legacy' and keep using the old REST client. New rows use stdio or http.
+    transport         TEXT DEFAULT 'legacy',
+    command           TEXT DEFAULT '',
+    args_json         TEXT DEFAULT '[]',
+    oauth_json        TEXT DEFAULT '{}',
     created_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     last_connected_at TEXT,
     UNIQUE(user_id, name)
@@ -761,7 +767,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "knowledge_chunks":        {"embedding", "metadata"},
     "organizations":           {"settings"},
     "marketplace_listings":    {"tags", "metadata"},
-    "mcp_connections":         {"tools_discovered"},
+    "mcp_connections":         {"tools_discovered", "args_json", "oauth_json"},
     "triggers":                {"config"},
     "trigger_history":         {"payload"},
     "comparison_runs":         {"models", "results"},
@@ -854,4 +860,9 @@ COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("user_preferences", "getting_started_dismissed", "INTEGER DEFAULT 0"),
     # harness-plan.md Phase 1 — per-user model card overrides
     ("provider_configs", "model_overrides", "TEXT DEFAULT '[]'"),
+    # harness-plan.md Phase 5 — real MCP transport columns
+    ("mcp_connections", "transport", "TEXT DEFAULT 'legacy'"),
+    ("mcp_connections", "command", "TEXT DEFAULT ''"),
+    ("mcp_connections", "args_json", "TEXT DEFAULT '[]'"),
+    ("mcp_connections", "oauth_json", "TEXT DEFAULT '{}'"),
 ]

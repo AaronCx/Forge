@@ -25,3 +25,6 @@ cryptography>=42.0.0
 watchdog>=6.0.0
 # Optional: Supabase backend (install with: pip install supabase)
 supabase==2.31.0
+# Real MCP (Model Context Protocol) client + server — JSON-RPC 2.0 over
+# stdio/Streamable HTTP (harness-plan.md Phase 5).
+mcp==1.28.1
