@@ -25,18 +25,30 @@ if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
 
-def collect_routes() -> list[str]:
-    from fastapi.routing import APIRoute, APIWebSocketRoute
+def _websocket_routes(routes: object, out: list[str]) -> None:
+    """Recursively collect WebSocket routes (FastAPI 0.138 nests included routers)."""
+    from fastapi.routing import APIWebSocketRoute
 
+    for route in routes or []:  # type: ignore[union-attr]
+        if isinstance(route, APIWebSocketRoute):
+            out.append(f"{'WEBSOCKET':<12} {route.path}")
+        nested = getattr(route, "original_router", None)
+        if nested is not None:
+            _websocket_routes(getattr(nested, "routes", []), out)
+
+
+def collect_routes() -> list[str]:
     from app.main import app
 
     lines: list[str] = []
-    for route in app.routes:
-        if isinstance(route, APIRoute):
-            methods = ",".join(sorted(m for m in route.methods if m != "HEAD"))
-            lines.append(f"{methods:<12} {route.path}")
-        elif isinstance(route, APIWebSocketRoute):
-            lines.append(f"{'WEBSOCKET':<12} {route.path}")
+    # HTTP routes from the OpenAPI schema — stable across FastAPI's internal
+    # routing changes (0.138 includes routers lazily, so app.routes no longer
+    # flattens them).
+    for path, methods in app.openapi().get("paths", {}).items():
+        verbs = sorted(m.upper() for m in methods if m.upper() != "HEAD")
+        if verbs:
+            lines.append(f"{','.join(verbs):<12} {path}")
+    _websocket_routes(app.routes, lines)
     return sorted(set(lines))
 
 

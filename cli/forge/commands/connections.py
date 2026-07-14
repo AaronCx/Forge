@@ -238,6 +238,32 @@ def mcp_connect(
         raise typer.Exit(1)
 
 
+@mcp_app.command("add")
+def mcp_add(
+    name: str = typer.Option(..., "--name", "-n", help="Connection name"),
+    transport: str = typer.Option("stdio", "--transport", "-t", help="stdio or http"),
+    command: str = typer.Option("", "--command", "-c", help="stdio: command to run"),
+    args: list[str] = typer.Option([], "--arg", "-a", help="stdio: command arg (repeatable)"),
+    url: str = typer.Option("", "--url", "-u", help="http: server URL"),
+    token: str = typer.Option("", "--token", help="http: OAuth bearer token"),
+):
+    """Add a real MCP server (JSON-RPC 2.0) over stdio or Streamable HTTP."""
+    body: dict = {"name": name, "transport": transport, "command": command,
+                  "args": list(args), "url": url}
+    if token:
+        body["oauth"] = {"access_token": token}
+    try:
+        result = client.post("/api/mcp/connect-v2", json=body)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+    tools = result.get("tools_discovered", [])
+    console.print(f"[green]Connected to {result['name']} ({transport})[/green]")
+    console.print(f"  Tools discovered: {len(tools)}")
+    for t in tools[:10]:
+        console.print(f"    - {t['name']}: {t.get('description', '')[:60]}")
+
+
 @mcp_app.command("list")
 def mcp_list():
     """List MCP server connections."""

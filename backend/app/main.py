@@ -87,6 +87,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await seed_blueprint_templates(get_db())
     except Exception:
         logger.warning("Failed to seed blueprint templates", exc_info=True)
+    # Register the real-MCP tool source onto the shared plane (harness-plan.md
+    # Phase 5). No-op until FORGE_MCP_V2 is on and a user has stdio/http servers.
+    try:
+        from app.kernel.toolplane import tool_plane
+        from app.mcp.plane_source import register_on
+
+        register_on(tool_plane)
+    except Exception:
+        logger.warning("Failed to register MCP tool source", exc_info=True)
+
     # Initialize file watcher event loop
     import asyncio
     watcher_manager.set_event_loop(asyncio.get_running_loop())
