@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Harness transformation (Phase 0 — Safety net).** Golden-snapshot parity suite
+  (`backend/tests/parity/`) that freezes the current output of all 44 node types
+  and the `AgentRunner.execute` SSE event stream, so later harness-transformation
+  phases can prove they changed nothing they should not have. Adds `FakeProvider`
+  (`backend/app/providers/fake_provider.py`), a deterministic `LLMProvider` test
+  double; `make parity`; a `scripts/dump_api.py` → `docs/api-surface.txt` route
+  snapshot (159 routes); and a CI parity step. See `docs/harness-plan.md`.
+
 ## [2.2.0] - 2026-03-23
 
 ### Changed
