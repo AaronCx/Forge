@@ -21,6 +21,9 @@ class PreferencesUpdate(BaseModel):
     custom_instructions: str | None = None
     onboarded_at: str | None = None
     getting_started_dismissed: bool | None = None
+    # harness-plan.md Phase 7 — cost controls + provider fallback policy.
+    daily_budget_usd: float | None = None
+    fallback_policy_json: dict | None = None
 
 
 def _get_or_create(user_id: str) -> dict:

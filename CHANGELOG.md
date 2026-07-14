@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 7 — Hardening and platform).** Code execution
+  gains a Docker backend (`--network none`, read-only rootfs, tmpfs workdir,
+  mem/CPU/pids limits, `no-new-privileges`) selected by `FORGE_CODE_EXEC_BACKEND`
+  with the AST sandbox kept as fallback and run first as defense in depth.
+  Per-user **daily cost budgets** (`user_preferences.daily_budget_usd` or
+  `FORGE_DAILY_USD_BUDGET`) enforced before a session turn and surfaced at
+  `GET /api/costs/budget`. The `FallbackPolicy` is now storable per user
+  (settings API). Session endpoints are rate-limited. Red-team security tests
+  cover MCP-output fencing, dangerous-tool approval gating, and `node.fetch_url`
+  SSRF. The kernel is extracted as **`forge-kernel`** — a zero-dependency pip
+  package (types, model cards, converters, loop) with a ~30-line standalone-agent
+  demo.
 - **Harness transformation (Phase 6 — Sessions and the seamless surface).**
   Durable, resumable conversations: additive `sessions` + `session_events`
   tables (both backends), `services/sessions.py` (create/resume/list/fork +

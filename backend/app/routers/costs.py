@@ -19,6 +19,20 @@ async def cost_summary(
     return token_tracker.get_summary(user.id, period)
 
 
+@router.get("/costs/budget")
+async def cost_budget(user=Depends(get_current_user)):  # noqa: B008
+    """The user's daily budget status (harness-plan.md Phase 7)."""
+    from app.services.budgets import check_user_budget
+
+    status = check_user_budget(user.id)
+    return {
+        "spent_usd": status.spent_usd,
+        "limit_usd": status.limit_usd,
+        "within_budget": status.within_budget,
+        "remaining_usd": None if status.limit_usd == 0 else round(status.remaining_usd, 6),
+    }
+
+
 @router.get("/costs/breakdown")
 async def cost_breakdown(
     user=Depends(get_current_user),  # noqa: B008

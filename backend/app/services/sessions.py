@@ -277,6 +277,18 @@ async def run_turn(
         yield {"type": "error", "data": "Session not found"}
         return
 
+    # Enforce the per-user daily cost budget before spending anything.
+    from app.services.budgets import check_user_budget
+
+    budget_status = check_user_budget(user_id)
+    if not budget_status.within_budget:
+        yield {"type": "error", "data": (
+            f"Daily budget of ${budget_status.limit_usd:.2f} reached "
+            f"(${budget_status.spent_usd:.2f} spent today)."
+        )}
+        yield {"type": "done", "session_id": session_id}
+        return
+
     if model_override and model_override != session.get("model"):
         update_session(session_id, user_id, {"model": model_override})
         session["model"] = model_override
