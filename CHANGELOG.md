@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0] - 2026-07-14
+
+The **harness transformation**: Forge is now a provider-neutral agent harness.
+Every model call goes through the Forge kernel and provider registry; every
+capability is a tool behind one permission policy; conversations are durable
+sessions; and Forge speaks real MCP in both directions.
+
+### Changed
+
+- **Cutover to a single stack (Phase 8).** The Forge-native kernel loop, real
+  MCP, and durable sessions are now the default (`FORGE_NATIVE_LOOP`,
+  `FORGE_MCP_V2`, `FORGE_SESSIONS` default on; set a falsy env var to opt out).
+
+### Removed
+
+- **LangChain / LangGraph** are gone. The agent tool loop runs on the kernel and
+  ToolPlane; the five builtin tools are plain functions; knowledge chunking uses
+  a small built-in recursive splitter; the `ChatOpenAI` client and `get_user_llm`
+  are replaced by the provider registry (`get_user_provider_key`). `ANTHROPIC_MODELS`
+  and `_VISION_MODEL_HINTS` are replaced by data-driven `ModelCard`s.
 
 ### Added
 

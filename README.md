@@ -4,10 +4,10 @@
 
 Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 44 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming. Runs fully local with SQLite (zero external accounts) or scales to cloud with Supabase.
 
-![Version](https://img.shields.io/badge/version-2.1.0-blue)
-![Tests](https://img.shields.io/badge/tests-641_passing-brightgreen)
-![Next.js](https://img.shields.io/badge/Next.js-14-black)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal)
+![Version](https://img.shields.io/badge/version-3.0.0-blue)
+![Tests](https://img.shields.io/badge/tests-928_passing-brightgreen)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.138-teal)
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -64,8 +64,8 @@ Test agent outputs with grading methods: exact_match, contains, json_schema, scr
 ### Human-in-the-Loop
 `approval_gate` blueprint node pauses execution for human review. Approve/reject with inbox UI and CLI.
 
-### MCP Integration
-Model Context Protocol connection management. Agents dynamically discover and use tools from connected MCP servers.
+### MCP (both directions)
+Real Model Context Protocol (JSON-RPC 2.0) via the official SDK. **As a client**, agents discover and use tools from stdio or Streamable HTTP MCP servers (`mcp.<server>.<tool>`, outputs fenced as untrusted data). **As a server**, Forge exposes its tool plane to any MCP client such as Claude Code or Codex — see [docs/mcp-server.md](docs/mcp-server.md).
 
 ### Observability + Prompt Versioning
 Distributed trace recording for all executions. Version prompts like code — diff, rollback, and measure how changes affect output quality.
@@ -74,27 +74,33 @@ Distributed trace recording for all executions. Version prompts like code — di
 Publish, browse, fork, and rate blueprints. Organization support with member RBAC.
 
 ### Workspace IDE
-Integrated development environment with CodeMirror 6 web editor, file tree, editor tabs, integrated terminal (xterm.js), and agent activity panel. Real-time file sync via WebSocket — when an agent modifies a file, you see it instantly. Workspace blueprint nodes (workspace_read, workspace_write, workspace_list, workspace_search) let agents operate directly on your files.
+Integrated development environment with CodeMirror 6 web editor, file tree, editor tabs, integrated terminal (xterm.js), and agent activity panel. Real-time file sync via WebSocket — when an agent modifies a file, you see it instantly. Agents operate directly on your files through the tool plane's `workspace.read/write/list/search` tools.
+
+### Tool Plane
+Every Forge capability — the 44 blueprint nodes (`node.<key>`), saved blueprints (`blueprint.<slug>`), computer-use actions (`cu.<action>`), workspace ops (`workspace.<op>`), agent control (`agent.<op>`), and discovered MCP tools (`mcp.<server>.<tool>`) — is a callable tool behind one permission policy (allow / ask / deny by `danger_level`, per-user overrides, approvals inbox). Agents call your features seamlessly; the native kernel loop drives them on any provider.
 
 ### Live Dashboard + CLI
 Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytics. CLI-first experience with 35+ command groups covering the full platform — no browser required.
 
 ---
 
-## Node Types (48)
+## Node Types (44)
 
 | Category | Count | Nodes |
 |----------|-------|-------|
 | Context | 3 | fetch_url, fetch_document, knowledge_retrieval |
 | Transform | 2 | text_splitter, template_renderer |
-| Validate | 3 | json_validator, run_linter, approval_gate |
-| Output | 2 | output_formatter, chunker |
-| Agent (LLM) | 5 | llm_summarize, llm_extract, llm_generate, llm_review, llm_classify |
+| Validate | 2 | json_validator, run_linter |
+| Output | 3 | output_formatter, webhook, approval_gate |
+| Agent (LLM) | 5 | llm_generate, llm_summarize, llm_extract, llm_review, llm_implement |
 | GUI (Steer) | 13 | steer_see, steer_ocr, steer_click, steer_type, steer_hotkey, steer_scroll, steer_drag, steer_focus, steer_find, steer_wait, steer_clipboard, steer_apps, recording_control |
 | Terminal (Drive) | 6 | drive_session, drive_run, drive_send, drive_logs, drive_poll, drive_fanout |
 | CU Agent | 4 | cu_planner, cu_analyzer, cu_verifier, cu_error_handler |
 | Agent Control | 6 | agent_spawn, agent_prompt, agent_monitor, agent_wait, agent_stop, agent_result |
-| Workspace | 4 | workspace_read, workspace_write, workspace_list, workspace_search |
+
+Every node is also callable directly as a `node.<key>` tool through the
+[tool plane](#tool-plane); workspace file operations are available there as
+`workspace.read/write/list/search`.
 
 ---
 
@@ -102,7 +108,7 @@ Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytic
 
 ```mermaid
 graph TB
-    subgraph Frontend["Frontend (Next.js 14)"]
+    subgraph Frontend["Frontend (Next.js 15)"]
         UI[React UI + shadcn/ui]
         Auth[Supabase Auth]
         SSE[SSE Client]
@@ -132,6 +138,7 @@ graph TB
         OpenAI[OpenAI API]
         Anthropic[Anthropic API]
         Google[Google AI]
+        Ollama[Ollama / local]
         Supabase[(Supabase DB)]
         MCP[MCP Servers]
     end
@@ -154,6 +161,7 @@ graph TB
     Providers --> OpenAI
     Providers --> Anthropic
     Providers --> Google
+    Providers --> Ollama
     API --> Supabase
     API --> MCP
 ```
@@ -165,12 +173,12 @@ graph TB
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, React Flow, Bun |
-| Backend | Python 3.12, FastAPI, LangChain, OpenAI/Anthropic/Google APIs |
+| Backend | Python 3.12, FastAPI, forge-kernel; OpenAI, Anthropic, Google, Ollama, any OpenAI-compatible |
 | Computer Use | CoreGraphics, cliclick, Vision OCR, ffmpeg, tmux, xdotool, pyautogui |
 | CLI | Typer, Rich, httpx |
 | Database | SQLite (default, zero config) or PostgreSQL via Supabase |
 | Auth | Local JWT (default) or Supabase Auth (email + GitHub OAuth) |
-| Testing | pytest (620 tests), vitest + testing-library (21 tests) |
+| Testing | pytest (868 tests), vitest + testing-library (60 tests) |
 | Deployment | Vercel (frontend), Render (backend) |
 | CI/CD | GitHub Actions (Ruff, mypy, pytest, ESLint, tsc, vitest) |
 
@@ -424,7 +432,7 @@ forge keys list                        # API key management
 ## Testing
 
 ```bash
-# Backend (620 tests)
+# Backend (868 tests)
 cd backend && source .venv/bin/activate
 pytest tests/ -v --cov=app
 
@@ -461,7 +469,7 @@ Forge/
 │   │           ├── drive/       # Terminal automation
 │   │           ├── linux/       # xdotool/tesseract fallback
 │   │           └── windows/     # pyautogui/PowerShell fallback
-│   └── tests/                   # 620 tests
+│   └── tests/                   # 868 tests
 ├── cli/                         # Typer + Rich CLI (35+ command groups)
 ├── scripts/                     # Bootstrap, Steer/Drive CLIs, OCR helper
 ├── supabase/migrations/         # 17 SQL migrations (cloud mode only)

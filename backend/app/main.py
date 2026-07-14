@@ -115,7 +115,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Forge API",
     description="AI workflow agent platform backend",
-    version="2.1.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -175,7 +175,7 @@ except ImportError:
 
 @app.get("/")
 async def root():
-    return {"name": "Forge API", "version": "1.9.0", "status": "running"}
+    return {"name": "Forge API", "version": "3.0.0", "status": "running"}
 
 
 @app.get("/health")
