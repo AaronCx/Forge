@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 5 — Real MCP, both directions).** Forge now
+  speaks actual MCP (JSON-RPC 2.0) via the official `mcp` SDK. **As a client**
+  (`app/mcp/client_v2.py`): stdio and Streamable HTTP transports with
+  `initialize`/`tools/list`/`tools/call`, OAuth bearer tokens, and SSRF checks;
+  discovered tools join the tool plane as `mcp.<server>.<tool>` (behind
+  `FORGE_MCP_V2`) with outputs wrapped as untrusted data. **As a server**
+  (`app/mcp/server.py`): exposes the tool plane to any MCP client (Claude Code,
+  Codex), excluding `cu.*`/`agent.*` unless `FORGE_MCP_EXPOSE_CU=1`. Additive
+  `mcp_connections` transport columns (legacy rows unchanged), a
+  `POST /api/mcp/connect-v2` endpoint, `forge connections mcp add`, and
+  `docs/mcp-server.md`.
+
+### Fixed
+
+- SQLite schema initialization split on `;`, so a semicolon inside a `--` SQL
+  comment truncated a `CREATE TABLE`. Comments are now semicolon-free.
+- `scripts/dump_api.py` now derives the route surface from the OpenAPI schema
+  (plus a recursive WebSocket walk), robust to FastAPI 0.138's lazy router
+  inclusion which had collapsed the dump to two routes.
+
 - **Harness transformation (Phase 4 — Forge-native agent loop).** A
   provider-neutral, tool-plane-driven, streamed agent loop
   (`app/kernel/loop.py`) behind `FORGE_NATIVE_LOOP` (default off). `AgentRunner`
