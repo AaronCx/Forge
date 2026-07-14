@@ -425,6 +425,10 @@ cd frontend && npx vitest run
 
 # Or use the Makefile
 make test
+
+# Parity safety net — freezes current node + agent behavior so refactors
+# can prove they changed nothing they should not have (docs/harness-plan.md).
+make parity
 ```
 
 ---

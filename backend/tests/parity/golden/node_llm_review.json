@@ -1,0 +1,16 @@
+{
+  "feedback": [
+    {
+      "category": "style",
+      "description": "Prefer f-strings",
+      "severity": "low",
+      "suggestion": "Use an f-string"
+    }
+  ],
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "text": "[{\"severity\": \"low\", \"category\": \"style\", \"description\": \"Prefer f-strings\", \"suggestion\": \"Use an f-string\"}]",
+  "tokens": 18
+}

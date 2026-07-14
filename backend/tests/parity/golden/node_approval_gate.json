@@ -1,0 +1,4 @@
+{
+  "__message__": "APPROVAL_PENDING: Execution paused awaiting human approval",
+  "__raises__": "ValueError"
+}

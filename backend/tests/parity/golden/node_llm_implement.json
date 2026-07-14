@@ -1,0 +1,9 @@
+{
+  "code": "def add(a, b):\n    return a + b",
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "text": "def add(a, b):\n    return a + b",
+  "tokens": 18
+}

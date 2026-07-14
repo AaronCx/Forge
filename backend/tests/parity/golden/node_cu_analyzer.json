@@ -1,0 +1,16 @@
+{
+  "analysis": {
+    "actions_available": [],
+    "app": "Safari",
+    "content": "A page",
+    "errors": [],
+    "state": "idle",
+    "summary": "A page is open"
+  },
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "text": "A page is open",
+  "tokens": 18
+}

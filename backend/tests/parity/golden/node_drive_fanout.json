@@ -1,0 +1,12 @@
+{
+  "command_count": 2,
+  "results": [
+    {
+      "exit_code": 0,
+      "output": "hello\n"
+    }
+  ],
+  "session": "af-test",
+  "success": true,
+  "text": "hello\n"
+}

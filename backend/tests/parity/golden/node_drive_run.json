@@ -1,0 +1,7 @@
+{
+  "command": "echo hello",
+  "exit_code": 0,
+  "session": "af-test",
+  "success": true,
+  "text": "hello\n"
+}

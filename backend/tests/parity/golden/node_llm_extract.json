@@ -1,0 +1,17 @@
+{
+  "extracted": {
+    "dates": [
+      "2026-01-01"
+    ],
+    "entities": [
+      "Alice"
+    ],
+    "key_facts": []
+  },
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "text": "{\"entities\": [\"Alice\"], \"dates\": [\"2026-01-01\"], \"key_facts\": []}",
+  "tokens": 18
+}

@@ -1,0 +1,11 @@
+{
+  "confidence": 0.9,
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "retry_actions": [],
+  "success": true,
+  "text": "Objective met",
+  "tokens": 18
+}
