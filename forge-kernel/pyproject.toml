@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forge-kernel"
+version = "0.1.0"
+description = "A provider-neutral, dependency-light agent kernel (types, model cards, converters, streamed loop)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Forge" }]
+keywords = ["llm", "agents", "mcp", "kernel"]
+# Intentionally zero runtime dependencies — pure Python + stdlib.
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+
+[tool.setuptools]
+packages = ["forge_kernel"]
+
+[tool.setuptools.package-data]
+forge_kernel = ["models.json"]
