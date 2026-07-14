@@ -1,9 +1,6 @@
-from langchain.tools import tool
-
 from app.providers.registry import provider_registry
 
 
-@tool
 async def data_extractor(text: str) -> str:
     """Extract structured data (JSON) from unstructured text. Identifies entities, dates, amounts, and key-value pairs."""
     response = await provider_registry.complete(
