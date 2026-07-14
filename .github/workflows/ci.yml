@@ -60,6 +60,9 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check app/ --config ../ruff.toml
       - run: mypy app/ --config-file mypy.ini
+      # Parity safety net runs first and fails fast (docs/harness-plan.md Phase 0).
+      - name: Parity safety net
+        run: FORGE_TESTING=1 pytest tests/parity/ -q
       - run: pytest tests/ -v --cov=app
 
   frontend-e2e:
