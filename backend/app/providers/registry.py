@@ -37,6 +37,30 @@ def _is_client_error(exc: Exception) -> bool:
         status = getattr(response, "status_code", None)
     return isinstance(status, int) and 400 <= status < 500
 
+
+def load_user_fallback_policy(user_id: str | None) -> FallbackPolicy:
+    """Load a user's stored FallbackPolicy (harness-plan.md Phase 7; default off)."""
+    if not user_id:
+        return FallbackPolicy()
+    try:
+        from app.db import get_db
+
+        result = (
+            get_db().table("user_preferences").select("fallback_policy_json")
+            .eq("user_id", user_id).execute()
+        )
+        rows = result.data if isinstance(result.data, list) else []
+        raw = rows[0].get("fallback_policy_json") if rows else None
+        if isinstance(raw, dict):
+            return FallbackPolicy(
+                enabled=bool(raw.get("enabled", False)),
+                same_capabilities_only=bool(raw.get("same_capabilities_only", False)),
+                exclude_client_errors=bool(raw.get("exclude_client_errors", True)),
+            )
+    except Exception:  # noqa: BLE001 - default to the safe (no-fallback) policy
+        logger.debug("fallback policy read failed for %s", user_id)
+    return FallbackPolicy()
+
 # Model prefix → provider mapping.
 # TODO(phase-8): remove in favor of ModelCard.provider lookups from
 # app/kernel/models.json. Kept as the last-resort routing fallback until then.

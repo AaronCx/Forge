@@ -8,13 +8,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.config.flags import sessions_enabled
 from app.routers.auth import get_current_user
 from app.services import sessions as svc
+from app.services.rate_limiter import limiter
 
 router = APIRouter(tags=["sessions"])
 
@@ -46,7 +47,10 @@ class MessageRequest(BaseModel):
 
 
 @router.post("/sessions")
-async def create_session(body: SessionCreate, user: Any = Depends(get_current_user)):  # noqa: B008
+@limiter.limit("60/hour")
+async def create_session(
+    request: Request, body: SessionCreate, user: Any = Depends(get_current_user)  # noqa: B008
+):
     _require_flag()
     return svc.create_session(
         user.id, title=body.title, model=body.model, workspace_root=body.workspace_root,
@@ -101,8 +105,10 @@ async def delete_session(session_id: str, user: Any = Depends(get_current_user))
 
 
 @router.post("/sessions/{session_id}/messages")
+@limiter.limit("120/hour")
 async def post_message(
-    session_id: str, body: MessageRequest, user: Any = Depends(get_current_user)  # noqa: B008
+    request: Request, session_id: str, body: MessageRequest,
+    user: Any = Depends(get_current_user),  # noqa: B008
 ):
     _require_flag()
     if svc.get_session(session_id, user.id) is None:

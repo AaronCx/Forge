@@ -563,6 +563,9 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     use_case            TEXT,
     custom_instructions TEXT,
     getting_started_dismissed INTEGER DEFAULT 0,
+    -- harness-plan.md Phase 7 cost controls. 0 means unlimited.
+    daily_budget_usd    REAL DEFAULT 0,
+    fallback_policy_json TEXT DEFAULT '{}',
     created_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at          TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -802,6 +805,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "trigger_history":         {"payload"},
     "comparison_runs":         {"models", "results"},
     "provider_configs":        {"model_overrides"},
+    "user_preferences":        {"fallback_policy_json"},
     "traces":                  {"metadata"},
     "workspaces":              {"settings"},
     "run_events":              {"payload"},
@@ -898,4 +902,7 @@ COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("mcp_connections", "command", "TEXT DEFAULT ''"),
     ("mcp_connections", "args_json", "TEXT DEFAULT '[]'"),
     ("mcp_connections", "oauth_json", "TEXT DEFAULT '{}'"),
+    # harness-plan.md Phase 7 — cost controls + fallback policy
+    ("user_preferences", "daily_budget_usd", "REAL DEFAULT 0"),
+    ("user_preferences", "fallback_policy_json", "TEXT DEFAULT '{}'"),
 ]
