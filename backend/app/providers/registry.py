@@ -4,11 +4,38 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from app.providers.base import LLMProvider, LLMResponse, ModelInfo, ProviderHealth
 
+if TYPE_CHECKING:
+    from app.kernel.types import KMessage, StreamEvent, ToolSpec, TurnResult
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FallbackPolicy:
+    """Controls cross-provider retry for kernel turns (default: no fallback).
+
+    Client (4xx) errors are never retried when ``exclude_client_errors`` is set —
+    a bad request will fail identically everywhere.
+    """
+
+    enabled: bool = False
+    same_capabilities_only: bool = False
+    exclude_client_errors: bool = True
+
+
+def _is_client_error(exc: Exception) -> bool:
+    """True for a 4xx-class error from any provider SDK or httpx."""
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        response = getattr(exc, "response", None)
+        status = getattr(response, "status_code", None)
+    return isinstance(status, int) and 400 <= status < 500
 
 # Model prefix → provider mapping.
 # TODO(phase-8): remove in favor of ModelCard.provider lookups from
@@ -55,6 +82,17 @@ class ProviderRegistry:
         """
         if model is None:
             model = self._default_model
+
+        # ModelCard-first routing (harness-plan.md Phase 2): prefer the provider
+        # declared in models.json when it is actually registered here. Falls
+        # through to the legacy prefix/explicit/default logic otherwise.
+        from app.kernel.models import get_model_card
+
+        card = get_model_card(model)
+        if card is not None:
+            card_provider = self._providers.get(card.provider)
+            if card_provider:
+                return card_provider, model
 
         # Check if a registered provider claims this prefix (e.g. "gpt-" → openai).
         # Only treat the prefix as routable when that provider is actually
@@ -141,6 +179,81 @@ class ProviderRegistry:
 
             raise
 
+    # --- kernel interface (harness-plan.md Phase 2) ---
+
+    async def turn(
+        self,
+        messages: list[KMessage],
+        model: str | None = None,
+        *,
+        tools: list[ToolSpec] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        policy: FallbackPolicy | None = None,
+    ) -> TurnResult:
+        """Route a kernel turn to the resolved provider, with optional fallback."""
+        from typing import cast
+
+        provider, resolved_model = self.resolve_provider(model)
+        policy = policy or FallbackPolicy()
+
+        try:
+            return cast(
+                "TurnResult",
+                await provider.turn(
+                    messages, resolved_model, tools=tools,
+                    temperature=temperature, max_tokens=max_tokens,
+                ),
+            )
+        except Exception as exc:
+            if not policy.enabled or len(self._providers) <= 1:
+                raise
+            if policy.exclude_client_errors and _is_client_error(exc):
+                raise  # a 4xx fails identically everywhere — do not retry
+
+            failed_name = provider.provider_name
+            logger.warning(
+                "Provider %s turn failed for %s, trying fallback", failed_name, resolved_model
+            )
+            for name, alt in self._providers.items():
+                if name == failed_name:
+                    continue
+                try:
+                    alt_model = self._default_model if name == self._default_provider else resolved_model
+                    result = cast(
+                        "TurnResult",
+                        await alt.turn(
+                            messages, alt_model, tools=tools,
+                            temperature=temperature, max_tokens=max_tokens,
+                        ),
+                    )
+                    logger.warning("Fallback turn succeeded on provider %s", name)
+                    return result
+                except Exception:
+                    continue
+            raise
+
+    async def stream(
+        self,
+        messages: list[KMessage],
+        model: str | None = None,
+        *,
+        tools: list[ToolSpec] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> AsyncIterator[StreamEvent]:
+        """Stream a kernel turn from the resolved provider.
+
+        Mid-stream cross-provider fallback is intentionally not attempted (events
+        already emitted cannot be retracted); use ``turn`` for fallback.
+        """
+        provider, resolved_model = self.resolve_provider(model)
+        async for ev in provider.stream_turn(
+            messages, resolved_model, tools=tools,
+            temperature=temperature, max_tokens=max_tokens,
+        ):
+            yield ev
+
     async def list_all_models(self) -> list[ModelInfo]:
         """List models from all registered providers."""
         all_models: list[ModelInfo] = []
@@ -191,6 +304,13 @@ def create_registry() -> ProviderRegistry:
         from app.providers.anthropic_provider import AnthropicProvider
 
         registry.register("anthropic", AnthropicProvider(api_key=anthropic_key))
+
+    # Google (Gemini) — register if API key is set
+    google_key = os.getenv("GOOGLE_API_KEY")
+    if google_key:
+        from app.providers.google_provider import GoogleProvider
+
+        registry.register("google", GoogleProvider(api_key=google_key))
 
     # Ollama — register if OLLAMA_BASE_URL is set (or default localhost)
     ollama_url = os.getenv("OLLAMA_BASE_URL")
@@ -252,6 +372,10 @@ async def create_user_registry(user_id: str) -> ProviderRegistry:
                 from app.providers.anthropic_provider import AnthropicProvider
 
                 registry.register("anthropic", AnthropicProvider(api_key=api_key), default=is_default)
+            elif provider_name == "google":
+                from app.providers.google_provider import GoogleProvider
+
+                registry.register("google", GoogleProvider(api_key=api_key, base_url=base_url), default=is_default)
             elif provider_name == "ollama":
                 from app.providers.ollama_provider import OllamaProvider
 
