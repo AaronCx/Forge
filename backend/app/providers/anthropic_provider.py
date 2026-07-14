@@ -154,6 +154,129 @@ class AnthropicProvider(LLMProvider):
                 provider=self.provider_name,
             )
 
+    async def turn(
+        self,
+        messages: list[Any],
+        model: str,
+        *,
+        tools: list[Any] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> Any:
+        import time
+
+        from app.kernel.types import TextBlock, TurnResult, Usage
+        from app.providers.kernel_bridge import (
+            kmessages_to_anthropic,
+            stop_from_anthropic,
+            tools_to_anthropic,
+        )
+
+        system_prompt, anthropic_msgs = kmessages_to_anthropic(messages)
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": anthropic_msgs,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        if system_prompt:
+            kwargs["system"] = system_prompt
+        native_tools = tools_to_anthropic(tools)
+        if native_tools:
+            kwargs["tools"] = native_tools
+
+        start = time.monotonic()
+        response = await self.client.messages.create(**kwargs)
+        elapsed = (time.monotonic() - start) * 1000
+
+        from app.kernel.types import ToolUseBlock
+
+        blocks: list[Any] = []
+        for block in response.content:
+            if block.type == "text":
+                blocks.append(TextBlock(block.text))
+            elif block.type == "tool_use":
+                raw_input = block.input if isinstance(block.input, dict) else {}
+                blocks.append(ToolUseBlock(id=block.id, name=block.name, input=raw_input))
+        return TurnResult(
+            blocks=blocks,
+            stop_reason=stop_from_anthropic(response.stop_reason),
+            usage=Usage(
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+            ),
+            model=response.model,
+            provider=self.provider_name,
+            latency_ms=elapsed,
+        )
+
+    async def stream_turn(
+        self,
+        messages: list[Any],
+        model: str,
+        *,
+        tools: list[Any] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> AsyncIterator[Any]:
+        import time
+
+        from app.kernel.types import (
+            TextBlock,
+            TextDelta,
+            ToolUseBlock,
+            TurnDone,
+            TurnResult,
+            Usage,
+        )
+        from app.providers.kernel_bridge import (
+            kmessages_to_anthropic,
+            stop_from_anthropic,
+            tools_to_anthropic,
+        )
+
+        system_prompt, anthropic_msgs = kmessages_to_anthropic(messages)
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": anthropic_msgs,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        if system_prompt:
+            kwargs["system"] = system_prompt
+        native_tools = tools_to_anthropic(tools)
+        if native_tools:
+            kwargs["tools"] = native_tools
+
+        start = time.monotonic()
+        text_parts: list[str] = []
+        async with self.client.messages.stream(**kwargs) as stream:
+            async for text in stream.text_stream:
+                text_parts.append(text)
+                yield TextDelta(text=text)
+            final = await stream.get_final_message()
+
+        blocks: list[Any] = []
+        for block in final.content:
+            if block.type == "text":
+                blocks.append(TextBlock(block.text))
+            elif block.type == "tool_use":
+                raw_input = block.input if isinstance(block.input, dict) else {}
+                blocks.append(ToolUseBlock(id=block.id, name=block.name, input=raw_input))
+        yield TurnDone(
+            turn=TurnResult(
+                blocks=blocks,
+                stop_reason=stop_from_anthropic(final.stop_reason),
+                usage=Usage(
+                    input_tokens=final.usage.input_tokens,
+                    output_tokens=final.usage.output_tokens,
+                ),
+                model=final.model,
+                provider=self.provider_name,
+                latency_ms=(time.monotonic() - start) * 1000,
+            )
+        )
+
     async def count_tokens(self, text: str, model: str) -> int:
         # Anthropic doesn't expose a tokenizer — estimate at ~4 chars per token
         return len(text) // 4

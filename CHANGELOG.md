@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 2 — Provider adapters speak kernel).** Every
+  provider now implements kernel `turn()`/`stream_turn()` (`KMessage`s +
+  `ToolSpec`s → `TurnResult`/`StreamEvent`s) with full tool-call, tool-result,
+  and image fidelity — OpenAI, Anthropic (native `tool_use`/`tool_result` +
+  base64 images), Ollama, and any OpenAI-compatible endpoint. Adds a **native
+  Google (Gemini) provider** (`google_provider.py`, registered on
+  `GOOGLE_API_KEY`), making the README's Google claim real. The registry gains
+  `turn()`/`stream()`, ModelCard-first routing (`models.json` provider before
+  legacy prefixes), and a `FallbackPolicy` (default off; never retries 4xx).
+  Legacy `complete()`/`stream_complete()` and `LLMResponse` are unchanged and
+  kept as shims. Zero behavior change to existing paths (parity green).
 - **Harness transformation (Phase 1 — The kernel).** A Forge-owned, provider-neutral
   representation of agentic exchanges under `backend/app/kernel/`: typed content
   blocks (text/image/tool-use/tool-result/thinking), `KMessage`, `TurnResult`,
