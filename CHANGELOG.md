@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 3 — One tool plane).** Every Forge capability
+  is now a callable `ToolSpec` behind one permission policy. `ToolPlane`
+  (`app/kernel/toolplane.py`) aggregates **82 tools** on a seeded install:
+  builtin tools, all 44 blueprint nodes (`node.<key>`), saved blueprints
+  (`blueprint.<slug>`), computer-use actions (`cu.<action>` routed through the
+  existing `safety.py`), workspace ops (`workspace.read/write/list/search`), and
+  agent control (`agent.spawn/prompt/…`). One `execute()` applies uniform
+  timeout, error capture (a failing tool returns an error `ToolResultBlock`, it
+  never raises into the caller), and a permission decision (`permissions.py`:
+  per-session → per-user `tool_policies` table → `danger_level` default). `ask`
+  routes through the existing approvals inbox (web + CLI). A `register_source`
+  hook lets MCP tools join in Phase 5. Additive `tool_policies` table (both
+  backends). No behavior change to existing paths (parity green).
 - **Harness transformation (Phase 2 — Provider adapters speak kernel).** Every
   provider now implements kernel `turn()`/`stream_turn()` (`KMessage`s +
   `ToolSpec`s → `TurnResult`/`StreamEvent`s) with full tool-call, tool-result,
