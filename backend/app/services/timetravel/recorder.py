@@ -94,6 +94,51 @@ class RunRecorder:
         """Record a tool invocation: tool name, arguments, and its result."""
         self._append(EVENT_TOOL_CALL, step, {"name": name, "args": args, "result": result})
 
+    def model_turn(self, step: int, turn: Any) -> None:
+        """Record a kernel model turn (harness-plan.md Phase 4).
+
+        Written as a ``model_call`` event with a response payload compatible with
+        the legacy reader (``response.content`` present) plus kernel extras, so
+        replay/fork read both old and new shapes.
+        """
+        from dataclasses import asdict
+
+        blocks = []
+        for b in turn.blocks:
+            try:
+                blocks.append(asdict(b))
+            except Exception:  # noqa: BLE001 - never let recording break a run
+                blocks.append({"repr": str(b)})
+        self._append(
+            EVENT_MODEL_CALL,
+            step,
+            {
+                "request": {"model": turn.model, "provider": turn.provider},
+                "response": {
+                    "content": turn.text,
+                    "blocks": blocks,
+                    "stop_reason": turn.stop_reason,
+                    "input_tokens": turn.usage.input_tokens,
+                    "output_tokens": turn.usage.output_tokens,
+                },
+                "kernel": True,
+            },
+        )
+
+    def tool_call_kernel(self, step: int, tool_use: Any, result: Any) -> None:
+        """Record a kernel tool call/result (harness-plan.md Phase 4)."""
+        self._append(
+            EVENT_TOOL_CALL,
+            step,
+            {
+                "name": tool_use.name,
+                "args": tool_use.input,
+                "result": result.output,
+                "is_error": result.is_error,
+                "kernel": True,
+            },
+        )
+
     def state(self, step: int, *, key: str, value: Any) -> None:
         """Record a state mutation (e.g. accumulated context after a step)."""
         self._append(EVENT_STATE, step, {"key": key, "value": value})
