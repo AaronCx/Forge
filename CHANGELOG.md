@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 4 — Forge-native agent loop).** A
+  provider-neutral, tool-plane-driven, streamed agent loop
+  (`app/kernel/loop.py`) behind `FORGE_NATIVE_LOOP` (default off). `AgentRunner`
+  runs it when the flag is on, emitting the **identical** legacy `step`/`token`
+  SSE subsequence plus rich `tool_use`/`tool_result`/`thinking`/`usage` events;
+  tools resolve to ToolPlane `ToolSpec`s instead of the LangChain registry.
+  Observers are ported: time-travel records kernel `model_turn`/`tool_call`
+  events (compatible payloads), and trace spans, heartbeats, and token usage
+  write as before. Includes a token/wall-clock `Budget` and a max-iterations
+  cap. The runs SSE endpoint forwards the new events; the runs view renders them
+  as tool cards. Legacy path unchanged (parity green).
 - **Harness transformation (Phase 3 — One tool plane).** Every Forge capability
   is now a callable `ToolSpec` behind one permission policy. `ToolPlane`
   (`app/kernel/toolplane.py`) aggregates **82 tools** on a seeded install:
