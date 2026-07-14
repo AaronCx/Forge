@@ -1,0 +1,11 @@
+{
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "recoverable": true,
+  "recovery_actions": [],
+  "should_abort": false,
+  "text": "A dialog appeared",
+  "tokens": 18
+}

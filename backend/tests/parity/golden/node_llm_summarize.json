@@ -1,0 +1,9 @@
+{
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "summary": "A concise summary of the input.",
+  "text": "A concise summary of the input.",
+  "tokens": 18
+}

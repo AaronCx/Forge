@@ -1,0 +1,7 @@
+{
+  "backend": "claude-code",
+  "session": "af-agent-1",
+  "status": "spawned",
+  "success": true,
+  "text": "Spawned claude-code in session af-agent-1"
+}

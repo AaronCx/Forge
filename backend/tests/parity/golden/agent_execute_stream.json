@@ -1,0 +1,37 @@
+[
+  {
+    "content": "Starting agent: Parity Agent",
+    "tokens": 0,
+    "type": "step"
+  },
+  {
+    "content": "Step 1: Understand the request.",
+    "tokens": 0,
+    "type": "step"
+  },
+  {
+    "content": "This is the model's answer for the step.",
+    "tokens": 18,
+    "type": "token"
+  },
+  {
+    "content": "Step 1 completed",
+    "tokens": 0,
+    "type": "step"
+  },
+  {
+    "content": "Step 2: Produce the answer.",
+    "tokens": 0,
+    "type": "step"
+  },
+  {
+    "content": "This is the model's answer for the step.",
+    "tokens": 18,
+    "type": "token"
+  },
+  {
+    "content": "Step 2 completed",
+    "tokens": 0,
+    "type": "step"
+  }
+]

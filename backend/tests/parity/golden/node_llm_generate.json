@@ -1,0 +1,8 @@
+{
+  "input_tokens": 7,
+  "model": "fake-model",
+  "output_tokens": 11,
+  "provider": "fake",
+  "text": "Generated response.",
+  "tokens": 18
+}

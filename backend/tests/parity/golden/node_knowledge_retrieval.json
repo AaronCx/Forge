@@ -1,0 +1,13 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "c1",
+      "chunk_index": 0,
+      "content": "Forge is a platform.",
+      "document_id": "d1",
+      "metadata": {},
+      "similarity": 0.42
+    }
+  ],
+  "context": "Forge is a platform."
+}
