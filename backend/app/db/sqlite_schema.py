@@ -316,6 +316,22 @@ CREATE TABLE IF NOT EXISTS approvals (
 
 CREATE INDEX IF NOT EXISTS idx_approvals_user_status ON approvals(user_id, status);
 
+-- ===================== 20260714_tool_policies (harness-plan.md Phase 3) =====================
+-- Per-user allow/ask/deny decisions for tool-plane tools. Absence of a row
+-- means "fall back to the tool's danger_level default".
+CREATE TABLE IF NOT EXISTS tool_policies (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    tool_name  TEXT NOT NULL,
+    decision   TEXT NOT NULL DEFAULT 'ask'
+               CHECK (decision IN ('allow','ask','deny')),
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(user_id, tool_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_policies_user ON tool_policies(user_id);
+
 -- ===================== 20260312_execution_targets =====================
 CREATE TABLE IF NOT EXISTS execution_targets (
     id                TEXT PRIMARY KEY,
