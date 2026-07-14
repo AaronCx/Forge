@@ -522,6 +522,9 @@ CREATE TABLE IF NOT EXISTS provider_configs (
     base_url          TEXT,
     is_default        INTEGER DEFAULT 0,
     is_enabled        INTEGER DEFAULT 1,
+    -- Per-user model card overrides (harness-plan.md Phase 1): a JSON array of
+    -- partial/full ModelCard dicts merged over app/kernel/models.json.
+    model_overrides   TEXT DEFAULT '[]',
     created_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     UNIQUE(user_id, provider)
@@ -746,6 +749,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "triggers":                {"config"},
     "trigger_history":         {"payload"},
     "comparison_runs":         {"models", "results"},
+    "provider_configs":        {"model_overrides"},
     "traces":                  {"metadata"},
     "workspaces":              {"settings"},
     "run_events":              {"payload"},
@@ -832,4 +836,6 @@ COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("user_preferences", "use_case", "TEXT"),
     ("user_preferences", "custom_instructions", "TEXT"),
     ("user_preferences", "getting_started_dismissed", "INTEGER DEFAULT 0"),
+    # harness-plan.md Phase 1 — per-user model card overrides
+    ("provider_configs", "model_overrides", "TEXT DEFAULT '[]'"),
 ]

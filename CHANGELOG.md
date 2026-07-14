@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 1 — The kernel).** A Forge-owned, provider-neutral
+  representation of agentic exchanges under `backend/app/kernel/`: typed content
+  blocks (text/image/tool-use/tool-result/thinking), `KMessage`, `TurnResult`,
+  `StreamEvent`, and `ToolSpec` (frozen dataclasses, dependency-light). Adds
+  data-driven `ModelCard`s loaded from `app/kernel/models.json` (OpenAI, Anthropic,
+  Google, Ollama) with per-user overrides via a new additive `provider_configs.
+  model_overrides` column (both backends); `GET /api/providers/model-cards`,
+  `POST /api/providers/models/refresh`, and `forge providers refresh` / `cards`.
+  Lossless OpenAI⇄kernel converters (`convert.py`) and feature flags
+  (`app/config/flags.py`: `FORGE_NATIVE_LOOP`, `FORGE_MCP_V2`, `FORGE_SESSIONS`,
+  all default off). Pure types, zero runtime behavior change.
 - **Harness transformation (Phase 0 — Safety net).** Golden-snapshot parity suite
   (`backend/tests/parity/`) that freezes the current output of all 44 node types
   and the `AgentRunner.execute` SSE event stream, so later harness-transformation

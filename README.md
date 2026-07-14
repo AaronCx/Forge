@@ -45,7 +45,7 @@ Spawn and control external coding agents (Claude Code, Codex CLI, Gemini CLI, Ai
 Route blueprint nodes to different execution targets. Dispatch routing: explicit target → blueprint default → capability-based → local fallback.
 
 ### Multi-Model Providers
-Provider registry supporting OpenAI, Anthropic, and Google. Per-node model selection, health monitoring, and comparison tools.
+Provider registry supporting OpenAI, Anthropic, Google, Ollama, and any OpenAI-compatible endpoint. Per-node model selection, health monitoring, and comparison tools. Model capabilities (context window, vision, tool support) are data-driven model cards you can refresh from each provider (`forge providers refresh`) and override per user.
 
 ### Knowledge Base + RAG
 Document collections with chunked upload, semantic search, and a `knowledge_retrieval` blueprint node for RAG-augmented workflows.

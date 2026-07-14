@@ -16,6 +16,7 @@ from app.providers.base import (
     StreamChunk,
 )
 
+# TODO(phase-8): remove in favor of ModelCard data from app/kernel/models.json.
 ANTHROPIC_MODELS: dict[str, dict[str, Any]] = {
     "claude-opus-4-20250514": {"context_window": 200000, "max_output": 16000},
     "claude-sonnet-4-20250514": {"context_window": 200000, "max_output": 16000},
