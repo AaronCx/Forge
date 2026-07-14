@@ -36,6 +36,7 @@ from app.routers import (
     providers,
     recordings,
     runs,
+    sessions,
     targets,
     traces,
     transcribe,
@@ -161,6 +162,7 @@ app.include_router(recordings.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
 app.include_router(transcribe.router, prefix="/api")
 app.include_router(workspaces.router, prefix="/api")
+app.include_router(sessions.router, prefix="/api")
 app.include_router(ws_workspace.router)  # WebSocket (no /api prefix)
 
 # Terminal WebSocket (only available on Unix-like systems)
