@@ -94,17 +94,22 @@ def _posix_limits() -> None:  # pragma: no cover - runs in the forked child
             resource.setrlimit(res, (limit, limit))
 
 
-@tool
-def code_executor(code: str) -> str:
-    """Execute Python code for pure computation and return its output. Imports are restricted to a safe stdlib allowlist; file, network, process, and introspection access are blocked."""
-    # Reject oversized payloads before parsing.
-    if len(code) > _MAX_BYTES:
-        return "Blocked: code exceeds maximum length of 10,000 characters"
+_DOCKER_IMAGE = os.getenv("FORGE_CODE_EXEC_IMAGE", "python:3.12-slim")
 
-    reason = _reject_reason(code)
-    if reason is not None:
-        return f"Blocked: {reason}"
 
+def _backend() -> str:
+    """Selected code-exec backend: 'ast' (default), 'docker', or 'auto'."""
+    return os.getenv("FORGE_CODE_EXEC_BACKEND", "ast").strip().lower()
+
+
+def _docker_available() -> bool:
+    import shutil
+
+    return shutil.which("docker") is not None
+
+
+def _run_ast_sandbox(code: str) -> str:
+    """Run vetted code via a locked-down subprocess (the default backend)."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         f.flush()
@@ -124,13 +129,10 @@ def code_executor(code: str) -> str:
             cwd=workdir,
             preexec_fn=_posix_limits if os.name == "posix" else None,  # noqa: PLW1509
         )
-
         output = result.stdout
         if result.stderr:
             output += f"\nSTDERR:\n{result.stderr}"
-
         return output[:5000] if output else "(no output)"
-
     except subprocess.TimeoutExpired:
         return "Error: code execution timed out (10s limit)"
     except Exception as e:  # noqa: BLE001 - the tool must always return a string
@@ -140,3 +142,55 @@ def code_executor(code: str) -> str:
             os.unlink(tmp_path)
         with contextlib.suppress(OSError):
             os.rmdir(workdir)
+
+
+def _run_docker(code: str) -> str:
+    """Run vetted code in a locked-down container.
+
+    ``--network none`` (no egress), read-only rootfs with a small tmpfs workdir,
+    and memory/CPU/pids limits. The code is piped over stdin to an isolated
+    interpreter, so nothing is written to the host.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "docker", "run", "--rm", "-i",
+                "--network", "none",
+                "--read-only",
+                "--tmpfs", "/work:rw,size=16m,noexec",
+                "--workdir", "/work",
+                "--memory", "128m", "--cpus", "0.5", "--pids-limit", "64",
+                "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                _DOCKER_IMAGE, "python", "-I", "-S", "-B", "-u", "-",
+            ],
+            input=code,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        output = result.stdout
+        if result.stderr:
+            output += f"\nSTDERR:\n{result.stderr}"
+        return output[:5000] if output else "(no output)"
+    except subprocess.TimeoutExpired:
+        return "Error: code execution timed out (container, 20s limit)"
+    except Exception as e:  # noqa: BLE001 - the tool must always return a string
+        return f"Error: {str(e)}"
+
+
+@tool
+def code_executor(code: str) -> str:
+    """Execute Python code for pure computation and return its output. Imports are restricted to a safe stdlib allowlist; file, network, process, and introspection access are blocked."""
+    # Reject oversized payloads before parsing.
+    if len(code) > _MAX_BYTES:
+        return "Blocked: code exceeds maximum length of 10,000 characters"
+
+    # AST allowlist runs for every backend (defense in depth).
+    reason = _reject_reason(code)
+    if reason is not None:
+        return f"Blocked: {reason}"
+
+    backend = _backend()
+    if backend in ("docker", "auto") and _docker_available():
+        return _run_docker(code)
+    return _run_ast_sandbox(code)
