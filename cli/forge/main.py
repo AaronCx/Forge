@@ -43,6 +43,9 @@ from forge.commands import (
 from forge.commands import (
     system as _system_mod,
 )
+from forge.commands import (
+    chat as _chat_mod,
+)
 
 console = Console()
 
@@ -60,6 +63,7 @@ app = typer.Typer(
 # kept here so `forge auth …` continues to work.
 _system_mod.register(app)
 _auth_mod.register(app)
+_chat_mod.register(app)  # forge chat (REPL) + forge agent run (headless)
 
 
 # --- The six workspace parents ---
