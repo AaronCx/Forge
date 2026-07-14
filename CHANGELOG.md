@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Harness transformation (Phase 6 — Sessions and the seamless surface).**
+  Durable, resumable conversations: additive `sessions` + `session_events`
+  tables (both backends), `services/sessions.py` (create/resume/list/fork +
+  reversible context compaction at 0.8×`ModelCard.context_window`), and
+  `/api/sessions` routes including SSE `POST /sessions/{id}/messages` and
+  mid-session model switching — all behind `FORGE_SESSIONS`. A new
+  `dashboard/chat` surface (model picker fed by ModelCards, streaming transcript
+  with tool cards), `forge chat` REPL, and `forge agent run --json` headless
+  mode. `AGENTS.md`/`CLAUDE.md` from a session's workspace root are injected into
+  the system prompt.
+
 - **Harness transformation (Phase 5 — Real MCP, both directions).** Forge now
   speaks actual MCP (JSON-RPC 2.0) via the official `mcp` SDK. **As a client**
   (`app/mcp/client_v2.py`): stdio and Streamable HTTP transports with
