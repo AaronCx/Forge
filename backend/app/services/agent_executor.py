@@ -64,6 +64,7 @@ TOOL_REGISTRY = {
 # passthrough is restricted to these so we never hand an Anthropic/Ollama
 # model a content schema it can't parse — non-matching models get a text note
 # instead (see ``_prepare_attachments``).
+# TODO(phase-8): replace with ModelCard.vision lookups (app/kernel/models.json).
 _VISION_MODEL_HINTS = ("gpt-4o", "gpt-4.1", "gpt-4-turbo", "gpt-4-vision", "o1")
 
 

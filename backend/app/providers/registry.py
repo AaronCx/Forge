@@ -10,7 +10,9 @@ from app.providers.base import LLMProvider, LLMResponse, ModelInfo, ProviderHeal
 
 logger = logging.getLogger(__name__)
 
-# Model prefix → provider mapping
+# Model prefix → provider mapping.
+# TODO(phase-8): remove in favor of ModelCard.provider lookups from
+# app/kernel/models.json. Kept as the last-resort routing fallback until then.
 MODEL_PROVIDER_MAP: dict[str, str] = {
     "gpt-": "openai",
     "o1": "openai",
