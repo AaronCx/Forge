@@ -1,3 +1,7 @@
+# NOTE: the LIVE backend is the pre-existing Render service `agentforge-api`
+# (srv-d6o6h36a2pns73d314s0), re-linked to this repo on 2026-07-15 with
+# auto-deploy on commit. This blueprint's `forge-api` name is what a fresh
+# `render blueprint launch` would create — it is not the running service.
 services:
   - type: web
     name: forge-api
