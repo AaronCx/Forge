@@ -262,6 +262,65 @@ def _message_text(m: KMessage) -> str:
 # --- the turn driver (SSE) ---
 
 
+async def _retry_approved_tools(
+    session: dict[str, Any], ctx: ExecContext, specs: list[Any]
+) -> list[tuple[Any, ToolResultBlock]]:
+    """Execute pending tool calls whose approvals have since been decided (M3).
+
+    Scans the event log for tool calls whose *latest* result is
+    APPROVAL_PENDING, peeks the approvals table, and runs the ones a human has
+    approved (or records the rejection) — the model never has to choose to
+    retry. Each outcome is appended to the log as a user-role note so any
+    provider can consume it mid-conversation.
+    """
+    from app.kernel.types import ToolUseBlock
+
+    session_id = session["id"]
+    spec_by_name = {s.name: s for s in specs}
+    tool_uses: dict[str, ToolUseBlock] = {}
+    last_output: dict[str, str] = {}
+    for ev in get_events(session_id):
+        if ev.get("kind") != "message":
+            continue
+        message = message_from_dict(ev.get("payload_json") or {})
+        for b in message.blocks:
+            if isinstance(b, ToolUseBlock):
+                tool_uses[b.id] = b
+            elif isinstance(b, ToolResultBlock):
+                last_output[b.tool_use_id] = str(b.output)
+        if message.role == "user":
+            for b in message.blocks:
+                if isinstance(b, TextBlock) and b.text.startswith("[approved tool call"):
+                    # A prior retry note supersedes the pending result it names.
+                    for tid in list(last_output):
+                        if f"(id {tid})" in b.text:
+                            last_output[tid] = b.text
+
+    executed: list[tuple[ToolUseBlock, ToolResultBlock]] = []
+    for tool_id, output in last_output.items():
+        if "APPROVAL_PENDING" not in output or tool_id not in tool_uses:
+            continue
+        tool_use = tool_uses[tool_id]
+        spec = spec_by_name.get(tool_use.name)
+        if spec is None:
+            continue
+        state = await tool_plane.peek_approval_state(spec, tool_use, ctx)
+        if state not in ("approved", "rejected"):
+            continue
+        result = await tool_plane.execute(tool_use, ctx)
+        note = (
+            f"[approved tool call executed] {tool_use.name} (id {tool_id}) "
+            f"{'failed' if result.is_error else 'succeeded'}: {result.output}"
+            if state == "approved"
+            else f"[approved tool call executed] {tool_use.name} (id {tool_id}) "
+            f"was rejected by the approver: {result.output}"
+        )
+        append_event(session_id, "message",
+                     message_to_dict(KMessage(role="user", blocks=[TextBlock(note)])))
+        executed.append((tool_use, result))
+    return executed
+
+
 def _exec_context(session: dict[str, Any]) -> ExecContext:
     """Build the tool ExecContext for a session.
 
@@ -313,15 +372,26 @@ async def run_turn(
         session["model"] = model_override
     model = session.get("model") or None
 
+    registry = await create_user_registry(user_id) or provider_registry
+    ctx = _exec_context(session)
+    specs = await tool_plane.list_tools(user_id, ctx)
+
+    # Auto-retry tool calls whose approvals were decided since the last turn
+    # (M3) — their results land in the log before the new user message.
+    try:
+        for tool_use, result in await _retry_approved_tools(session, ctx, specs):
+            yield {"type": "tool_result", "data": {
+                "tool": tool_use.name, "output": str(result.output)[:2000],
+                "is_error": result.is_error, "retried": True}}
+    except Exception:
+        logger.warning("approved-tool retry failed for %s", session_id, exc_info=True)
+
     # Persist the user message, then reconstruct the live message list.
     append_event(session_id, "message",
                  message_to_dict(KMessage(role="user", blocks=[TextBlock(user_text)])))
     messages = build_messages(session)
     persist_from = len(messages)
 
-    registry = await create_user_registry(user_id) or provider_registry
-    ctx = _exec_context(session)
-    specs = await tool_plane.list_tools(user_id, ctx)
     budget = Budget(max_tokens=session.get("token_budget") or None)
 
     final_turn = None

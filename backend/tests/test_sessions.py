@@ -181,6 +181,75 @@ def test_router_gated_by_flag_and_crud(db, auth_client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_approved_pending_tool_auto_retries_on_next_message(db):
+    """Audit M3: a tool call parked on APPROVAL_PENDING is re-executed
+    automatically once its approval flips to approved — the model never has to
+    choose to retry."""
+    from app.kernel.toolplane import approval_key
+    from app.kernel.types import ToolSpec, ToolUseBlock
+
+    s = svc.create_session("u1", model="gpt-4o-mini")
+    # Seed history: assistant requested cu.drive_run, the plane parked it.
+    svc.append_event(s["id"], "message", {"role": "assistant", "blocks": [
+        {"kind": "tool_use", "id": "tc1", "name": "cu.drive_run",
+         "input": {"command": "echo hi"}}]})
+    svc.append_event(s["id"], "message", {"role": "tool", "blocks": [
+        {"kind": "tool_result", "tool_use_id": "tc1",
+         "output": "APPROVAL_PENDING: 'cu.drive_run' is awaiting human approval.",
+         "is_error": False}]})
+    # The approval row the plane filed, now approved by a human.
+    tu = ToolUseBlock(id="tc1", name="cu.drive_run", input={"command": "echo hi"})
+    spec = ToolSpec(name="cu.drive_run", description="", danger_level="dangerous")
+    db.table("approvals").insert({
+        "id": "ap1", "user_id": "u1", "blueprint_run_id": s["id"],
+        "node_id": approval_key(spec, tu, "tool"), "status": "approved",
+    }).execute()
+
+    fake = _FakeRegistry()
+    drive_result = {"success": True, "output": "hi", "exit_code": 0}
+    with (
+        patch("app.providers.registry.create_user_registry", AsyncMock(return_value=fake)),
+        patch("app.services.computer_use.drive.nodes.execute",
+              AsyncMock(return_value=drive_result)),
+    ):
+        events = [e async for e in svc.run_turn(s["id"], "u1", "continue")]
+
+    retried = [e for e in events
+               if e["type"] == "tool_result" and e.get("data", {}).get("retried")]
+    assert len(retried) == 1
+    assert retried[0]["data"]["tool"] == "cu.drive_run"
+    assert not retried[0]["data"]["is_error"]
+
+    # The outcome is persisted in the log ahead of the new user message.
+    log = svc.build_messages(svc.get_session(s["id"], "u1"))
+    notes = [b.text for m in log for b in m.blocks
+             if isinstance(b, TextBlock) and b.text.startswith("[approved tool call")]
+    assert len(notes) == 1 and "tc1" in notes[0]
+
+    # A second turn does not retry again (the note supersedes the pending result).
+    with patch("app.providers.registry.create_user_registry", AsyncMock(return_value=fake)):
+        events2 = [e async for e in svc.run_turn(s["id"], "u1", "and again")]
+    assert not [e for e in events2
+                if e["type"] == "tool_result" and e.get("data", {}).get("retried")]
+
+
+@pytest.mark.asyncio
+async def test_still_pending_tool_is_not_retried(db):
+    s = svc.create_session("u1", model="gpt-4o-mini")
+    svc.append_event(s["id"], "message", {"role": "assistant", "blocks": [
+        {"kind": "tool_use", "id": "tc1", "name": "cu.drive_run",
+         "input": {"command": "echo hi"}}]})
+    svc.append_event(s["id"], "message", {"role": "tool", "blocks": [
+        {"kind": "tool_result", "tool_use_id": "tc1",
+         "output": "APPROVAL_PENDING: awaiting approval", "is_error": False}]})
+    fake = _FakeRegistry()
+    with patch("app.providers.registry.create_user_registry", AsyncMock(return_value=fake)):
+        events = [e async for e in svc.run_turn(s["id"], "u1", "anything new?")]
+    assert not [e for e in events
+                if e["type"] == "tool_result" and e.get("data", {}).get("retried")]
+
+
+@pytest.mark.asyncio
 async def test_message_serialization_round_trip():
     from app.kernel.serialize import message_from_dict, message_to_dict
     from app.kernel.types import ToolResultBlock, ToolUseBlock

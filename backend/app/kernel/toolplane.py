@@ -428,10 +428,20 @@ class ToolPlane:
                     is_error=True,
                 )
             if state == "pending":
+                # Informational, not an error: error-shaped results push models
+                # toward apologizing and giving up (audit M3). The approved call
+                # is auto-retried by the session layer on the next message.
                 return ToolResultBlock(
                     tool_use_id=tool_use.id,
-                    output=f"APPROVAL_PENDING: '{spec.name}' is awaiting human approval.",
-                    is_error=True,
+                    output=(
+                        f"APPROVAL_PENDING: '{spec.name}' is awaiting human approval. "
+                        "A request was filed in the approvals inbox — tell the user to "
+                        "approve or reject it there (web: Dashboard → Approvals; CLI: "
+                        "`forge ops approvals`). Do not retry this tool yourself; once "
+                        "approved it runs automatically and the result arrives with the "
+                        "user's next message."
+                    ),
+                    is_error=False,
                 )
 
         try:
@@ -464,25 +474,43 @@ class ToolPlane:
         )
 
     @staticmethod
-    async def _approval_state(spec: ToolSpec, tool_use: ToolUseBlock, ctx: ExecContext) -> str:
+    def _approval_run_id(ctx: ExecContext) -> str:
+        if ctx.approve_scope == "session" and ctx.session_id:
+            return ctx.session_id
+        return ctx.run_id or ctx.session_id or "toolplane"
+
+    @classmethod
+    async def peek_approval_state(
+        cls, spec: ToolSpec, tool_use: ToolUseBlock, ctx: ExecContext
+    ) -> str | None:
+        """The current approval status for this exact call, or None if no row exists.
+
+        Read-only — never files a new approval request (used by the session
+        layer to auto-retry calls whose approvals flipped to approved, M3).
+        """
+        from app.services.evals.approvals import approval_service
+
+        node_id = approval_key(spec, tool_use, ctx.approve_scope)
+        existing = await approval_service.get_approval_for_run(
+            cls._approval_run_id(ctx), node_id
+        )
+        return existing.get("status") if existing else None
+
+    @classmethod
+    async def _approval_state(
+        cls, spec: ToolSpec, tool_use: ToolUseBlock, ctx: ExecContext
+    ) -> str:
         """Return 'approved' | 'rejected' | 'pending', creating a pending row if new."""
         from app.services.evals.approvals import approval_service
 
-        if ctx.approve_scope == "session" and ctx.session_id:
-            run_id = ctx.session_id
-        else:
-            run_id = ctx.run_id or ctx.session_id or "toolplane"
-        node_id = approval_key(spec, tool_use, ctx.approve_scope)
-        existing = await approval_service.get_approval_for_run(run_id, node_id)
-        if existing and existing.get("status") == "approved":
-            return "approved"
-        if existing and existing.get("status") == "rejected":
-            return "rejected"
-        if not existing:
+        state = await cls.peek_approval_state(spec, tool_use, ctx)
+        if state in ("approved", "rejected"):
+            return state
+        if state is None:
             await approval_service.create_approval(
                 user_id=ctx.user_id,
-                blueprint_run_id=run_id,
-                node_id=node_id,
+                blueprint_run_id=cls._approval_run_id(ctx),
+                node_id=approval_key(spec, tool_use, ctx.approve_scope),
                 context={
                     "message": f"Approve tool call: {spec.name}",
                     "tool": spec.name,

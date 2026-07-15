@@ -108,8 +108,11 @@ async def test_dangerous_tool_creates_approval_and_pends(db):
     plane = ToolPlane()
     call = ToolUseBlock(id="t", name="cu.drive_run", input={"command": "ls"})
     result = await plane.execute(call, _ctx())
-    assert result.is_error
+    # Pending is informational, not an error (M3) — error-shaped results push
+    # models toward giving up instead of telling the user to approve.
+    assert not result.is_error
     assert "APPROVAL_PENDING" in result.output
+    assert "approvals inbox" in result.output
     # an approval row now exists for this exact call (input-scoped key)
     rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
     assert any(r["node_id"].startswith("tool:cu.drive_run:") for r in rows)
