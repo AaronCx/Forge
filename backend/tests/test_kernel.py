@@ -175,3 +175,96 @@ def test_incomplete_new_override_is_skipped():
     # A new id lacking required fields must not create a broken card.
     cards = load_model_cards([{"id": "broken-new", "display_name": "Nope"}])
     assert "broken-new" not in cards
+
+
+# --- Phase 9: workflow orchestration types ---
+
+
+def test_workflow_spec_round_trips_through_dicts():
+    from app.kernel.serialize import workflow_spec_from_dict, workflow_spec_to_dict
+    from app.kernel.types import BudgetSpec, SubAgentSpec, WorkflowSpec, WorkflowStage
+
+    spec = WorkflowSpec(
+        title="Audit routers",
+        rationale="One scout per router file, then verify.",
+        stages=[
+            WorkflowStage(
+                id="scout",
+                kind="fanout",
+                agents=[
+                    SubAgentSpec(
+                        role="scout",
+                        prompt="Audit router X for missing auth checks.",
+                        tools=["workspace.read", "workspace.search"],
+                        budget=BudgetSpec(max_tokens=20000, max_seconds=120),
+                        success_criteria="Cites each unauthenticated route.",
+                        inputs={"file": "routers/x.py"},
+                        outputs=["findings"],
+                    )
+                ],
+                concurrency=2,
+            ),
+            WorkflowStage(id="check", kind="verify", depends_on=["scout"]),
+        ],
+        max_concurrent=4,
+        worker_model="gpt-4o-mini",
+    )
+    assert workflow_spec_from_dict(workflow_spec_to_dict(spec)) == spec
+    assert spec.agent_count == 1
+
+
+def test_workflow_spec_from_dict_tolerates_sloppy_planner_output():
+    from app.kernel.serialize import workflow_spec_from_dict
+
+    spec = workflow_spec_from_dict({
+        "title": "T",
+        "stages": [
+            {"id": "s1", "kind": "not-a-kind", "agents": [{"prompt": "p", "tools": 42}]},
+            "not-a-stage",
+        ],
+        "max_concurrent": None,
+    })
+    assert spec.stages[0].kind == "single"          # unknown kind demoted
+    assert spec.stages[0].agents[0].tools == "inherit"  # bad tools demoted
+    assert len(spec.stages) == 1                     # non-dict stage dropped
+    assert spec.max_concurrent == 16                 # None → default
+
+
+def test_workflow_spec_json_schema_is_generated_from_dataclasses():
+    from app.kernel.serialize import workflow_spec_json_schema
+
+    schema = workflow_spec_json_schema()
+    assert schema["type"] == "object"
+    assert schema["required"] == ["title"]
+    props = schema["properties"]
+    assert props["max_concurrent"] == {"type": "integer"}
+    assert props["verify"] == {"type": "boolean"}
+    stage = props["stages"]["items"]
+    assert stage["required"] == ["id"]
+    assert stage["properties"]["kind"]["enum"] == ["fanout", "single", "verify", "reduce"]
+    agent = stage["properties"]["agents"]["items"]
+    assert set(agent["required"]) == {"role", "prompt"}
+    # tools is list[str] | "inherit"
+    assert "anyOf" in agent["properties"]["tools"]
+    # nested budget object is generated too
+    assert agent["properties"]["budget"]["properties"]["max_tokens"]["type"] == "integer"
+
+
+def test_workflow_events_are_stream_events():
+    import typing
+
+    from app.kernel.types import (
+        StreamEvent,
+        WorkflowDone,
+        WorkflowPlanProposed,
+        WorkflowProgress,
+        WorkflowSpec,
+    )
+
+    members = typing.get_args(StreamEvent)
+    assert WorkflowPlanProposed in members
+    assert WorkflowProgress in members
+    assert WorkflowDone in members
+    ev = WorkflowPlanProposed(spec=WorkflowSpec(title="t"), estimated_tokens=1000)
+    assert ev.kind == "workflow_plan_proposed"
+    assert WorkflowDone(status="cancelled").kind == "workflow_done"
