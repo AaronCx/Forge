@@ -10,6 +10,7 @@ the originals in the log (reversible).
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -53,6 +54,7 @@ def create_session(
     system_prompt: str = "",
     policy: dict[str, Any] | None = None,
     token_budget: int = 0,
+    effort: str = "standard",
 ) -> dict[str, Any]:
     row = {
         "id": str(uuid.uuid4()),
@@ -64,6 +66,7 @@ def create_session(
         "policy_json": policy or {},
         "token_budget": token_budget,
         "status": "active",
+        "effort": effort if effort in ("standard", "high", "ultra") else "standard",
     }
     result = get_db().table("sessions").insert(row).execute()
     return result.data[0] if result.data else row
@@ -90,7 +93,7 @@ def update_session(session_id: str, user_id: str, updates: dict[str, Any]) -> di
     if get_session(session_id, user_id) is None:
         return None
     allowed = {"title", "model", "workspace_root", "system_prompt", "policy_json",
-               "token_budget", "status"}
+               "token_budget", "status", "effort"}
     patch = {k: v for k, v in updates.items() if k in allowed}
     patch["updated_at"] = _now()
     get_db().table("sessions").update(patch).eq("id", session_id).execute()
@@ -262,6 +265,74 @@ def _message_text(m: KMessage) -> str:
 # --- the turn driver (SSE) ---
 
 
+# --- workflow planning trigger (Phase 9.2) ---
+
+_PLAN_TRIGGER_WORDS = {"ultra", "workflow"}
+_SUBSTANTIVE_MIN_CHARS = 40
+
+
+def _explicit_plan_request(text: str) -> bool:
+    words = set(re.findall(r"[a-z]+", text.lower()))
+    return bool(_PLAN_TRIGGER_WORDS & words)
+
+
+async def _should_plan(session: dict[str, Any], text: str, registry: Any) -> bool:
+    """Decide whether this message warrants proposing a workflow plan.
+
+    At ``ultra`` effort the planner fires for any substantive message (the
+    cheapest model card self-classifies); at lower effort only on an explicit
+    request (the literal keyword ``ultra`` or ``workflow`` in the prompt).
+    """
+    if _explicit_plan_request(text):
+        return True
+    if (session.get("effort") or "standard") != "ultra":
+        return False
+    if len(text.strip()) < _SUBSTANTIVE_MIN_CHARS:
+        return False
+    from app.services.orchestration.planner import cheapest_worker_model
+
+    classify = [
+        KMessage(role="system", blocks=[TextBlock(
+            "Classify the user message. Answer exactly 'yes' if it asks for "
+            "substantive work that could benefit from decomposing into a "
+            "multi-agent workflow (research, audits, migrations, building "
+            "things, broad sweeps), or exactly 'no' if it is conversational, "
+            "a simple question, or a one-step task."
+        )]),
+        KMessage(role="user", blocks=[TextBlock(text[:2000])]),
+    ]
+    try:
+        turn = await registry.turn(classify, cheapest_worker_model())
+        return bool(turn.text.strip().lower().startswith("y"))
+    except Exception:  # noqa: BLE001 - at ultra, default to planning
+        logger.debug("substantive-message classification failed", exc_info=True)
+        return True
+
+
+async def _propose_plan(
+    session: dict[str, Any], goal: str, registry: Any, ctx: ExecContext
+) -> dict[str, Any] | None:
+    """Run the planner and persist the proposed plan; None on planner failure."""
+    from app.kernel.serialize import workflow_spec_to_dict
+    from app.services.orchestration.planner import estimate_tokens, plan_workflow
+
+    try:
+        spec = await plan_workflow(
+            goal, user_id=session["user_id"], model=session.get("model") or None,
+            registry=registry, ctx=ctx,
+        )
+    except Exception:  # noqa: BLE001 - fall back to a normal turn
+        logger.warning("workflow planning failed for %s", session["id"], exc_info=True)
+        return None
+    payload = {
+        "spec": workflow_spec_to_dict(spec),
+        "estimated_tokens": estimate_tokens(spec),
+        "status": "proposed",
+    }
+    seq = append_event(session["id"], "workflow_plan", payload)
+    return {"type": "workflow_plan", "data": {**payload, "seq": seq}}
+
+
 async def _retry_approved_tools(
     session: dict[str, Any], ctx: ExecContext, specs: list[Any]
 ) -> list[tuple[Any, ToolResultBlock]]:
@@ -389,6 +460,18 @@ async def run_turn(
     # Persist the user message, then reconstruct the live message list.
     append_event(session_id, "message",
                  message_to_dict(KMessage(role="user", blocks=[TextBlock(user_text)])))
+
+    # Phase 9: when the message warrants it, propose a workflow plan instead of
+    # a normal turn. The plan is only PROPOSED — running it takes explicit
+    # user consent (the plan card / CLI prompt), never the model's say-so.
+    if await _should_plan(session, user_text, registry):
+        plan_event = await _propose_plan(session, user_text, registry, ctx)
+        if plan_event is not None:
+            yield plan_event
+            update_session(session_id, user_id, {"updated_at": _now()})
+            yield {"type": "done", "session_id": session_id}
+            return
+
     messages = build_messages(session)
     persist_from = len(messages)
 

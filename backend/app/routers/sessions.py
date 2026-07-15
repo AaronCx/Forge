@@ -6,7 +6,7 @@ Gated by ``FORGE_SESSIONS`` — endpoints 404 until the flag is on.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -32,6 +32,7 @@ class SessionCreate(BaseModel):
     system_prompt: str = ""
     policy: dict[str, Any] = Field(default_factory=dict)
     token_budget: int = 0
+    effort: Literal["standard", "high", "ultra"] = "standard"
 
 
 class SessionUpdate(BaseModel):
@@ -39,6 +40,7 @@ class SessionUpdate(BaseModel):
     model: str | None = None
     system_prompt: str | None = None
     status: str | None = None
+    effort: Literal["standard", "high", "ultra"] | None = None
 
 
 class MessageRequest(BaseModel):
@@ -55,6 +57,7 @@ async def create_session(
     return svc.create_session(
         user.id, title=body.title, model=body.model, workspace_root=body.workspace_root,
         system_prompt=body.system_prompt, policy=body.policy, token_budget=body.token_budget,
+        effort=body.effort,
     )
 
 

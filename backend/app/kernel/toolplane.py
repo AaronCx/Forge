@@ -186,6 +186,8 @@ class ToolPlane:
             index[spec.name] = (spec, executor)
         for spec, executor in self._workspace_entries():
             index[spec.name] = (spec, executor)
+        for spec, executor in self._orchestrate_entries():
+            index[spec.name] = (spec, executor)
         for spec, executor in await self._blueprint_entries(ctx):
             index[spec.name] = (spec, executor)
         for source in self._extra_sources:
@@ -338,6 +340,35 @@ class ToolPlane:
             return await _run_workspace(op, args, ctx)
 
         return run
+
+    # --- source: dynamic orchestration (Phase 9) ---
+
+    def _orchestrate_entries(self) -> list[tuple[ToolSpec, Executor]]:
+        spec = ToolSpec(
+            name="orchestrate.plan",
+            description=(
+                "Plan a multi-agent workflow for a goal: decomposes it into "
+                "scoped sub-agents (with tool allowlists, budgets, and success "
+                "criteria) and returns a WorkflowSpec for the user to approve. "
+                "Planning only — nothing is executed."
+            ),
+            input_schema=_obj_schema(
+                {"goal": {"type": "string", "description": "The goal to decompose."}},
+                ["goal"],
+            ),
+            source="builtin",
+            source_id="orchestrate.plan",
+            danger_level="safe",
+        )
+
+        async def run(args: dict[str, Any], ctx: ExecContext) -> Any:
+            from app.kernel.serialize import workflow_spec_to_dict
+            from app.services.orchestration.planner import plan_for_context
+
+            plan = await plan_for_context(str(args.get("goal", "")), ctx)
+            return workflow_spec_to_dict(plan)
+
+        return [(spec, run)]
 
     # --- source: saved blueprints ---
 
