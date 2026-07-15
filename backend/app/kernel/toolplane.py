@@ -54,6 +54,9 @@ class ExecContext:
     # any call of that tool this run (default), or any call this session.
     # Dangerous tools are always approved per exact call, regardless.
     approve_scope: ApproveScope = "tool"
+    # Identity of the executing sub-agent within a workflow run (its node id);
+    # empty outside workflows. Used by per-run tool sources like the mailbox.
+    agent_label: str = ""
 
 
 def approval_input_hash(tool_input: dict[str, Any]) -> str:

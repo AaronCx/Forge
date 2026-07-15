@@ -30,6 +30,192 @@ interface TaskEvent {
   group_id?: string;
 }
 
+type SavedWorkflow = {
+  id: string;
+  name: string;
+  description: string;
+  workflow_spec: {
+    title: string;
+    stages: { id: string; kind: string; agents: { role: string }[] }[];
+  };
+};
+
+type StageProgress = {
+  stage_id: string;
+  agents_running: number;
+  agents_done: number;
+  agents_total: number;
+  tokens_spent: number;
+  elapsed_seconds: number;
+};
+
+type LiveRun = {
+  workflowId: string;
+  title: string;
+  status: "running" | "completed" | "failed";
+  stages: Record<string, StageProgress>;
+  output: string;
+  error: string;
+};
+
+function DynamicWorkflows() {
+  const [workflows, setWorkflows] = useState<SavedWorkflow[]>([]);
+  const [run, setRun] = useState<LiveRun | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (isDemoMode()) {
+      setLoaded(true);
+      return;
+    }
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) return;
+        const res = await fetch(`${API_URL}/api/workflows`, {
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        });
+        if (res.ok) setWorkflows(await res.json());
+      } catch {
+        // saved workflows are optional; the page still renders
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  async function runWorkflow(wf: SavedWorkflow) {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+    setRun({ workflowId: wf.id, title: wf.name, status: "running", stages: {}, output: "", error: "" });
+    try {
+      const res = await fetch(`${API_URL}/api/workflows/${wf.id}/run`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        setRun((prev) => prev && { ...prev, status: "failed", error: String(err.detail || res.status) });
+        return;
+      }
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const event = JSON.parse(payload);
+            const d = event.data as Record<string, unknown>;
+            setRun((prev) => {
+              if (!prev) return prev;
+              if (event.type === "workflow_progress") {
+                const p = d as unknown as StageProgress;
+                return { ...prev, stages: { ...prev.stages, [p.stage_id]: p } };
+              }
+              if (event.type === "workflow_error") return { ...prev, error: String(d?.error ?? "") };
+              if (event.type === "workflow_done") {
+                return {
+                  ...prev,
+                  status: (d?.status as LiveRun["status"]) || "completed",
+                  output: String(d?.output ?? ""),
+                  error: String(d?.error ?? ""),
+                };
+              }
+              return prev;
+            });
+          } catch {
+            // skip malformed SSE events
+          }
+        }
+      }
+    } catch (err: unknown) {
+      setRun((prev) => prev && { ...prev, status: "failed", error: String(err) });
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Dynamic workflows</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {workflows.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-seeded="true">
+            No saved workflows yet. Ask for one in Chat (effort: ultra, or say
+            “workflow”), then Save the proposed plan — it lands here as a
+            rerunnable blueprint.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {workflows.map((wf) => {
+              const stages = wf.workflow_spec?.stages ?? [];
+              const agents = stages.reduce((n, s) => n + (s.agents?.length ?? 0), 0);
+              return (
+                <div key={wf.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <div>
+                    <div className="text-sm font-medium">{wf.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {stages.length} stage{stages.length === 1 ? "" : "s"} · {agents} agent
+                      {agents === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => void runWorkflow(wf)}
+                    disabled={run?.status === "running"}
+                  >
+                    Run
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {run && (
+          <div className="rounded-lg border border-border p-3">
+            <div className="flex items-center gap-2">
+              <Badge variant={run.status === "failed" ? "destructive" : "default"}>
+                {run.status}
+              </Badge>
+              <span className="text-sm font-medium">{run.title}</span>
+            </div>
+            <div className="mt-2 space-y-1">
+              {Object.values(run.stages).map((stage) => (
+                <div key={stage.stage_id} className="text-xs text-muted-foreground">
+                  {stage.stage_id}: {stage.agents_done}/{stage.agents_total} done
+                  {stage.agents_running > 0 ? `, ${stage.agents_running} running` : ""} ·{" "}
+                  {stage.tokens_spent.toLocaleString()} tok · {stage.elapsed_seconds}s
+                </div>
+              ))}
+            </div>
+            {run.error && <div className="mt-2 text-xs text-destructive">{run.error}</div>}
+            {run.output && (
+              <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted p-2 text-sm">
+                {run.output}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function OrchestratePage() {
   const [objective, setObjective] = useState("");
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
@@ -142,13 +328,26 @@ export default function OrchestratePage() {
       <div>
         <h1 className="text-3xl font-bold">Orchestrate</h1>
         <p className="mt-1 text-muted-foreground">
-          Submit a high-level objective and let agents decompose and execute it
+          Live view of dynamic workflow runs — plans proposed in Chat, saved to
+          the library, and re-run from here
         </p>
       </div>
 
-      {/* Input form */}
+      {/* Dynamic workflows (Phase 9) — the primary surface */}
+      <DynamicWorkflows />
+
+      {/* Legacy coordinator/supervisor/worker orchestrator (deprecated —
+          superseded by dynamic workflows; kept during the deprecation window) */}
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">
+            Legacy orchestrator{" "}
+            <Badge variant="outline" className="ml-1 align-middle text-[10px]">
+              deprecated
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-2">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-sm font-medium">Objective</label>

@@ -91,7 +91,11 @@ async def run_workflow(
         WorkflowCompileError,
         compile_workflow,
     )
-    from app.services.orchestration.subagent import release_run
+    from app.services.orchestration.subagent import (
+        disable_mailbox,
+        enable_mailbox,
+        release_run,
+    )
     from app.services.sessions import append_event
 
     session_id = session["id"]
@@ -106,6 +110,21 @@ async def run_workflow(
 
     run_id = f"wf-{uuid.uuid4().hex[:12]}"
     bp["id"] = run_id  # engine uses blueprint id for token accounting
+
+    # Optional inter-agent mailbox (ported from the task_groups Orchestrator):
+    # a task_groups row anchors the durable agent_messages log for this run.
+    mailbox = False
+    try:
+        from app.db import get_db
+
+        get_db().table("task_groups").insert({
+            "id": run_id, "user_id": user_id,
+            "objective": f"Workflow: {spec.title}", "status": "running",
+        }).execute()
+        enable_mailbox(run_id, run_id, [n["id"] for n in bp["nodes"]])
+        mailbox = True
+    except Exception:  # noqa: BLE001 - the mailbox is optional
+        logger.debug("mailbox unavailable for %s", run_id, exc_info=True)
 
     node_stage: dict[str, str] = {
         n["id"]: n["config"].get("stage_id", n["id"]) for n in bp["nodes"]
@@ -176,6 +195,16 @@ async def run_workflow(
         yield {"type": "workflow_error", "data": {"run_id": run_id, "error": error}}
     finally:
         release_run(run_id)
+        if mailbox:
+            disable_mailbox(run_id)
+            try:
+                from app.db import get_db
+
+                get_db().table("task_groups").update(
+                    {"status": status}
+                ).eq("id", run_id).execute()
+            except Exception:  # noqa: BLE001
+                logger.debug("task_groups close failed for %s", run_id, exc_info=True)
 
     done = {
         "run_id": run_id, "plan_seq": plan_seq, "title": spec.title,

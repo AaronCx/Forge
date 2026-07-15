@@ -36,6 +36,84 @@ _MAX_SUBAGENT_ITERATIONS = 12
 # Per-run fan-out semaphores (created on first use with the run's limit).
 _RUN_SEMAPHORES: dict[str, asyncio.Semaphore] = {}
 
+# --- optional per-run mailbox (ported from the task_groups Orchestrator) ---
+# run_id -> {"group_id": task_groups row id, "index": {node_id: sender_index}}
+_MAILBOXES: dict[str, dict[str, Any]] = {}
+
+
+def enable_mailbox(run_id: str, group_id: str, node_ids: list[str]) -> None:
+    """Give this run's sub-agents mailbox.send / mailbox.read tools."""
+    _MAILBOXES[run_id] = {
+        "group_id": group_id,
+        "index": {nid: i for i, nid in enumerate(node_ids)},
+    }
+
+
+def disable_mailbox(run_id: str) -> None:
+    _MAILBOXES.pop(run_id, None)
+
+
+async def _mailbox_source(ctx: Any) -> list[tuple[Any, Any]]:
+    """ToolPlane source: mailbox tools exist only inside a mailbox-enabled run."""
+    from app.kernel.types import ToolSpec
+
+    box = _MAILBOXES.get(getattr(ctx, "run_id", ""))
+    if not box:
+        return []
+    group_id = box["group_id"]
+    index: dict[str, int] = box["index"]
+    peers = ", ".join(index) or "none"
+
+    send_spec = ToolSpec(
+        name="mailbox.send",
+        description=(
+            "Send a message to another sub-agent in this workflow (or broadcast "
+            f"when 'to' is omitted). Peers: {peers}."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Peer node id (omit to broadcast)."},
+                "content": {"type": "string"},
+            },
+            "required": ["content"],
+        },
+        source="builtin", source_id="mailbox.send", danger_level="safe",
+    )
+    read_spec = ToolSpec(
+        name="mailbox.read",
+        description="Read messages sent to you (and broadcasts) in this workflow.",
+        input_schema={"type": "object", "properties": {}},
+        source="builtin", source_id="mailbox.read", danger_level="safe",
+    )
+
+    async def send(args: dict[str, Any], c: Any) -> Any:
+        from app.services.messaging import messaging_service
+
+        sender = index.get(getattr(c, "agent_label", ""), 0)
+        to = args.get("to")
+        receiver = index.get(str(to)) if to else None
+        row = messaging_service.send(
+            group_id=group_id, sender_index=sender, receiver_index=receiver,
+            content=str(args.get("content", "")),
+            metadata={"node": getattr(c, "agent_label", ""), "to": to},
+        )
+        return {"sent": True, "id": row.get("id", "")}
+
+    async def read(args: dict[str, Any], c: Any) -> Any:
+        from app.services.messaging import messaging_service
+
+        me = index.get(getattr(c, "agent_label", ""), 0)
+        rows = messaging_service.get_messages(group_id, receiver_index=me)
+        by_index = {i: nid for nid, i in index.items()}
+        return {"messages": [
+            {"from": by_index.get(int(r.get("sender_index") or 0), "?"),
+             "content": r.get("content", "")}
+            for r in rows
+        ]}
+
+    return [(send_spec, send), (read_spec, read)]
+
 
 def _run_semaphore(run_id: str, limit: int) -> asyncio.Semaphore:
     sem = _RUN_SEMAPHORES.get(run_id)
@@ -156,6 +234,7 @@ async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any
         workspace_root=str(config.get("workspace_root", "")),
         session_overrides=policy,  # inherit the parent's policy, never elevate
         approve_scope=scope if scope in ("call", "tool", "session") else "tool",
+        agent_label=node_id,
     )
 
     all_specs = await tool_plane.list_tools(user_id, ctx)
@@ -163,6 +242,10 @@ async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any
     if isinstance(allow, list):
         allowed_names = set(allow)
         tools = [s for s in all_specs if s.name in allowed_names]
+        # The mailbox (when enabled for this run) is coordination plumbing,
+        # not a capability — it rides along regardless of the allowlist.
+        tools += [s for s in all_specs
+                  if s.name.startswith("mailbox.") and s.name not in allowed_names]
     else:
         tools = list(all_specs)
     tools = [s for s in tools if s.name not in _FORBIDDEN_SUBAGENT_TOOLS]
@@ -416,3 +499,6 @@ async def _execute_verify(config: dict, inputs: dict[str, Any]) -> dict[str, Any
 SUBAGENT_EXECUTORS = {
     "subagent_run": execute_subagent_run,
 }
+
+# The mailbox tools appear on the plane only inside mailbox-enabled runs.
+tool_plane.register_source(_mailbox_source)

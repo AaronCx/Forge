@@ -10,6 +10,7 @@ compilation — never execution.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import uuid
@@ -79,6 +80,15 @@ def compile_workflow(
             f"max_agents_total ceiling of {spec.max_agents_total}"
         )
 
+    # A sub-agent whose role names a saved agent template inherits that
+    # template's system prompt (Phase 9.6 — templates gain a purpose).
+    try:
+        from app.services.orchestration.planner import load_agent_templates
+
+        templates = load_agent_templates(user_id)
+    except Exception:  # noqa: BLE001 - templates are optional
+        templates = {}
+
     seen_stages: set[str] = set()
     stage_nodes: dict[str, list[str]] = {}
     nodes: list[dict[str, Any]] = []
@@ -110,6 +120,13 @@ def compile_workflow(
         concurrency = stage.concurrency or spec.max_concurrent
         node_ids: list[str] = []
         for i, agent in enumerate(agents):
+            if agent.role in templates:
+                _desc, template_prompt = templates[agent.role]
+                if template_prompt:
+                    agent = dataclasses.replace(
+                        agent,
+                        prompt=f"{template_prompt}\n\n{agent.prompt}".strip(),
+                    )
             node_id = stage.id if len(agents) == 1 else f"{stage.id}-{i + 1}"
             # Saving a workflow to the library compiles without spawning
             # audit rows; a fresh run re-creates them.

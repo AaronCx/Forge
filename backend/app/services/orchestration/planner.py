@@ -66,6 +66,10 @@ Available models (id, provider, vision/tools flags, price per 1M tokens in/out):
 Dispatch targets (machines a stage's "target" may name):
 {{targets}}
 
+Saved agent templates (set an agent's "role" to a template name to inherit
+its system prompt):
+{{templates}}
+
 WorkflowSpec JSON schema:
 {{schema}}
 """
@@ -132,7 +136,33 @@ async def build_inventory(user_id: str, ctx: ExecContext) -> dict[str, str]:
     except Exception:  # noqa: BLE001 - targets are optional context
         logger.debug("target inventory failed", exc_info=True)
 
-    return {"tools": tools, "models": models, "targets": targets}
+    templates = "(none saved)"
+    try:
+        rows = load_agent_templates(user_id)
+        if rows:
+            templates = "\n".join(
+                f"- {name} — {desc}" for name, (desc, _prompt) in sorted(rows.items())
+            )
+    except Exception:  # noqa: BLE001 - templates are optional context
+        logger.debug("template inventory failed", exc_info=True)
+
+    return {"tools": tools, "models": models, "targets": targets,
+            "templates": templates}
+
+
+def load_agent_templates(user_id: str) -> dict[str, tuple[str, str]]:
+    """The user's saved (non-ephemeral) agents: name → (description, prompt)."""
+    from app.db import get_db
+
+    rows = (
+        get_db().table("agents").select("name, description, system_prompt, ephemeral")
+        .eq("user_id", user_id).execute().data or []
+    )
+    return {
+        r["name"]: (r.get("description", ""), r.get("system_prompt", ""))
+        for r in rows
+        if not r.get("ephemeral") and r.get("name")
+    }
 
 
 def cheapest_worker_model() -> str | None:
@@ -220,6 +250,7 @@ async def plan_workflow(
         .replace("{{tools}}", inventory["tools"])
         .replace("{{models}}", inventory["models"])
         .replace("{{targets}}", inventory["targets"])
+        .replace("{{templates}}", inventory.get("templates", "(none saved)"))
         .replace("{{schema}}", json.dumps(workflow_spec_json_schema(), indent=2))
     )
     messages = [

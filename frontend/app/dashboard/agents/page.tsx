@@ -54,13 +54,14 @@ export default function AgentsPage() {
       )}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Agents</h1>
+          <h1 className="text-3xl font-bold">Agent Templates</h1>
           <p className="mt-1 text-muted-foreground">
-            Create and manage your AI workflow agents
+            Reusable agent definitions — the workflow planner can reference them
+            by name as roles
           </p>
         </div>
         <Link href="/dashboard/agents/new">
-          <Button>Create Agent</Button>
+          <Button>Create Template</Button>
         </Link>
       </div>
 
