@@ -5,7 +5,7 @@
 Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 45 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming. Runs fully local with SQLite (zero external accounts) or scales to cloud with Supabase.
 
 ![Version](https://img.shields.io/badge/version-3.0.0-blue)
-![Tests](https://img.shields.io/badge/tests-975_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-977_passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.138-teal)
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
@@ -444,7 +444,7 @@ forge keys list                        # API key management
 ## Testing
 
 ```bash
-# Backend (915 tests)
+# Backend (917 tests)
 cd backend && source .venv/bin/activate
 pytest tests/ -v --cov=app
 
@@ -452,7 +452,7 @@ pytest tests/ -v --cov=app
 cd frontend && npx vitest run
 
 # Or use the Makefile
-# (the tests badge counts backend 915 + frontend 60 = 975)
+# (the tests badge counts backend 917 + frontend 60 = 977)
 make test
 
 # Parity safety net — freezes current node + agent behavior so refactors
