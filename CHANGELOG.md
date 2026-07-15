@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`forge-kernel` is now the single source of truth.** `app/kernel/{types,
+  models,convert,loop,serialize}` re-export the installed `forge-kernel` package
+  instead of vending copies (the duplicated `models.json` is removed). The
+  package is installed by path from `backend/requirements.txt`, so the Render
+  build and CI pick it up.
+- The Render deploy trigger is bounded (connect/max-time) and retried, and
+  surfaces the API HTTP status — it previously hung ~45 min and failed opaquely
+  when the `RENDER_API_KEY` secret was expired (401).
+
 ## [3.0.0] - 2026-07-14
 
 The **harness transformation**: Forge is now a provider-neutral agent harness.
