@@ -125,3 +125,92 @@ async def post_message(
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# --- dynamic orchestration: consent + execution (Phase 9.5) ---
+
+
+class WorkflowRunRequest(BaseModel):
+    """Run a proposed plan by seq, or an (edited) spec directly."""
+
+    plan_seq: int | None = None
+    spec: dict[str, Any] | None = None
+    confirm: bool = False
+
+
+class WorkflowSaveRequest(BaseModel):
+    plan_seq: int | None = None
+    spec: dict[str, Any] | None = None
+    name: str = ""
+
+
+def _resolve_plan(
+    session_id: str, plan_seq: int | None, spec: dict[str, Any] | None
+) -> tuple[dict[str, Any], str]:
+    """Resolve (spec_dict, goal) from a stored plan or an inline spec."""
+    from app.services.orchestration.runner import get_plan
+
+    if spec is not None:
+        return spec, str(spec.get("goal", "") or "")
+    if plan_seq is None:
+        raise HTTPException(status_code=422, detail="Provide plan_seq or spec")
+    plan = get_plan(session_id, plan_seq)
+    if plan is None or not isinstance(plan.get("spec"), dict):
+        raise HTTPException(status_code=404, detail="Proposed plan not found")
+    return plan["spec"], str(plan.get("goal", ""))
+
+
+@router.post("/sessions/{session_id}/workflow/run")
+@limiter.limit("30/hour")
+async def run_workflow(
+    request: Request, session_id: str, body: WorkflowRunRequest,
+    user: Any = Depends(get_current_user),  # noqa: B008
+):
+    """Execute a workflow the user consented to (SSE progress stream)."""
+    from app.kernel.serialize import workflow_spec_from_dict
+    from app.services.orchestration import runner
+
+    _require_flag()
+    session = svc.get_session(session_id, user.id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    spec_dict, goal = _resolve_plan(session_id, body.plan_seq, body.spec)
+    agent_count = workflow_spec_from_dict(spec_dict).agent_count
+    if agent_count > runner.confirm_threshold() and not body.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"This workflow spawns {agent_count} agents (threshold "
+                f"{runner.confirm_threshold()}); re-send with confirm=true."
+            ),
+        )
+
+    async def event_stream():
+        async for event in runner.run_workflow(
+            session, spec_dict, goal=goal, plan_seq=body.plan_seq
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/sessions/{session_id}/workflow/save")
+@limiter.limit("60/hour")
+async def save_workflow(
+    request: Request, session_id: str, body: WorkflowSaveRequest,
+    user: Any = Depends(get_current_user),  # noqa: B008
+):
+    """Persist a plan's compiled blueprint to the library (rerunnable/forkable)."""
+    from app.services.orchestration import runner
+
+    _require_flag()
+    session = svc.get_session(session_id, user.id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    spec_dict, _goal = _resolve_plan(session_id, body.plan_seq, body.spec)
+    try:
+        return runner.save_workflow(session, spec_dict, name=body.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -61,6 +61,7 @@ def compile_workflow(
     session_id: str = "",
     policy: dict[str, Any] | None = None,
     workspace_root: str = "",
+    create_agents: bool = True,
 ) -> dict[str, Any]:
     """Compile a WorkflowSpec into a blueprint dict for ``blueprint_engine``.
 
@@ -110,7 +111,12 @@ def compile_workflow(
         node_ids: list[str] = []
         for i, agent in enumerate(agents):
             node_id = stage.id if len(agents) == 1 else f"{stage.id}-{i + 1}"
-            agent_row_id = _create_ephemeral_agent(user_id, session_id, spec, stage, agent)
+            # Saving a workflow to the library compiles without spawning
+            # audit rows; a fresh run re-creates them.
+            agent_row_id = (
+                _create_ephemeral_agent(user_id, session_id, spec, stage, agent)
+                if create_agents else ""
+            )
             nodes.append({
                 "id": node_id,
                 "type": "subagent_run",

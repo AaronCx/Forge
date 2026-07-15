@@ -326,6 +326,7 @@ async def _propose_plan(
         return None
     payload = {
         "spec": workflow_spec_to_dict(spec),
+        "goal": goal,
         "estimated_tokens": estimate_tokens(spec),
         "status": "proposed",
     }

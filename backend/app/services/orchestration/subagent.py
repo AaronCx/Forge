@@ -87,6 +87,55 @@ async def execute_subagent_run(config: dict, inputs: dict[str, Any]) -> dict[str
     return await _execute_worker(config, inputs)
 
 
+def _make_recorder(
+    config: dict, user_id: str, run_id: str, node_id: str, user_prompt: str, model: Any
+) -> Any:
+    """A time-travel recorder for this sub-agent's transcript (best-effort).
+
+    Each sub-agent gets its own ``runs`` row (id ``<run>:<node>``) so replay
+    and fork work at workflow scale; failure to record never blocks the run.
+    """
+    if not run_id or not node_id or not user_id:
+        return None
+    try:
+        from app.db import get_db
+        from app.services.timetravel.recorder import RunRecorder
+
+        sub_run_id = f"{run_id}:{node_id}"
+        get_db().table("runs").insert({
+            "id": sub_run_id,
+            "agent_id": config.get("agent_id") or None,
+            "user_id": user_id,
+            "input_text": user_prompt[:2000],
+            "status": "running",
+        }).execute()
+        recorder = RunRecorder(sub_run_id)
+        recorder.run_start(
+            agent_id=config.get("agent_id") or None,
+            user_input=user_prompt[:2000],
+            model=model,
+        )
+        return recorder
+    except Exception:  # noqa: BLE001 - recording must never break a run
+        logger.debug("subagent recorder unavailable for %s:%s", run_id, node_id,
+                     exc_info=True)
+        return None
+
+
+def _finish_recorder(recorder: Any, status: str, output: str, total_tokens: int) -> None:
+    if recorder is None:
+        return
+    try:
+        from app.db import get_db
+
+        recorder.run_end(status=status, output=output[:2000], total_tokens=total_tokens)
+        get_db().table("runs").update({
+            "status": status, "output": output[:2000], "tokens_used": total_tokens,
+        }).eq("id", recorder.run_id).execute()
+    except Exception:  # noqa: BLE001
+        logger.debug("subagent recorder finish failed", exc_info=True)
+
+
 async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
     """Run one scoped sub-agent through the kernel loop."""
     from app.providers.registry import create_user_registry, provider_registry
@@ -124,28 +173,38 @@ async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any
         max_seconds=budget_spec.get("max_seconds"),
     )
 
+    user_prompt = _user_prompt(spec, inputs)
     messages = [
         KMessage(role="system", blocks=[TextBlock(_system_prompt(spec, config))]),
-        KMessage(role="user", blocks=[TextBlock(_user_prompt(spec, inputs))]),
+        KMessage(role="user", blocks=[TextBlock(user_prompt)]),
     ]
 
     registry = await create_user_registry(user_id) or provider_registry
+    recorder = _make_recorder(config, user_id, run_id, node_id, user_prompt, model)
 
     input_tokens = 0
     output_tokens = 0
     final_text = ""
+    status = "completed"
     sem = _run_semaphore(run_id or "adhoc", int(config.get("max_concurrent", 16) or 16))
     async with sem:
-        async for ev in run_agent_turn(
-            messages, tools or None, model,
-            registry=registry, plane=tool_plane, ctx=ctx, budget=budget,
-            max_iterations=_MAX_SUBAGENT_ITERATIONS,
-        ):
-            if isinstance(ev, TurnDone):
-                input_tokens += ev.turn.usage.input_tokens
-                output_tokens += ev.turn.usage.output_tokens
-                if ev.turn.stop_reason != "tool_use":
-                    final_text = ev.turn.text
+        try:
+            async for ev in run_agent_turn(
+                messages, tools or None, model,
+                registry=registry, plane=tool_plane, ctx=ctx, budget=budget,
+                recorder=recorder,
+                max_iterations=_MAX_SUBAGENT_ITERATIONS,
+            ):
+                if isinstance(ev, TurnDone):
+                    input_tokens += ev.turn.usage.input_tokens
+                    output_tokens += ev.turn.usage.output_tokens
+                    if ev.turn.stop_reason != "tool_use":
+                        final_text = ev.turn.text
+        except BaseException:
+            status = "failed"
+            raise
+        finally:
+            _finish_recorder(recorder, status, final_text, input_tokens + output_tokens)
 
     logger.info(
         "subagent %s (%s) finished: %d tools, %d tokens (run=%s target=%s)",
