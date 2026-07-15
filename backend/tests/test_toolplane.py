@@ -110,9 +110,9 @@ async def test_dangerous_tool_creates_approval_and_pends(db):
     result = await plane.execute(call, _ctx())
     assert result.is_error
     assert "APPROVAL_PENDING" in result.output
-    # an approval row now exists for this tool
+    # an approval row now exists for this exact call (input-scoped key)
     rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
-    assert any(r["node_id"] == "tool:cu.drive_run" for r in rows)
+    assert any(r["node_id"].startswith("tool:cu.drive_run:") for r in rows)
 
 
 @pytest.mark.asyncio
@@ -155,22 +155,92 @@ async def test_unknown_tool_is_error_not_exception(db):
 
 @pytest.mark.asyncio
 async def test_approved_tool_executes(db):
-    # Pre-approve a dangerous tool, then it should run instead of pending.
+    # Pre-approve a dangerous tool call (exact input), then it should run
+    # instead of pending.
+    from app.kernel.toolplane import approval_key
+    from app.kernel.types import ToolSpec
+
+    call = ToolUseBlock(id="t", name="cu.drive_run", input={"command": "shutdown"})
+    spec = ToolSpec(name="cu.drive_run", description="", danger_level="dangerous")
     db.table("approvals").insert(
         {
             "id": "ap1",
             "user_id": "u1",
             "blueprint_run_id": "run1",
-            "node_id": "tool:cu.drive_run",
+            "node_id": approval_key(spec, call, "tool"),
             "status": "approved",
         }
     ).execute()
     plane = ToolPlane()
     # command blocklisted so we can confirm it reached execution (blocked, not pending)
-    call = ToolUseBlock(id="t", name="cu.drive_run", input={"command": "shutdown"})
     result = await plane.execute(call, _ctx())
     assert result.is_error
     assert "blocked" in result.output.lower()  # executed and hit the blocklist
+
+
+@pytest.mark.asyncio
+async def test_approval_is_input_scoped_for_dangerous_tools(db):
+    """Audit H1 regression: approving drive_run("ls") must NOT approve
+    drive_run("rm -rf /") — each distinct dangerous invocation is reviewed."""
+    plane = ToolPlane()
+    ls_call = ToolUseBlock(id="t1", name="cu.drive_run", input={"command": "ls"})
+
+    # First call pends and files an approval; a human approves that exact call.
+    first = await plane.execute(ls_call, _ctx())
+    assert "APPROVAL_PENDING" in first.output
+    rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
+    assert len(rows) == 1
+    db.table("approvals").update({"status": "approved"}).eq("id", rows[0]["id"]).execute()
+
+    # The approved call now executes (drive node runs `ls` for real).
+    approved = await plane.execute(ls_call, _ctx())
+    assert "APPROVAL_PENDING" not in str(approved.output)
+
+    # A different command on the same tool goes back to pending, never executes.
+    rm_call = ToolUseBlock(id="t2", name="cu.drive_run", input={"command": "rm -rf /"})
+    second = await plane.execute(rm_call, _ctx())
+    assert "APPROVAL_PENDING" in second.output
+    rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
+    pending = [r for r in rows if r["status"] == "pending"]
+    assert len(pending) == 1  # a fresh review for the new input
+
+
+@pytest.mark.asyncio
+async def test_caution_tool_approval_scope_is_a_policy_choice(db):
+    """approve_scope="call" makes even caution tools input-scoped."""
+    plane = ToolPlane()
+    ctx = _ctx(approve_scope="call")
+    w1 = ToolUseBlock(id="t1", name="workspace.write",
+                      input={"path": "a.txt", "content": "one"})
+    result = await plane.execute(w1, ctx)
+    assert "APPROVAL_PENDING" in result.output
+    rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
+    db.table("approvals").update({"status": "approved"}).eq("id", rows[0]["id"]).execute()
+
+    # Same tool, different input → a new review under call scope.
+    w2 = ToolUseBlock(id="t2", name="workspace.write",
+                      input={"path": "b.txt", "content": "two"})
+    result2 = await plane.execute(w2, ctx)
+    assert "APPROVAL_PENDING" in result2.output
+
+    # Default tool scope: the per-tool approval covers other inputs.
+    ctx_tool = _ctx()
+    result3 = await plane.execute(
+        ToolUseBlock(id="t3", name="workspace.write",
+                     input={"path": "c.txt", "content": "three"}),
+        ctx_tool,
+    )
+    assert "APPROVAL_PENDING" in result3.output
+    rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
+    tool_scoped = [r for r in rows if r["node_id"] == "tool:workspace.write"]
+    assert len(tool_scoped) == 1
+    db.table("approvals").update({"status": "approved"}).eq("id", tool_scoped[0]["id"]).execute()
+    result4 = await plane.execute(
+        ToolUseBlock(id="t4", name="workspace.write",
+                     input={"path": "d.txt", "content": "four"}),
+        ctx_tool,
+    )
+    assert "APPROVAL_PENDING" not in str(result4.output)
 
 
 @pytest.mark.asyncio

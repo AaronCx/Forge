@@ -133,7 +133,7 @@ async def test_dangerous_tool_requires_approval_not_auto_execution(db):
     assert result.is_error
     assert "APPROVAL_PENDING" in result.output
     rows = db.table("approvals").select("*").eq("user_id", "u1").execute().data
-    assert any(r["node_id"] == "tool:cu.drive_run" for r in rows)
+    assert any(r["node_id"].startswith("tool:cu.drive_run:") for r in rows)
 
 
 @pytest.mark.asyncio

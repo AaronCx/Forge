@@ -262,6 +262,25 @@ def _message_text(m: KMessage) -> str:
 # --- the turn driver (SSE) ---
 
 
+def _exec_context(session: dict[str, Any]) -> ExecContext:
+    """Build the tool ExecContext for a session.
+
+    ``policy_json`` maps tool names to allow/ask/deny; the reserved key
+    ``approve_scope`` (call|tool|session) sets how far a caution-tool approval
+    extends. Dangerous tools are always approved per exact call.
+    """
+    policy = dict(session.get("policy_json") or {})
+    scope = policy.pop("approve_scope", "tool")
+    if scope not in ("call", "tool", "session"):
+        scope = "tool"
+    return ExecContext(
+        user_id=session["user_id"], session_id=session["id"],
+        workspace_root=session.get("workspace_root", ""),
+        session_overrides=policy,
+        approve_scope=scope,
+    )
+
+
 async def run_turn(
     session_id: str,
     user_id: str,
@@ -301,11 +320,7 @@ async def run_turn(
     persist_from = len(messages)
 
     registry = await create_user_registry(user_id) or provider_registry
-    ctx = ExecContext(
-        user_id=user_id, session_id=session_id,
-        workspace_root=session.get("workspace_root", ""),
-        session_overrides=session.get("policy_json") or {},
-    )
+    ctx = _exec_context(session)
     specs = await tool_plane.list_tools(user_id, ctx)
     budget = Budget(max_tokens=session.get("token_budget") or None)
 

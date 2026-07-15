@@ -14,12 +14,13 @@ Namespaces: builtins are bare names; everything else is ``<source>.<action>``
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from app.kernel.permissions import (
     PermissionResolver,
@@ -36,6 +37,9 @@ Executor = Callable[[dict[str, Any], "ExecContext"], Awaitable[Any]]
 Source = Callable[["ExecContext"], Awaitable[list[tuple[ToolSpec, Executor]]]]
 
 
+ApproveScope = Literal["call", "tool", "session"]
+
+
 @dataclass
 class ExecContext:
     """Everything a tool call needs to run under a policy."""
@@ -46,6 +50,28 @@ class ExecContext:
     workspace_root: str = ""
     session_overrides: dict[str, PolicyDecision] = field(default_factory=dict)
     timeout: float = 60.0
+    # How far a human approval of a *caution* tool extends: one exact call,
+    # any call of that tool this run (default), or any call this session.
+    # Dangerous tools are always approved per exact call, regardless.
+    approve_scope: ApproveScope = "tool"
+
+
+def approval_input_hash(tool_input: dict[str, Any]) -> str:
+    """A stable hash of a tool call's input, for input-scoped approval keys."""
+    canonical = json.dumps(tool_input, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
+def approval_key(spec: ToolSpec, tool_use: ToolUseBlock, scope: ApproveScope) -> str:
+    """The approvals-table ``node_id`` for a tool call.
+
+    Dangerous tools are keyed on the exact input so approving one invocation
+    never green-lights a different one (audit H1); caution tools follow the
+    context's ``approve_scope``.
+    """
+    if spec.danger_level == "dangerous" or scope == "call":
+        return f"tool:{spec.name}:{approval_input_hash(tool_use.input)}"
+    return f"tool:{spec.name}"
 
 
 # --- danger levels ---
@@ -442,8 +468,11 @@ class ToolPlane:
         """Return 'approved' | 'rejected' | 'pending', creating a pending row if new."""
         from app.services.evals.approvals import approval_service
 
-        run_id = ctx.run_id or ctx.session_id or "toolplane"
-        node_id = f"tool:{spec.name}"
+        if ctx.approve_scope == "session" and ctx.session_id:
+            run_id = ctx.session_id
+        else:
+            run_id = ctx.run_id or ctx.session_id or "toolplane"
+        node_id = approval_key(spec, tool_use, ctx.approve_scope)
         existing = await approval_service.get_approval_for_run(run_id, node_id)
         if existing and existing.get("status") == "approved":
             return "approved"
