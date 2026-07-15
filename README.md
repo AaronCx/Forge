@@ -2,10 +2,10 @@
 
 **Agentic AI orchestration platform — design workflows visually, automate GUIs and terminals, and coordinate agents across machines.**
 
-Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 44 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming. Runs fully local with SQLite (zero external accounts) or scales to cloud with Supabase.
+Build AI-powered workflows that chain LLM reasoning with deterministic logic, automate any desktop or terminal, and orchestrate multiple agents in parallel. Visual DAG editor with 45 node types, cross-platform computer use, multi-model provider support, and real-time execution streaming. Runs fully local with SQLite (zero external accounts) or scales to cloud with Supabase.
 
 ![Version](https://img.shields.io/badge/version-3.0.0-blue)
-![Tests](https://img.shields.io/badge/tests-928_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-975_passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.138-teal)
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
@@ -24,8 +24,19 @@ is summarized into a pinned note while the originals are kept, so it is
 reversible). When a session has a workspace root, its `AGENTS.md` (falling back
 to `CLAUDE.md`) is injected into the system prompt.
 
+### Dynamic Orchestration (agents the planned way)
+State a goal; the session model plans a workflow of scoped sub-agents
+(`orchestrate.plan`), you approve it on a plan card (web) or `y/e/s/n` prompt
+(CLI), and Forge fans out parallel `subagent_run` nodes whose intermediate
+state lives in the DAG — not your chat context. An adversarial verify stage
+judges every producer against its success criteria with one bounded retry.
+Plans can be saved to the library as rerunnable blueprints (`forge workflows
+list|run|save`). Sessions carry an `effort` level (`standard|high|ultra`);
+at ultra the planner engages automatically for substantive requests. Runs
+above a configurable agent threshold always require explicit confirmation.
+
 ### Visual Blueprint System
-Drag-and-drop DAG workflow builder with 44 node types across 9 categories. Topological execution engine with concurrent layer resolution, context assembly with token budgets, retry policies, and SSE-streamed execution traces.
+Drag-and-drop DAG workflow builder with 45 node types across 10 categories. Topological execution engine with concurrent layer resolution, context assembly with token budgets, retry policies, and SSE-streamed execution traces.
 
 ### Computer Use (GUI + Terminal)
 Agents operate machines through GUI automation and terminal orchestration across macOS, Linux, and Windows:
@@ -77,14 +88,14 @@ Publish, browse, fork, and rate blueprints. Organization support with member RBA
 Integrated development environment with CodeMirror 6 web editor, file tree, editor tabs, integrated terminal (xterm.js), and agent activity panel. Real-time file sync via WebSocket — when an agent modifies a file, you see it instantly. Agents operate directly on your files through the tool plane's `workspace.read/write/list/search` tools.
 
 ### Tool Plane
-Every Forge capability — the 44 blueprint nodes (`node.<key>`), saved blueprints (`blueprint.<slug>`), computer-use actions (`cu.<action>`), workspace ops (`workspace.<op>`), agent control (`agent.<op>`), and discovered MCP tools (`mcp.<server>.<tool>`) — is a callable tool behind one permission policy (allow / ask / deny by `danger_level`, per-user overrides, approvals inbox). Agents call your features seamlessly; the native kernel loop drives them on any provider.
+Every Forge capability — the 45 blueprint nodes (`node.<key>`), saved blueprints (`blueprint.<slug>`), computer-use actions (`cu.<action>`), workspace ops (`workspace.<op>`), agent control (`agent.<op>`), and discovered MCP tools (`mcp.<server>.<tool>`) — is a callable tool behind one permission policy (allow / ask / deny by `danger_level`, per-user overrides, approvals inbox). Agents call your features seamlessly; the native kernel loop drives them on any provider.
 
 ### Live Dashboard + CLI
 Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytics. CLI-first experience with 35+ command groups covering the full platform — no browser required.
 
 ---
 
-## Node Types (44)
+## Node Types (45)
 
 | Category | Count | Nodes |
 |----------|-------|-------|
@@ -97,6 +108,7 @@ Real-time monitoring with heartbeat tracking, SSE-powered updates, cost analytic
 | Terminal (Drive) | 6 | drive_session, drive_run, drive_send, drive_logs, drive_poll, drive_fanout |
 | CU Agent | 4 | cu_planner, cu_analyzer, cu_verifier, cu_error_handler |
 | Agent Control | 6 | agent_spawn, agent_prompt, agent_monitor, agent_wait, agent_stop, agent_result |
+| Orchestration | 1 | subagent_run |
 
 Every node is also callable directly as a `node.<key>` tool through the
 [tool plane](#tool-plane); workspace file operations are available there as
@@ -323,7 +335,7 @@ Authorization: Bearer <supabase-access-token>
 | `GET` | `/api/blueprints` | List blueprints |
 | `POST` | `/api/blueprints` | Create blueprint |
 | `POST` | `/api/blueprints/:id/run` | Run blueprint (SSE) |
-| `GET` | `/api/blueprints/node-types` | List all 44 node types |
+| `GET` | `/api/blueprints/node-types` | List all 45 node types |
 | `POST` | `/api/orchestrate` | Start orchestration (SSE) |
 
 ### Computer Use
@@ -432,14 +444,15 @@ forge keys list                        # API key management
 ## Testing
 
 ```bash
-# Backend (868 tests)
+# Backend (915 tests)
 cd backend && source .venv/bin/activate
 pytest tests/ -v --cov=app
 
-# Frontend (21 tests)
+# Frontend (60 tests)
 cd frontend && npx vitest run
 
 # Or use the Makefile
+# (the tests badge counts backend 915 + frontend 60 = 975)
 make test
 
 # Parity safety net — freezes current node + agent behavior so refactors
@@ -468,7 +481,7 @@ Forge/
 │   │   ├── routers/             # 34 API route modules (incl. auth API, sessions)
 │   │   ├── providers/           # Multi-model provider registry
 │   │   └── services/
-│   │       ├── blueprint_nodes/ # 44 node type executors
+│   │       ├── blueprint_nodes/ # 45 node type executors
 │   │       └── computer_use/    # Steer, Drive, agents, dispatch, recorder
 │   │           ├── steer/       # macOS GUI automation
 │   │           ├── drive/       # Terminal automation

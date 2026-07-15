@@ -223,6 +223,21 @@ async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any
     run_id = inputs.get("_run_id", "")
     node_id = inputs.get("_node_id", "")
 
+    # Budget exhaustion halts the scheduling of new agents: each sub-agent
+    # re-checks the user's daily budget before spending anything.
+    if user_id:
+        try:
+            from app.services.budgets import check_user_budget
+
+            budget_status = check_user_budget(user_id)
+        except Exception:  # noqa: BLE001 - budget check is best-effort
+            budget_status = None
+        if budget_status is not None and not budget_status.within_budget:
+            raise RuntimeError(
+                f"daily budget of ${budget_status.limit_usd:.2f} reached "
+                f"(${budget_status.spent_usd:.2f} spent) — sub-agent not started"
+            )
+
     model = spec.get("model") or config.get("worker_model") or None
 
     policy = dict(config.get("policy") or {})
