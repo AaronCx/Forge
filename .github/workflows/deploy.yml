@@ -34,7 +34,19 @@ jobs:
     steps:
       - name: Trigger Render Deploy
         run: |
-          curl -sf -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
+          # Bounded + retried so a stalled or unauthorized API call fails fast
+          # and legibly instead of hanging (the trigger returns 401 when the
+          # RENDER_API_KEY secret is expired — rotate it in repo settings).
+          status=$(curl -sS -o /tmp/render.json -w '%{http_code}' \
+            --connect-timeout 15 --max-time 60 --retry 3 --retry-delay 5 \
+            -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{}'
+            -d '{}')
+          echo "Render API HTTP $status"
+          cat /tmp/render.json 2>/dev/null || true
+          echo
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Render deploy trigger failed (HTTP $status). If 401, rotate the RENDER_API_KEY secret."
+            exit 1
+          fi

@@ -24,3 +24,7 @@ supabase==2.31.0
 # Real MCP (Model Context Protocol) client + server — JSON-RPC 2.0 over
 # stdio/Streamable HTTP (harness-plan.md Phase 5).
 mcp==1.28.1
+# The provider-neutral kernel (types, model cards, converters, loop). Lives at
+# the repo root; installed by path so `app.kernel` re-exports it. Resolved
+# relative to this directory (the build's rootDir), so it works on Render + CI.
+../forge-kernel

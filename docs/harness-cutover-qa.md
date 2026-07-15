@@ -48,5 +48,5 @@ chat · Docker code-exec · cost budgets · `forge-kernel` SDK.
   Migrate legacy rows by re-adding them with `forge connections mcp add`.
 - Frontend fallback-policy toggle / budget widget: API is ready
   (`/costs/budget`, preferences); the UI is a follow-up.
-- `forge-kernel` currently vendors the pure kernel; consolidating `app/kernel`
-  to import the package is a follow-up (kept separate to avoid an import churn).
+- `forge-kernel` is now the single source of truth: `app/kernel/{types,models,
+  convert,loop,serialize}` re-export the installed package (done post-3.0.0).
