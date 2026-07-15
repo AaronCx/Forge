@@ -157,8 +157,8 @@ def test_workspace_agents_md_injected(db, tmp_path):
 
 
 def test_router_gated_by_flag_and_crud(db, auth_client, monkeypatch):
-    # Flag off → 404.
-    monkeypatch.delenv("FORGE_SESSIONS", raising=False)
+    # Flag off → 404 (sessions default on now, so disable explicitly).
+    monkeypatch.setenv("FORGE_SESSIONS", "0")
     assert auth_client.post("/api/sessions", json={"title": "x"}).status_code == 404
 
     # Flag on → full CRUD.

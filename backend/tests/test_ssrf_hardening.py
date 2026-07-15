@@ -119,7 +119,7 @@ def test_code_executor_blocks_open_alias():
     """Aliasing the open builtin must be rejected (the classic denylist bypass)."""
     from app.services.tools.code_executor import code_executor
 
-    result = code_executor.invoke("r = open\nprint(r('/etc/passwd').read())")
+    result = code_executor("r = open\nprint(r('/etc/passwd').read())")
     assert "Blocked" in result
 
 
@@ -127,15 +127,15 @@ def test_code_executor_blocks_os_exec():
     """os.execv / os.popen escapes must be rejected."""
     from app.services.tools.code_executor import code_executor
 
-    assert "Blocked" in code_executor.invoke("import os\nos.execv('/bin/sh', ['sh'])")
-    assert "Blocked" in code_executor.invoke("p = os.popen\nprint(p('id').read())")
+    assert "Blocked" in code_executor("import os\nos.execv('/bin/sh', ['sh'])")
+    assert "Blocked" in code_executor("p = os.popen\nprint(p('id').read())")
 
 
 def test_code_executor_blocks_dunder_introspection():
     """The ().__class__.__bases__ subclasses escape must be rejected."""
     from app.services.tools.code_executor import code_executor
 
-    result = code_executor.invoke("print(().__class__.__bases__[0].__subclasses__())")
+    result = code_executor("print(().__class__.__bases__[0].__subclasses__())")
     assert "Blocked" in result
 
 
@@ -143,5 +143,5 @@ def test_code_executor_runs_safe_imports():
     """Allowlisted stdlib (math) still works."""
     from app.services.tools.code_executor import code_executor
 
-    result = code_executor.invoke("import math\nprint(math.factorial(5))")
+    result = code_executor("import math\nprint(math.factorial(5))")
     assert "120" in result

@@ -1,9 +1,6 @@
-from langchain.tools import tool
-
 from app.services.extract import extract_text
 
 
-@tool
 async def document_reader(file_url: str) -> str:
     """Read and extract text from a PDF or DOCX document at the given URL."""
     try:

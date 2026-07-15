@@ -1,9 +1,6 @@
-from langchain.tools import tool
-
 from app.providers.registry import provider_registry
 
 
-@tool
 async def summarizer(text: str) -> str:
     """Summarize long text into a concise, well-structured summary. Preserves key information and action items."""
     response = await provider_registry.complete(

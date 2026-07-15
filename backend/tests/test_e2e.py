@@ -61,7 +61,7 @@ def test_root_endpoint(client):
     response = client.get("/")
     data = response.json()
     assert data["name"] == "Forge API"
-    assert data["version"] == "1.9.0"
+    assert data["version"] == "3.0.0"
     assert data["status"] == "running"
 
 

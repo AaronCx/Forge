@@ -6,27 +6,27 @@ import pytest
 def test_code_executor_blocks_dangerous_code():
     from app.services.tools.code_executor import code_executor
 
-    result = code_executor.invoke("os.system('rm -rf /')")
+    result = code_executor("os.system('rm -rf /')")
     assert "Blocked" in result
 
-    result = code_executor.invoke("subprocess.run(['ls'])")
+    result = code_executor("subprocess.run(['ls'])")
     assert "Blocked" in result
 
-    result = code_executor.invoke("__import__('os').system('ls')")
+    result = code_executor("__import__('os').system('ls')")
     assert "Blocked" in result
 
 
 def test_code_executor_runs_safe_code():
     from app.services.tools.code_executor import code_executor
 
-    result = code_executor.invoke("print(2 + 2)")
+    result = code_executor("print(2 + 2)")
     assert "4" in result
 
 
 def test_code_executor_handles_timeout():
     from app.services.tools.code_executor import code_executor
 
-    result = code_executor.invoke("import time; time.sleep(20)")
+    result = code_executor("import time; time.sleep(20)")
     assert "timed out" in result.lower()
 
 
@@ -34,7 +34,7 @@ def test_code_executor_handles_timeout():
 async def test_web_search_no_api_key():
     with patch.dict("os.environ", {"SERPAPI_KEY": ""}, clear=False):
         from app.services.tools.web_search import web_search
-        result = await web_search.ainvoke("test query")
+        result = await web_search("test query")
         assert "not configured" in result.lower()
 
 
@@ -56,7 +56,7 @@ async def test_data_extractor():
         mock_registry.complete = AsyncMock(return_value=mock_response)
 
         from app.services.tools.data_extractor import data_extractor
-        result = await data_extractor.ainvoke("John was born on January 1, 2024")
+        result = await data_extractor("John was born on January 1, 2024")
         assert "John" in result
 
 
@@ -78,5 +78,5 @@ async def test_summarizer():
         mock_registry.complete = AsyncMock(return_value=mock_response)
 
         from app.services.tools.summarizer import summarizer
-        result = await summarizer.ainvoke("A very long text that needs summarizing...")
+        result = await summarizer("A very long text that needs summarizing...")
         assert "summary" in result.lower()

@@ -189,20 +189,25 @@ class ToolPlane:
     @staticmethod
     def _make_builtin_executor(name: str) -> Executor:
         async def run(args: dict[str, Any], ctx: ExecContext) -> Any:
+            import inspect
+
             from app.services.tools.code_executor import code_executor
             from app.services.tools.data_extractor import data_extractor
             from app.services.tools.document_reader import document_reader
             from app.services.tools.summarizer import summarizer
             from app.services.tools.web_search import web_search
 
-            tools = {
+            tools: dict[str, Any] = {
                 "web_search": web_search,
                 "document_reader": document_reader,
                 "code_executor": code_executor,
                 "data_extractor": data_extractor,
                 "summarizer": summarizer,
             }
-            return await tools[name].ainvoke(args)
+            result = tools[name](**args)
+            if inspect.isawaitable(result):
+                result = await result
+            return result
 
         return run
 

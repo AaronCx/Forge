@@ -1,10 +1,8 @@
 import os
 
 import httpx
-from langchain.tools import tool
 
 
-@tool
 async def web_search(query: str) -> str:
     """Search the web for information on a given query. Returns top search results with titles, links, and snippets."""
     api_key = os.getenv("SERPAPI_KEY", "")

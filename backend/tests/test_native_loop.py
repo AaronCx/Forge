@@ -74,29 +74,12 @@ def _legacy_subsequence(events):
 
 
 @pytest.mark.asyncio
-async def test_native_loop_legacy_subsequence_matches_golden(monkeypatch):
-    from app.services.agent_executor import AgentRunner
-
-    monkeypatch.setenv("FORGE_NATIVE_LOOP", "1")
-    fake = _FakeRegistry([_final_turn_events(), _final_turn_events()])
-
-    with (
-        patch("app.providers.registry.create_user_registry", AsyncMock(return_value=fake)),
-        patch("app.services.tailoring.load_custom_instructions", return_value=""),
-    ):
-        runner = AgentRunner(user_id="u1")
-        events = [e async for e in runner.execute(AGENT_CONFIG, "Hello there")]
-
-    golden = json.loads(GOLDEN.read_text())
-    assert _legacy_subsequence(events) == golden
-
-
-@pytest.mark.asyncio
-async def test_flag_off_and_on_produce_identical_legacy_events(monkeypatch):
+async def test_native_loop_legacy_subsequence_matches_golden():
+    # A no-tools agent on the single (native) stack still emits the exact
+    # step/token subsequence captured in the Phase-0 golden.
     from app.providers.base import LLMResponse
     from app.services.agent_executor import AgentRunner
 
-    # flag OFF — legacy path via provider_registry.complete
     resp = LLMResponse(
         content=ANSWER, model="gpt-4o-mini", input_tokens=7, output_tokens=11,
         finish_reason="stop", latency_ms=0.0, provider="openai",
@@ -107,20 +90,11 @@ async def test_flag_off_and_on_produce_identical_legacy_events(monkeypatch):
     ):
         reg.default_model = "gpt-4o-mini"
         reg.complete = AsyncMock(return_value=resp)
-        off = AgentRunner(user_id=None)
-        off_events = [e async for e in off.execute(AGENT_CONFIG, "Hello there")]
+        runner = AgentRunner(user_id=None)
+        events = [e async for e in runner.execute(AGENT_CONFIG, "Hello there")]
 
-    # flag ON — kernel loop via registry.stream
-    monkeypatch.setenv("FORGE_NATIVE_LOOP", "1")
-    fake = _FakeRegistry([_final_turn_events(), _final_turn_events()])
-    with (
-        patch("app.providers.registry.create_user_registry", AsyncMock(return_value=fake)),
-        patch("app.services.tailoring.load_custom_instructions", return_value=""),
-    ):
-        on = AgentRunner(user_id="u1")
-        on_events = [e async for e in on.execute(AGENT_CONFIG, "Hello there")]
-
-    assert _legacy_subsequence(off_events) == _legacy_subsequence(on_events)
+    golden = json.loads(GOLDEN.read_text())
+    assert _legacy_subsequence(events) == golden
 
 
 @pytest.mark.asyncio

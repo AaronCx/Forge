@@ -61,9 +61,9 @@ def load_user_fallback_policy(user_id: str | None) -> FallbackPolicy:
         logger.debug("fallback policy read failed for %s", user_id)
     return FallbackPolicy()
 
-# Model prefix → provider mapping.
-# TODO(phase-8): remove in favor of ModelCard.provider lookups from
-# app/kernel/models.json. Kept as the last-resort routing fallback until then.
+# Model prefix → provider mapping. ModelCard.provider (models.json) is the
+# primary router (see resolve_provider); this is a last-resort fallback for
+# models not present in the catalog.
 MODEL_PROVIDER_MAP: dict[str, str] = {
     "gpt-": "openai",
     "o1": "openai",

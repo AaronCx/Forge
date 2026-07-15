@@ -125,20 +125,9 @@ def _build_messages(catalog: list[CatalogEntry], message: str, attachments_summa
 async def _invoke(user_id: str, messages: list[dict]) -> tuple[str, int, int, str]:
     """Call the user's LLM and return (text, input_tokens, output_tokens, model).
 
-    Prefers the shared OpenAI client (``get_user_llm``); falls back to the
-    user's provider registry so Ollama-only stacks still route. This is the
-    single seam unit tests patch.
+    Routes through the user's provider registry (the single model path since
+    Phase 8 removed the LangChain client). This is the seam unit tests patch.
     """
-    from app.services.llm import get_user_llm
-
-    llm = await get_user_llm(user_id, streaming=False, temperature=0)
-    if llm is not None:
-        response = await llm.ainvoke([(m["role"], m["content"]) for m in messages])
-        text = response.content if isinstance(response.content, str) else str(response.content)
-        usage = getattr(response, "usage_metadata", None) or {}
-        model = (getattr(response, "response_metadata", {}) or {}).get("model_name") or "gpt-4o-mini"
-        return text, int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0)), model
-
     from app.providers.registry import create_user_registry
 
     registry = await create_user_registry(user_id)

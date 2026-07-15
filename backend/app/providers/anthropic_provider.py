@@ -16,15 +16,6 @@ from app.providers.base import (
     StreamChunk,
 )
 
-# TODO(phase-8): remove in favor of ModelCard data from app/kernel/models.json.
-ANTHROPIC_MODELS: dict[str, dict[str, Any]] = {
-    "claude-opus-4-20250514": {"context_window": 200000, "max_output": 16000},
-    "claude-sonnet-4-20250514": {"context_window": 200000, "max_output": 16000},
-    "claude-haiku-4-20250506": {"context_window": 200000, "max_output": 16000},
-    "claude-3-5-sonnet-20241022": {"context_window": 200000, "max_output": 8192},
-    "claude-3-5-haiku-20241022": {"context_window": 200000, "max_output": 8192},
-}
-
 
 def _convert_messages_to_anthropic(
     messages: list[dict[str, Any]],
@@ -282,15 +273,20 @@ class AnthropicProvider(LLMProvider):
         return len(text) // 4
 
     async def list_models(self) -> list[ModelInfo]:
+        # Data-driven: surface the Anthropic cards from the kernel model catalog.
+        from app.kernel.models import load_base_model_cards
+
         return [
             ModelInfo(
-                id=model_id,
-                name=model_id,
+                id=card.id,
+                name=card.display_name,
                 provider=self.provider_name,
-                context_window=meta["context_window"],
-                max_output_tokens=meta["max_output"],
+                context_window=card.context_window,
+                max_output_tokens=card.max_output,
+                supports_tools=card.tools,
             )
-            for model_id, meta in ANTHROPIC_MODELS.items()
+            for card in load_base_model_cards().values()
+            if card.provider == "anthropic"
         ]
 
     async def health_check(self) -> ProviderHealth:

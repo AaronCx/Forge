@@ -21,8 +21,6 @@ import os
 import subprocess
 import tempfile
 
-from langchain.tools import tool
-
 # Modules safe for pure computation. Anything else is rejected at parse time.
 _SAFE_MODULES = {
     "math", "cmath", "statistics", "random", "secrets", "decimal", "fractions",
@@ -178,7 +176,6 @@ def _run_docker(code: str) -> str:
         return f"Error: {str(e)}"
 
 
-@tool
 def code_executor(code: str) -> str:
     """Execute Python code for pure computation and return its output. Imports are restricted to a safe stdlib allowlist; file, network, process, and introspection access are blocked."""
     # Reject oversized payloads before parsing.
