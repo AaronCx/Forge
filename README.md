@@ -172,7 +172,7 @@ graph TB
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, React Flow, Bun |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui, React Flow, Bun |
 | Backend | Python 3.12, FastAPI, forge-kernel; OpenAI, Anthropic, Google, Ollama, any OpenAI-compatible |
 | Computer Use | CoreGraphics, cliclick, Vision OCR, ffmpeg, tmux, xdotool, pyautogui |
 | CLI | Typer, Rich, httpx |
@@ -453,14 +453,19 @@ make parity
 
 ```
 Forge/
-├── frontend/                    # Next.js 14 + TypeScript + Tailwind + shadcn/ui
-│   ├── app/dashboard/           # 15+ dashboard routes
+├── frontend/                    # Next.js 15 + TypeScript + Tailwind + shadcn/ui
+│   ├── app/dashboard/           # 15+ dashboard routes (incl. chat)
 │   ├── components/              # Blueprint editor, dashboard, UI primitives
 │   └── lib/                     # API client, auth client, demo data
-├── backend/                     # FastAPI + LangChain
+├── forge-kernel/                # The kernel as a zero-dependency pip package
+│   ├── forge_kernel/            # Types, model cards, converters, agent loop
+│   └── demo/                    # ~30-line standalone agent
+├── backend/                     # FastAPI on the Forge-native kernel loop
 │   ├── app/
+│   │   ├── kernel/              # Tool plane + permissions (rest re-exports forge-kernel)
+│   │   ├── mcp/                 # Real MCP client + Forge-as-MCP-server
 │   │   ├── db/                  # Pluggable database layer (SQLite + Supabase)
-│   │   ├── routers/             # 22 API route modules (incl. auth API)
+│   │   ├── routers/             # 34 API route modules (incl. auth API, sessions)
 │   │   ├── providers/           # Multi-model provider registry
 │   │   └── services/
 │   │       ├── blueprint_nodes/ # 44 node type executors
@@ -469,13 +474,13 @@ Forge/
 │   │           ├── drive/       # Terminal automation
 │   │           ├── linux/       # xdotool/tesseract fallback
 │   │           └── windows/     # pyautogui/PowerShell fallback
-│   └── tests/                   # 868 tests
-├── cli/                         # Typer + Rich CLI (35+ command groups)
+│   └── tests/                   # 868 tests (incl. the golden parity safety net)
+├── cli/                         # Typer + Rich CLI (35+ command groups, incl. chat)
 ├── scripts/                     # Bootstrap, Steer/Drive CLIs, OCR helper
-├── supabase/migrations/         # 17 SQL migrations (cloud mode only)
+├── supabase/migrations/         # 28 SQL migrations (cloud mode only)
 ├── setup.sh                     # One-command project setup
-├── Makefile                     # setup, up, down, test, lint targets
-├── docs/                        # Test & security reports
+├── Makefile                     # setup, up, down, test, lint, parity targets
+├── docs/                        # Harness plan, MCP server guide, API surface, QA reports
 └── .github/workflows/           # CI + deployment
 ```
 
