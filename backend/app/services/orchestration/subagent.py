@@ -165,6 +165,17 @@ async def execute_subagent_run(config: dict, inputs: dict[str, Any]) -> dict[str
     return await _execute_worker(config, inputs)
 
 
+def _model_card(model: Any) -> Any:
+    if not model:
+        return None
+    try:
+        from app.kernel.models import get_model_card
+
+        return get_model_card(str(model))
+    except Exception:  # noqa: BLE001 - unknown models are resolved downstream
+        return None
+
+
 def _make_recorder(
     config: dict, user_id: str, run_id: str, node_id: str, user_prompt: str, model: Any
 ) -> Any:
@@ -258,11 +269,22 @@ async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any
         allowed_names = set(allow)
         tools = [s for s in all_specs if s.name in allowed_names]
         # The mailbox (when enabled for this run) is coordination plumbing,
-        # not a capability — it rides along regardless of the allowlist.
-        tools += [s for s in all_specs
-                  if s.name.startswith("mailbox.") and s.name not in allowed_names]
+        # not a capability — it rides along, but only for agents that use
+        # tools at all: a declared tool-less agent must stay tool-less so it
+        # can run on models whose ModelCard says tools=False.
+        if tools:
+            tools += [s for s in all_specs
+                      if s.name.startswith("mailbox.") and s.name not in allowed_names]
     else:
         tools = list(all_specs)
+        # "inherit" means "whatever is available" — on a tools-incapable
+        # model that is nothing, so degrade to a plain text turn instead of
+        # letting the provider refuse the whole run.
+        card = _model_card(model)
+        if card is not None and not card.tools:
+            logger.info("model %s has tools=False; sub-agent %s runs tool-less",
+                        model, node_id)
+            tools = []
     tools = [s for s in tools if s.name not in _FORBIDDEN_SUBAGENT_TOOLS]
 
     budget_spec = spec.get("budget") or {}

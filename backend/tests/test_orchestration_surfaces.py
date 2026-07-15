@@ -173,3 +173,63 @@ def test_role_matching_a_saved_template_inherits_its_prompt(db):
     ])
     bp2 = compile_workflow(spec2, user_id="u1")
     assert "SHOULD NOT LEAK" not in bp2["nodes"][0]["config"]["spec"]["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_tool_less_agents_stay_tool_less_even_with_mailbox(db):
+    """Live-testing regression: a declared tools=[] agent must receive NO tools
+    (not even the ride-along mailbox), so it runs on tools=False models."""
+    from app.services.orchestration.subagent import execute_subagent_run
+
+    captured = {}
+
+    class _Spy:
+        async def stream(self, messages, model, *, tools=None):
+            captured["tools"] = tools
+            yield TurnDone(turn=TurnResult(
+                blocks=[TextBlock("plain answer")], stop_reason="end",
+                usage=Usage(input_tokens=1, output_tokens=1),
+                model=model or "m", provider="fake",
+            ))
+
+    subagent.enable_mailbox("run-tl", "grp-tl", ["n1"])
+    try:
+        with patch("app.providers.registry.create_user_registry",
+                   AsyncMock(return_value=_Spy())):
+            out = await execute_subagent_run(
+                {"spec": {"role": "w", "prompt": "answer", "tools": []},
+                 "worker_model": "qwen2.5:7b-instruct", "max_concurrent": 2,
+                 "workflow_title": "T"},
+                {"_user_id": "u1", "_run_id": "run-tl", "_node_id": "n1"},
+            )
+    finally:
+        subagent.disable_mailbox("run-tl")
+    assert captured["tools"] is None  # a plain text turn, no tool schemas sent
+    assert out["text"] == "plain answer"
+
+
+@pytest.mark.asyncio
+async def test_inherit_degrades_to_tool_less_on_tools_false_model(db):
+    from app.services.orchestration.subagent import execute_subagent_run
+
+    captured = {}
+
+    class _Spy:
+        async def stream(self, messages, model, *, tools=None):
+            captured["tools"] = tools
+            yield TurnDone(turn=TurnResult(
+                blocks=[TextBlock("ok")], stop_reason="end",
+                usage=Usage(input_tokens=1, output_tokens=1),
+                model=model or "m", provider="fake",
+            ))
+
+    with patch("app.providers.registry.create_user_registry",
+               AsyncMock(return_value=_Spy())):
+        await execute_subagent_run(
+            # qwen2.5:7b-instruct has tools=False in models.json
+            {"spec": {"role": "w", "prompt": "answer", "tools": "inherit"},
+             "worker_model": "qwen2.5:7b-instruct", "max_concurrent": 2,
+             "workflow_title": "T"},
+            {"_user_id": "u1", "_run_id": "run-inh", "_node_id": "n1"},
+        )
+    assert captured["tools"] is None
