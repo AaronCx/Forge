@@ -22,7 +22,13 @@ from typing import Any
 from app.kernel.models import load_model_cards
 from app.kernel.serialize import workflow_spec_from_dict, workflow_spec_json_schema
 from app.kernel.toolplane import ExecContext, tool_plane
-from app.kernel.types import KMessage, TextBlock, WorkflowSpec
+from app.kernel.types import (
+    KMessage,
+    SubAgentSpec,
+    TextBlock,
+    WorkflowSpec,
+    WorkflowStage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +164,36 @@ def _parse_spec(raw_text: str) -> WorkflowSpec:
     return spec
 
 
+def ensure_verify_stage(spec: WorkflowSpec, goal: str = "") -> WorkflowSpec:
+    """Append a default verify stage unless the spec opted out or has one.
+
+    The reviewer receives the goal, every producer's success_criteria, and
+    their outputs, and returns a pass/fail verdict with findings per item
+    (Phase 9.4) — the judge never wrote the answers it judges.
+    """
+    if not spec.verify or any(st.kind == "verify" for st in spec.stages):
+        return spec
+    depended_on = {dep for st in spec.stages for dep in st.depends_on}
+    terminal = [st.id for st in spec.stages if st.id not in depended_on]
+    if not terminal:
+        return spec
+    reviewer = SubAgentSpec(
+        role="reviewer",
+        prompt=(
+            "You are an adversarial reviewer. Judge each producer's output "
+            "strictly against its success criteria"
+            + (f" in service of the goal: {goal.strip()}" if goal.strip() else "")
+            + ". Look for unmet criteria, unsupported claims, and missing "
+            "coverage — do not rubber-stamp."
+        ),
+        tools=[],
+        success_criteria="Every item receives an explicit pass/fail verdict with findings.",
+    )
+    stage = WorkflowStage(id="verify", kind="verify", agents=[reviewer],
+                          depends_on=terminal)
+    return dataclasses.replace(spec, stages=[*spec.stages, stage])
+
+
 def estimate_tokens(spec: WorkflowSpec) -> int:
     """A rough token estimate for the consent card, from agent budgets."""
     total = 0
@@ -196,7 +232,7 @@ async def plan_workflow(
         worker = cheapest_worker_model()
         if worker:
             spec = dataclasses.replace(spec, worker_model=worker)
-    return spec
+    return ensure_verify_stage(spec, goal)
 
 
 async def plan_for_context(goal: str, ctx: ExecContext) -> WorkflowSpec:

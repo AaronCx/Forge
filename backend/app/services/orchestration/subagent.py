@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from typing import Any
 
 from app.kernel.loop import Budget, run_agent_turn
@@ -80,7 +81,14 @@ def _user_prompt(spec: dict[str, Any], inputs: dict[str, Any]) -> str:
 
 
 async def execute_subagent_run(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
-    """Execute one sub-agent and return its result as the node output."""
+    """Execute one sub-agent (or a verify stage) as a blueprint node."""
+    if config.get("stage_kind") == "verify":
+        return await _execute_verify(config, inputs)
+    return await _execute_worker(config, inputs)
+
+
+async def _execute_worker(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Run one scoped sub-agent through the kernel loop."""
     from app.providers.registry import create_user_registry, provider_registry
 
     spec: dict[str, Any] = config.get("spec") or {}
@@ -154,12 +162,194 @@ async def execute_subagent_run(config: dict, inputs: dict[str, Any]) -> dict[str
     }
     if node_id:
         # A uniquely-keyed copy so downstream verify/reduce stages can tell
-        # producers apart after the engine's fan-in merge.
+        # producers apart after the engine's fan-in merge. Carries the spec and
+        # the exact prompt so a failed producer can be retried (Phase 9.4).
         result[f"result_{node_id}"] = {
             "node_id": node_id,
             "role": result["role"],
             "text": final_text,
             "success_criteria": spec.get("success_criteria", ""),
+            "spec": dict(spec),
+            "user_prompt": _user_prompt(spec, inputs),
+        }
+    return result
+
+
+# --- the verify stage (Phase 9.4) ---
+
+
+def _parse_verdicts(raw_text: str) -> list[dict[str, Any]] | None:
+    """Parse the reviewer's reply into [{node_id, verdict, findings}, ...]."""
+    text = raw_text.strip()
+    fenced = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1)
+    start = min((i for i in (text.find("{"), text.find("[")) if i != -1), default=-1)
+    if start == -1:
+        return None
+    end = max(text.rfind("}"), text.rfind("]"))
+    try:
+        data = json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+    items = data.get("items") if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        return None
+    out = []
+    for item in items:
+        if not isinstance(item, dict) or not item.get("node_id"):
+            continue
+        verdict = str(item.get("verdict", "")).lower()
+        out.append({
+            "node_id": str(item["node_id"]),
+            "verdict": verdict if verdict in ("pass", "fail") else "unknown",
+            "findings": str(item.get("findings", "")),
+        })
+    return out or None
+
+
+def _review_prompt(goal: str, producers: dict[str, dict[str, Any]]) -> str:
+    items = [
+        {
+            "node_id": nid,
+            "role": p.get("role", "worker"),
+            "success_criteria": p.get("success_criteria", ""),
+            "output": str(p.get("text", "")),
+        }
+        for nid, p in sorted(producers.items())
+    ]
+    return (
+        (f"Workflow goal: {goal}\n\n" if goal else "")
+        + "Judge each item's output against its success_criteria. Answer with "
+        'ONE JSON object: {"items": [{"node_id": "...", "verdict": "pass"|"fail", '
+        '"findings": "what is wrong or missing (empty when pass)"}]} — one entry '
+        "per item, no prose.\n\nItems:\n"
+        + json.dumps(items, indent=2, default=str)
+    )
+
+
+async def _run_reviewer(
+    config: dict, inputs: dict[str, Any], producers: dict[str, dict[str, Any]], label: str
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
+    """One reviewer pass over ``producers``; returns (verdicts, raw result)."""
+    reviewer_inputs = {
+        "_user_id": inputs.get("_user_id", ""),
+        "_run_id": inputs.get("_run_id", ""),
+        "_node_id": label,
+        "text": _review_prompt(str(config.get("workflow_title", "")), producers),
+    }
+    result = await _execute_worker(config, reviewer_inputs)
+    return _parse_verdicts(str(result.get("text", ""))), result
+
+
+async def _execute_verify(config: dict, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Judge every producer's output; failures get one bounded retry.
+
+    Generalizes ``cu_verifier`` to the whole platform: the reviewer sub-agent
+    never wrote the answers it judges, failures are re-run once with the
+    findings attached, and the retried output is re-judged.
+    """
+    node_id = inputs.get("_node_id", "")
+    producers = {
+        k[len("result_"):]: v
+        for k, v in inputs.items()
+        if k.startswith("result_") and isinstance(v, dict)
+    }
+    if not producers:
+        # Nothing structured to judge — run as a plain sub-agent.
+        return await _execute_worker(config, inputs)
+
+    input_tokens = 0
+    output_tokens = 0
+
+    verdicts, review_result = await _run_reviewer(config, inputs, producers, f"{node_id}-review")
+    input_tokens += int(review_result.get("input_tokens", 0))
+    output_tokens += int(review_result.get("output_tokens", 0))
+
+    items: dict[str, dict[str, Any]] = {
+        nid: {
+            "node_id": nid,
+            "verdict": "unknown",
+            "findings": "",
+            "text": str(p.get("text", "")),
+            "retried": False,
+        }
+        for nid, p in producers.items()
+    }
+    for v in verdicts or []:
+        if v["node_id"] in items:
+            items[v["node_id"]].update(verdict=v["verdict"], findings=v["findings"])
+
+    # One bounded retry per failed producer, findings attached, then re-judge.
+    for nid, item in items.items():
+        if item["verdict"] != "fail":
+            continue
+        producer = producers[nid]
+        pspec = dict(producer.get("spec") or {})
+        if not pspec.get("prompt"):
+            continue  # nothing to re-run (no spec carried)
+        pspec["prompt"] = (
+            f"{pspec['prompt']}\n\nA reviewer failed your previous attempt.\n"
+            f"Findings: {item['findings']}\n"
+            f"Your previous output:\n{item['text']}\n\n"
+            "Address every finding and produce a corrected result."
+        )
+        retry_config = {**config, "spec": pspec, "stage_kind": "single"}
+        retry_inputs = {
+            "_user_id": inputs.get("_user_id", ""),
+            "_run_id": inputs.get("_run_id", ""),
+            "_node_id": f"{nid}-retry",
+            "text": str(producer.get("user_prompt", "")),
+        }
+        try:
+            retry = await _execute_worker(retry_config, retry_inputs)
+        except Exception:  # noqa: BLE001 - a failed retry keeps the fail verdict
+            logger.warning("verify retry for %s failed", nid, exc_info=True)
+            continue
+        input_tokens += int(retry.get("input_tokens", 0))
+        output_tokens += int(retry.get("output_tokens", 0))
+        item["retried"] = True
+        item["text"] = str(retry.get("text", ""))
+
+        re_verdicts, re_result = await _run_reviewer(
+            config, inputs,
+            {nid: {**producer, "text": item["text"]}},
+            f"{node_id}-review-{nid}-retry",
+        )
+        input_tokens += int(re_result.get("input_tokens", 0))
+        output_tokens += int(re_result.get("output_tokens", 0))
+        for v in re_verdicts or []:
+            if v["node_id"] == nid:
+                item.update(verdict=v["verdict"], findings=v["findings"])
+
+    ordered = [items[nid] for nid in sorted(items)]
+    passed = sum(1 for i in ordered if i["verdict"] == "pass")
+    failed = sum(1 for i in ordered if i["verdict"] == "fail")
+    summary_lines = [f"Verification: {passed} pass, {failed} fail, "
+                     f"{len(ordered) - passed - failed} unknown."]
+    for i in ordered:
+        line = f"- {i['node_id']}: {i['verdict']}"
+        if i["retried"]:
+            line += " (after retry)"
+        if i["findings"]:
+            line += f" — {i['findings']}"
+        summary_lines.append(line)
+
+    result: dict[str, Any] = {
+        "text": "\n".join(summary_lines),
+        "role": (config.get("spec") or {}).get("role", "reviewer"),
+        "verdicts": {i["node_id"]: i["verdict"] for i in ordered},
+        "items": ordered,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "agent_id": config.get("agent_id", ""),
+    }
+    if node_id:
+        result[f"result_{node_id}"] = {
+            "node_id": node_id,
+            "role": result["role"],
+            "text": result["text"],
+            "success_criteria": (config.get("spec") or {}).get("success_criteria", ""),
         }
     return result
 
