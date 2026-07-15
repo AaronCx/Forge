@@ -31,5 +31,8 @@ class AgentResponse(BaseModel):
     workflow_steps: list[str]
     model: str | None = None
     is_template: bool
+    # Phase 9: workflow-spawned sub-agents (hidden from the default list)
+    ephemeral: bool = False
+    spawned_by_session: str | None = None
     created_at: datetime
     updated_at: datetime

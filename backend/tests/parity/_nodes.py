@@ -88,6 +88,21 @@ class _FakeAsyncClient:
         return _FakeResp(text="ok")
 
 
+class _KernelFakeRegistry:
+    """A kernel-loop fake for the subagent_run node — one text-only turn."""
+
+    async def stream(self, messages: Any, model: Any, *, tools: Any = None) -> Any:
+        from app.kernel.types import TextBlock, TurnDone, TurnResult, Usage
+
+        yield TurnDone(turn=TurnResult(
+            blocks=[TextBlock("subagent result")],
+            stop_reason="end",
+            usage=Usage(input_tokens=7, output_tokens=11),
+            model=model or "fake-model",
+            provider="fake",
+        ))
+
+
 # --- node fixtures: (config, inputs) ---
 
 NODE_FIXTURES: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
@@ -147,6 +162,23 @@ NODE_FIXTURES: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "drive_logs": ({"session": "af-test", "lines": 20}, {}),
     "drive_poll": ({"token": "DONE", "session": "af-test", "timeout": 1}, {}),
     "drive_fanout": ({"commands": ["echo a", "echo b"], "session": "af-test"}, {}),
+    # orchestration nodes (Phase 9)
+    "subagent_run": (
+        {
+            "spec": {
+                "role": "scout",
+                "prompt": "Audit the file for missing auth checks.",
+                "tools": ["workspace.read"],
+                "success_criteria": "cites each unauthenticated route",
+            },
+            "agent_id": "agent-eph-1",
+            "worker_model": "fake-model",
+            "max_concurrent": 2,
+            "workflow_title": "Test workflow",
+        },
+        {"text": "upstream context", "_user_id": "u-1", "_run_id": "run-1",
+         "_node_id": "scout-1"},
+    ),
     # agent-control nodes
     "agent_spawn": ({"backend": "claude-code", "session": "af-agent-1"}, {}),
     "agent_prompt": ({"session": "af-agent-1", "prompt": "do the task"}, {}),
@@ -234,6 +266,19 @@ async def run_node(key: str) -> dict[str, Any]:
                 patch(
                     f"app.services.computer_use.agents.agent_runner.agent_runner.{method}",
                     AsyncMock(return_value=ret),
+                )
+            )
+        elif key == "subagent_run":
+            stack.enter_context(
+                patch(
+                    "app.providers.registry.create_user_registry",
+                    AsyncMock(return_value=_KernelFakeRegistry()),
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "app.services.orchestration.subagent.tool_plane.list_tools",
+                    AsyncMock(return_value=[]),
                 )
             )
         elif key == "fetch_url":

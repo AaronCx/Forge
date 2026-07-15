@@ -1,0 +1,22 @@
+{
+  "agent_id": "agent-eph-1",
+  "input_tokens": 7,
+  "output_tokens": 11,
+  "result_scout-1": {
+    "node_id": "scout-1",
+    "role": "scout",
+    "spec": {
+      "prompt": "Audit the file for missing auth checks.",
+      "role": "scout",
+      "success_criteria": "cites each unauthenticated route",
+      "tools": [
+        "workspace.read"
+      ]
+    },
+    "success_criteria": "cites each unauthenticated route",
+    "text": "subagent result",
+    "user_prompt": "Upstream context:\nupstream context"
+  },
+  "role": "scout",
+  "text": "subagent result"
+}

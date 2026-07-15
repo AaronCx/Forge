@@ -1,0 +1,181 @@
+{
+  "context_config": {},
+  "description": "One scout per router file, adversarially verified.",
+  "name": "Audit every router",
+  "nodes": [
+    {
+      "config": {
+        "agent_id": "",
+        "max_concurrent": 4,
+        "policy": {},
+        "session_id": "",
+        "spec": {
+          "budget": null,
+          "inputs": {
+            "file": "routers/a.py"
+          },
+          "model": null,
+          "outputs": [
+            "findings"
+          ],
+          "prompt": "Audit routers/a.py for missing auth.",
+          "role": "scout",
+          "success_criteria": "cites routes",
+          "tools": [
+            "workspace.read"
+          ]
+        },
+        "stage_id": "scout",
+        "stage_kind": "fanout",
+        "target": null,
+        "worker_model": "fake-model",
+        "workflow_title": "Audit every router",
+        "workspace_root": ""
+      },
+      "dependencies": [],
+      "id": "scout-1",
+      "label": "scout: scout",
+      "type": "subagent_run"
+    },
+    {
+      "config": {
+        "agent_id": "",
+        "max_concurrent": 4,
+        "policy": {},
+        "session_id": "",
+        "spec": {
+          "budget": null,
+          "inputs": {
+            "file": "routers/b.py"
+          },
+          "model": null,
+          "outputs": [
+            "findings"
+          ],
+          "prompt": "Audit routers/b.py for missing auth.",
+          "role": "scout",
+          "success_criteria": "cites routes",
+          "tools": [
+            "workspace.read"
+          ]
+        },
+        "stage_id": "scout",
+        "stage_kind": "fanout",
+        "target": null,
+        "worker_model": "fake-model",
+        "workflow_title": "Audit every router",
+        "workspace_root": ""
+      },
+      "dependencies": [],
+      "id": "scout-2",
+      "label": "scout: scout",
+      "type": "subagent_run"
+    },
+    {
+      "config": {
+        "agent_id": "",
+        "max_concurrent": 4,
+        "policy": {},
+        "session_id": "",
+        "spec": {
+          "budget": null,
+          "inputs": {},
+          "model": null,
+          "outputs": [],
+          "prompt": "Judge each scout.",
+          "role": "reviewer",
+          "success_criteria": "",
+          "tools": []
+        },
+        "stage_id": "verify",
+        "stage_kind": "verify",
+        "target": null,
+        "worker_model": "fake-model",
+        "workflow_title": "Audit every router",
+        "workspace_root": ""
+      },
+      "dependencies": [
+        "scout-1",
+        "scout-2"
+      ],
+      "id": "verify",
+      "label": "verify: reviewer",
+      "type": "subagent_run"
+    }
+  ],
+  "retry_policy": {
+    "max_retries": 1
+  },
+  "workflow_spec": {
+    "max_agents_total": 200,
+    "max_concurrent": 4,
+    "rationale": "One scout per router file, adversarially verified.",
+    "stages": [
+      {
+        "agents": [
+          {
+            "budget": null,
+            "inputs": {
+              "file": "routers/a.py"
+            },
+            "model": null,
+            "outputs": [
+              "findings"
+            ],
+            "prompt": "Audit routers/a.py for missing auth.",
+            "role": "scout",
+            "success_criteria": "cites routes",
+            "tools": [
+              "workspace.read"
+            ]
+          },
+          {
+            "budget": null,
+            "inputs": {
+              "file": "routers/b.py"
+            },
+            "model": null,
+            "outputs": [
+              "findings"
+            ],
+            "prompt": "Audit routers/b.py for missing auth.",
+            "role": "scout",
+            "success_criteria": "cites routes",
+            "tools": [
+              "workspace.read"
+            ]
+          }
+        ],
+        "concurrency": null,
+        "depends_on": [],
+        "id": "scout",
+        "kind": "fanout",
+        "target": null
+      },
+      {
+        "agents": [
+          {
+            "budget": null,
+            "inputs": {},
+            "model": null,
+            "outputs": [],
+            "prompt": "Judge each scout.",
+            "role": "reviewer",
+            "success_criteria": "",
+            "tools": []
+          }
+        ],
+        "concurrency": null,
+        "depends_on": [
+          "scout"
+        ],
+        "id": "verify",
+        "kind": "verify",
+        "target": null
+      }
+    ],
+    "title": "Audit every router",
+    "verify": true,
+    "worker_model": "fake-model"
+  }
+}

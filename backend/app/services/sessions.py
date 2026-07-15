@@ -10,6 +10,7 @@ the originals in the log (reversible).
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -53,6 +54,7 @@ def create_session(
     system_prompt: str = "",
     policy: dict[str, Any] | None = None,
     token_budget: int = 0,
+    effort: str = "standard",
 ) -> dict[str, Any]:
     row = {
         "id": str(uuid.uuid4()),
@@ -64,6 +66,7 @@ def create_session(
         "policy_json": policy or {},
         "token_budget": token_budget,
         "status": "active",
+        "effort": effort if effort in ("standard", "high", "ultra") else "standard",
     }
     result = get_db().table("sessions").insert(row).execute()
     return result.data[0] if result.data else row
@@ -90,7 +93,7 @@ def update_session(session_id: str, user_id: str, updates: dict[str, Any]) -> di
     if get_session(session_id, user_id) is None:
         return None
     allowed = {"title", "model", "workspace_root", "system_prompt", "policy_json",
-               "token_budget", "status"}
+               "token_budget", "status", "effort"}
     patch = {k: v for k, v in updates.items() if k in allowed}
     patch["updated_at"] = _now()
     get_db().table("sessions").update(patch).eq("id", session_id).execute()
@@ -262,6 +265,153 @@ def _message_text(m: KMessage) -> str:
 # --- the turn driver (SSE) ---
 
 
+# --- workflow planning trigger (Phase 9.2) ---
+
+_PLAN_TRIGGER_WORDS = {"ultra", "workflow"}
+_SUBSTANTIVE_MIN_CHARS = 40
+
+
+def _explicit_plan_request(text: str) -> bool:
+    words = set(re.findall(r"[a-z]+", text.lower()))
+    return bool(_PLAN_TRIGGER_WORDS & words)
+
+
+async def _should_plan(session: dict[str, Any], text: str, registry: Any) -> bool:
+    """Decide whether this message warrants proposing a workflow plan.
+
+    At ``ultra`` effort the planner fires for any substantive message (the
+    cheapest model card self-classifies); at lower effort only on an explicit
+    request (the literal keyword ``ultra`` or ``workflow`` in the prompt).
+    """
+    if _explicit_plan_request(text):
+        return True
+    if (session.get("effort") or "standard") != "ultra":
+        return False
+    if len(text.strip()) < _SUBSTANTIVE_MIN_CHARS:
+        return False
+    from app.services.orchestration.planner import cheapest_worker_model
+
+    classify = [
+        KMessage(role="system", blocks=[TextBlock(
+            "Classify the user message. Answer exactly 'yes' if it asks for "
+            "substantive work that could benefit from decomposing into a "
+            "multi-agent workflow (research, audits, migrations, building "
+            "things, broad sweeps), or exactly 'no' if it is conversational, "
+            "a simple question, or a one-step task."
+        )]),
+        KMessage(role="user", blocks=[TextBlock(text[:2000])]),
+    ]
+    try:
+        turn = await registry.turn(classify, cheapest_worker_model())
+        return bool(turn.text.strip().lower().startswith("y"))
+    except Exception:  # noqa: BLE001 - at ultra, default to planning
+        logger.debug("substantive-message classification failed", exc_info=True)
+        return True
+
+
+async def _propose_plan(
+    session: dict[str, Any], goal: str, registry: Any, ctx: ExecContext
+) -> dict[str, Any] | None:
+    """Run the planner and persist the proposed plan; None on planner failure."""
+    from app.kernel.serialize import workflow_spec_to_dict
+    from app.services.orchestration.planner import estimate_tokens, plan_workflow
+
+    try:
+        spec = await plan_workflow(
+            goal, user_id=session["user_id"], model=session.get("model") or None,
+            registry=registry, ctx=ctx,
+        )
+    except Exception:  # noqa: BLE001 - fall back to a normal turn
+        logger.warning("workflow planning failed for %s", session["id"], exc_info=True)
+        return None
+    payload = {
+        "spec": workflow_spec_to_dict(spec),
+        "goal": goal,
+        "estimated_tokens": estimate_tokens(spec),
+        "status": "proposed",
+    }
+    seq = append_event(session["id"], "workflow_plan", payload)
+    return {"type": "workflow_plan", "data": {**payload, "seq": seq}}
+
+
+async def _retry_approved_tools(
+    session: dict[str, Any], ctx: ExecContext, specs: list[Any]
+) -> list[tuple[Any, ToolResultBlock]]:
+    """Execute pending tool calls whose approvals have since been decided (M3).
+
+    Scans the event log for tool calls whose *latest* result is
+    APPROVAL_PENDING, peeks the approvals table, and runs the ones a human has
+    approved (or records the rejection) — the model never has to choose to
+    retry. Each outcome is appended to the log as a user-role note so any
+    provider can consume it mid-conversation.
+    """
+    from app.kernel.types import ToolUseBlock
+
+    session_id = session["id"]
+    spec_by_name = {s.name: s for s in specs}
+    tool_uses: dict[str, ToolUseBlock] = {}
+    last_output: dict[str, str] = {}
+    for ev in get_events(session_id):
+        if ev.get("kind") != "message":
+            continue
+        message = message_from_dict(ev.get("payload_json") or {})
+        for b in message.blocks:
+            if isinstance(b, ToolUseBlock):
+                tool_uses[b.id] = b
+            elif isinstance(b, ToolResultBlock):
+                last_output[b.tool_use_id] = str(b.output)
+        if message.role == "user":
+            for b in message.blocks:
+                if isinstance(b, TextBlock) and b.text.startswith("[approved tool call"):
+                    # A prior retry note supersedes the pending result it names.
+                    for tid in list(last_output):
+                        if f"(id {tid})" in b.text:
+                            last_output[tid] = b.text
+
+    executed: list[tuple[ToolUseBlock, ToolResultBlock]] = []
+    for tool_id, output in last_output.items():
+        if "APPROVAL_PENDING" not in output or tool_id not in tool_uses:
+            continue
+        tool_use = tool_uses[tool_id]
+        spec = spec_by_name.get(tool_use.name)
+        if spec is None:
+            continue
+        state = await tool_plane.peek_approval_state(spec, tool_use, ctx)
+        if state not in ("approved", "rejected"):
+            continue
+        result = await tool_plane.execute(tool_use, ctx)
+        note = (
+            f"[approved tool call executed] {tool_use.name} (id {tool_id}) "
+            f"{'failed' if result.is_error else 'succeeded'}: {result.output}"
+            if state == "approved"
+            else f"[approved tool call executed] {tool_use.name} (id {tool_id}) "
+            f"was rejected by the approver: {result.output}"
+        )
+        append_event(session_id, "message",
+                     message_to_dict(KMessage(role="user", blocks=[TextBlock(note)])))
+        executed.append((tool_use, result))
+    return executed
+
+
+def _exec_context(session: dict[str, Any]) -> ExecContext:
+    """Build the tool ExecContext for a session.
+
+    ``policy_json`` maps tool names to allow/ask/deny; the reserved key
+    ``approve_scope`` (call|tool|session) sets how far a caution-tool approval
+    extends. Dangerous tools are always approved per exact call.
+    """
+    policy = dict(session.get("policy_json") or {})
+    scope = policy.pop("approve_scope", "tool")
+    if scope not in ("call", "tool", "session"):
+        scope = "tool"
+    return ExecContext(
+        user_id=session["user_id"], session_id=session["id"],
+        workspace_root=session.get("workspace_root", ""),
+        session_overrides=policy,
+        approve_scope=scope,
+    )
+
+
 async def run_turn(
     session_id: str,
     user_id: str,
@@ -294,19 +444,38 @@ async def run_turn(
         session["model"] = model_override
     model = session.get("model") or None
 
+    registry = await create_user_registry(user_id) or provider_registry
+    ctx = _exec_context(session)
+    specs = await tool_plane.list_tools(user_id, ctx)
+
+    # Auto-retry tool calls whose approvals were decided since the last turn
+    # (M3) — their results land in the log before the new user message.
+    try:
+        for tool_use, result in await _retry_approved_tools(session, ctx, specs):
+            yield {"type": "tool_result", "data": {
+                "tool": tool_use.name, "output": str(result.output)[:2000],
+                "is_error": result.is_error, "retried": True}}
+    except Exception:
+        logger.warning("approved-tool retry failed for %s", session_id, exc_info=True)
+
     # Persist the user message, then reconstruct the live message list.
     append_event(session_id, "message",
                  message_to_dict(KMessage(role="user", blocks=[TextBlock(user_text)])))
+
+    # Phase 9: when the message warrants it, propose a workflow plan instead of
+    # a normal turn. The plan is only PROPOSED — running it takes explicit
+    # user consent (the plan card / CLI prompt), never the model's say-so.
+    if await _should_plan(session, user_text, registry):
+        plan_event = await _propose_plan(session, user_text, registry, ctx)
+        if plan_event is not None:
+            yield plan_event
+            update_session(session_id, user_id, {"updated_at": _now()})
+            yield {"type": "done", "session_id": session_id}
+            return
+
     messages = build_messages(session)
     persist_from = len(messages)
 
-    registry = await create_user_registry(user_id) or provider_registry
-    ctx = ExecContext(
-        user_id=user_id, session_id=session_id,
-        workspace_root=session.get("workspace_root", ""),
-        session_overrides=session.get("policy_json") or {},
-    )
-    specs = await tool_plane.list_tools(user_id, ctx)
     budget = Budget(max_tokens=session.get("token_budget") or None)
 
     final_turn = None

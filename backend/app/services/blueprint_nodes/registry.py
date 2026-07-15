@@ -580,6 +580,31 @@ RECORDING_NODES: dict[str, NodeType] = {
     ),
 }
 
+# --- Dynamic orchestration nodes (Phase 9) ---
+
+ORCHESTRATION_NODES: dict[str, NodeType] = {
+    "subagent_run": NodeType(
+        key="subagent_run",
+        display_name="Sub-Agent Run",
+        category="orchestration",
+        node_class="agent",
+        description=(
+            "Runs a scoped sub-agent (own prompt, tool allowlist, budget) via "
+            "the kernel loop under the parent's permission policy and returns "
+            "its final answer as the node output."
+        ),
+        input_schema={
+            "text": {"type": "string", "description": "Upstream context for the sub-agent."},
+        },
+        output_schema={
+            "text": {"type": "string"},
+            "role": {"type": "string"},
+            "input_tokens": {"type": "integer"},
+            "output_tokens": {"type": "integer"},
+        },
+    ),
+}
+
 # Combined registry
 NODE_REGISTRY: dict[str, NodeType] = {
     **DETERMINISTIC_NODES,
@@ -589,6 +614,7 @@ NODE_REGISTRY: dict[str, NodeType] = {
     **CU_AGENT_NODES,
     **AGENT_CONTROL_NODES,
     **RECORDING_NODES,
+    **ORCHESTRATION_NODES,
 }
 
 

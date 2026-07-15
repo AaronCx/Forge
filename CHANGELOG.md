@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic orchestration (Phase 9)** — agents without hand-assembly. The
+  session model plans a workflow of scoped sub-agents (`orchestrate.plan`,
+  planner template versioned as `planner/v1`), the user consents on a plan card
+  (web) or `y/e/s/n` prompt (CLI), and the plan compiles onto the existing DAG
+  engine as parallel `subagent_run` nodes (registry entry 45) with per-run
+  concurrency limits, a hard `max_agents_total` compile ceiling, per-agent
+  budgets, and the parent's permission policy (inherited, never elevated). An
+  adversarial verify stage judges every producer against its `success_criteria`
+  with one bounded retry. Sub-agent state lives in DAG edges — not the parent
+  context — and every sub-agent records a time-travel transcript. Plans save to
+  the blueprint library as rerunnable workflows (`GET /workflows`,
+  `POST /workflows/{id}/run`, `forge workflows list|run|save`); sessions gain an
+  `effort` column (`standard|high|ultra` — ultra auto-plans substantive
+  requests); `dashboard/orchestrate` is the live run view;
+  `dashboard/agents` is relabeled **Agent Templates** and the planner can
+  reference saved templates by name as roles. The old task_groups Orchestrator's
+  inter-agent messaging is ported into `subagent_run` as an optional per-run
+  mailbox; its routes remain during a deprecation window.
+- `forge-kernel` 0.2.0: `WorkflowSpec`/`WorkflowStage`/`SubAgentSpec` types,
+  `WorkflowPlanProposed`/`WorkflowProgress`/`WorkflowDone` stream events, and a
+  dataclass-generated JSON schema for the planner tool.
+
+### Fixed
+
+- **Approvals are input-scoped for dangerous tools** (audit H1): approving one
+  `cu.drive_run` no longer green-lights every later call of that tool — each
+  distinct dangerous invocation is reviewed. Caution tools follow a new
+  `approve_scope` policy (`call|tool|session`, default `tool`).
+- **APPROVAL_PENDING is informational and auto-retried** (audit M3): pending
+  tool results are no longer error-shaped, and once a human approves, the call
+  runs automatically on the session's next message — the model never has to
+  choose to retry.
+- `make parity` uses `python -m pytest` so it runs outside this machine's venv
+  (audit L2).
+
 ### Changed
 
 - **`forge-kernel` is now the single source of truth.** `app/kernel/{types,

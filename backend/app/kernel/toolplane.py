@@ -14,12 +14,13 @@ Namespaces: builtins are bare names; everything else is ``<source>.<action>``
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from app.kernel.permissions import (
     PermissionResolver,
@@ -36,6 +37,9 @@ Executor = Callable[[dict[str, Any], "ExecContext"], Awaitable[Any]]
 Source = Callable[["ExecContext"], Awaitable[list[tuple[ToolSpec, Executor]]]]
 
 
+ApproveScope = Literal["call", "tool", "session"]
+
+
 @dataclass
 class ExecContext:
     """Everything a tool call needs to run under a policy."""
@@ -46,6 +50,31 @@ class ExecContext:
     workspace_root: str = ""
     session_overrides: dict[str, PolicyDecision] = field(default_factory=dict)
     timeout: float = 60.0
+    # How far a human approval of a *caution* tool extends: one exact call,
+    # any call of that tool this run (default), or any call this session.
+    # Dangerous tools are always approved per exact call, regardless.
+    approve_scope: ApproveScope = "tool"
+    # Identity of the executing sub-agent within a workflow run (its node id);
+    # empty outside workflows. Used by per-run tool sources like the mailbox.
+    agent_label: str = ""
+
+
+def approval_input_hash(tool_input: dict[str, Any]) -> str:
+    """A stable hash of a tool call's input, for input-scoped approval keys."""
+    canonical = json.dumps(tool_input, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
+def approval_key(spec: ToolSpec, tool_use: ToolUseBlock, scope: ApproveScope) -> str:
+    """The approvals-table ``node_id`` for a tool call.
+
+    Dangerous tools are keyed on the exact input so approving one invocation
+    never green-lights a different one (audit H1); caution tools follow the
+    context's ``approve_scope``.
+    """
+    if spec.danger_level == "dangerous" or scope == "call":
+        return f"tool:{spec.name}:{approval_input_hash(tool_use.input)}"
+    return f"tool:{spec.name}"
 
 
 # --- danger levels ---
@@ -55,6 +84,9 @@ _NODE_CATEGORY_DANGER: dict[str, DangerLevel] = {
     "computer_use_terminal": "dangerous",
     "computer_use_agent": "safe",
     "agent_control": "dangerous",
+    # Spawning a scoped sub-agent asks by default; the sub-agent's own tool
+    # calls still go through this plane under the same policy.
+    "orchestration": "caution",
 }
 _DANGEROUS_DRIVE = {"drive_run", "drive_fanout", "drive_send"}
 _AGENT_OP_DANGER: dict[str, DangerLevel] = {
@@ -159,6 +191,8 @@ class ToolPlane:
         for spec, executor in self._agent_entries():
             index[spec.name] = (spec, executor)
         for spec, executor in self._workspace_entries():
+            index[spec.name] = (spec, executor)
+        for spec, executor in self._orchestrate_entries():
             index[spec.name] = (spec, executor)
         for spec, executor in await self._blueprint_entries(ctx):
             index[spec.name] = (spec, executor)
@@ -313,6 +347,35 @@ class ToolPlane:
 
         return run
 
+    # --- source: dynamic orchestration (Phase 9) ---
+
+    def _orchestrate_entries(self) -> list[tuple[ToolSpec, Executor]]:
+        spec = ToolSpec(
+            name="orchestrate.plan",
+            description=(
+                "Plan a multi-agent workflow for a goal: decomposes it into "
+                "scoped sub-agents (with tool allowlists, budgets, and success "
+                "criteria) and returns a WorkflowSpec for the user to approve. "
+                "Planning only — nothing is executed."
+            ),
+            input_schema=_obj_schema(
+                {"goal": {"type": "string", "description": "The goal to decompose."}},
+                ["goal"],
+            ),
+            source="builtin",
+            source_id="orchestrate.plan",
+            danger_level="safe",
+        )
+
+        async def run(args: dict[str, Any], ctx: ExecContext) -> Any:
+            from app.kernel.serialize import workflow_spec_to_dict
+            from app.services.orchestration.planner import plan_for_context
+
+            plan = await plan_for_context(str(args.get("goal", "")), ctx)
+            return workflow_spec_to_dict(plan)
+
+        return [(spec, run)]
+
     # --- source: saved blueprints ---
 
     async def _blueprint_entries(self, ctx: ExecContext) -> list[tuple[ToolSpec, Executor]]:
@@ -402,10 +465,20 @@ class ToolPlane:
                     is_error=True,
                 )
             if state == "pending":
+                # Informational, not an error: error-shaped results push models
+                # toward apologizing and giving up (audit M3). The approved call
+                # is auto-retried by the session layer on the next message.
                 return ToolResultBlock(
                     tool_use_id=tool_use.id,
-                    output=f"APPROVAL_PENDING: '{spec.name}' is awaiting human approval.",
-                    is_error=True,
+                    output=(
+                        f"APPROVAL_PENDING: '{spec.name}' is awaiting human approval. "
+                        "A request was filed in the approvals inbox — tell the user to "
+                        "approve or reject it there (web: Dashboard → Approvals; CLI: "
+                        "`forge ops approvals`). Do not retry this tool yourself; once "
+                        "approved it runs automatically and the result arrives with the "
+                        "user's next message."
+                    ),
+                    is_error=False,
                 )
 
         try:
@@ -438,22 +511,43 @@ class ToolPlane:
         )
 
     @staticmethod
-    async def _approval_state(spec: ToolSpec, tool_use: ToolUseBlock, ctx: ExecContext) -> str:
+    def _approval_run_id(ctx: ExecContext) -> str:
+        if ctx.approve_scope == "session" and ctx.session_id:
+            return ctx.session_id
+        return ctx.run_id or ctx.session_id or "toolplane"
+
+    @classmethod
+    async def peek_approval_state(
+        cls, spec: ToolSpec, tool_use: ToolUseBlock, ctx: ExecContext
+    ) -> str | None:
+        """The current approval status for this exact call, or None if no row exists.
+
+        Read-only — never files a new approval request (used by the session
+        layer to auto-retry calls whose approvals flipped to approved, M3).
+        """
+        from app.services.evals.approvals import approval_service
+
+        node_id = approval_key(spec, tool_use, ctx.approve_scope)
+        existing = await approval_service.get_approval_for_run(
+            cls._approval_run_id(ctx), node_id
+        )
+        return existing.get("status") if existing else None
+
+    @classmethod
+    async def _approval_state(
+        cls, spec: ToolSpec, tool_use: ToolUseBlock, ctx: ExecContext
+    ) -> str:
         """Return 'approved' | 'rejected' | 'pending', creating a pending row if new."""
         from app.services.evals.approvals import approval_service
 
-        run_id = ctx.run_id or ctx.session_id or "toolplane"
-        node_id = f"tool:{spec.name}"
-        existing = await approval_service.get_approval_for_run(run_id, node_id)
-        if existing and existing.get("status") == "approved":
-            return "approved"
-        if existing and existing.get("status") == "rejected":
-            return "rejected"
-        if not existing:
+        state = await cls.peek_approval_state(spec, tool_use, ctx)
+        if state in ("approved", "rejected"):
+            return state
+        if state is None:
             await approval_service.create_approval(
                 user_id=ctx.user_id,
-                blueprint_run_id=run_id,
-                node_id=node_id,
+                blueprint_run_id=cls._approval_run_id(ctx),
+                node_id=approval_key(spec, tool_use, ctx.approve_scope),
                 context={
                     "message": f"Approve tool call: {spec.name}",
                     "tool": spec.name,

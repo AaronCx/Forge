@@ -136,8 +136,110 @@ class TurnDone:
     kind: str = field(default="turn_done", init=False)
 
 
+# NOTE: the StreamEvent union is defined at the end of the orchestration
+# section below so the Phase 9 workflow events can join it.
+
+
+# --- dynamic orchestration (Phase 9) ---
+
+StageKind = Literal["fanout", "single", "verify", "reduce"]
+
+
+@dataclass(frozen=True)
+class BudgetSpec:
+    """Declarative token/wall-clock bounds for a sub-agent (pure data — the
+    runtime ``Budget`` in ``loop.py`` carries the mutable counters)."""
+
+    max_tokens: int | None = None
+    max_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class SubAgentSpec:
+    """One scoped sub-agent inside a workflow stage.
+
+    ``tools`` is an explicit allowlist of tool names, or the literal string
+    ``"inherit"`` to receive the parent session's tools. ``success_criteria``
+    is what the verify stage judges the agent's output against.
+    """
+
+    role: str
+    prompt: str
+    tools: list[str] | str = "inherit"
+    model: str | None = None
+    budget: BudgetSpec | None = None
+    success_criteria: str = ""
+    inputs: dict[str, Any] = field(default_factory=dict)
+    outputs: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class WorkflowStage:
+    """A stage of the workflow DAG. ``fanout`` runs its agents in parallel;
+    ``verify`` judges producer outputs; ``reduce`` merges them; ``single`` is
+    one agent. ``target`` optionally names a dispatch machine."""
+
+    id: str
+    kind: StageKind = "single"
+    agents: list[SubAgentSpec] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
+    concurrency: int | None = None
+    target: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkflowSpec:
+    """A model-planned, human-approved orchestration of sub-agents."""
+
+    title: str
+    rationale: str = ""
+    stages: list[WorkflowStage] = field(default_factory=list)
+    max_concurrent: int = 16
+    max_agents_total: int = 200
+    worker_model: str | None = None
+    verify: bool = True
+
+    @property
+    def agent_count(self) -> int:
+        return sum(len(s.agents) for s in self.stages)
+
+
+@dataclass(frozen=True)
+class WorkflowPlanProposed:
+    """The planner produced a WorkflowSpec — awaiting explicit user consent."""
+
+    spec: WorkflowSpec
+    estimated_tokens: int = 0
+    kind: str = field(default="workflow_plan_proposed", init=False)
+
+
+@dataclass(frozen=True)
+class WorkflowProgress:
+    """Live progress of one stage of an executing workflow."""
+
+    stage_id: str
+    agents_running: int = 0
+    agents_done: int = 0
+    agents_total: int = 0
+    tokens_spent: int = 0
+    elapsed_seconds: float = 0.0
+    kind: str = field(default="workflow_progress", init=False)
+
+
+@dataclass(frozen=True)
+class WorkflowDone:
+    """A workflow finished (or failed) — carries the final output."""
+
+    output: Any = None
+    status: Literal["completed", "failed", "cancelled"] = "completed"
+    tokens_spent: int = 0
+    agents_run: int = 0
+    kind: str = field(default="workflow_done", init=False)
+
+
 StreamEvent = (
     TextDelta | ThinkingDelta | ToolUseStart | ToolUseDelta | UsageEvent | TurnDone
+    | WorkflowPlanProposed | WorkflowProgress | WorkflowDone
 )
 
 

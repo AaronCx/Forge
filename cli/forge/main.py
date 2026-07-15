@@ -46,6 +46,9 @@ from forge.commands import (
 from forge.commands import (
     chat as _chat_mod,
 )
+from forge.commands import (
+    workflows as _workflows_mod,
+)
 
 console = Console()
 
@@ -64,6 +67,7 @@ app = typer.Typer(
 _system_mod.register(app)
 _auth_mod.register(app)
 _chat_mod.register(app)  # forge chat (REPL) + forge agent run (headless)
+_workflows_mod.register(app)  # forge workflows list|run|save (Phase 9)
 
 
 # --- The six workspace parents ---

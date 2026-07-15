@@ -19,6 +19,7 @@ from app.services.computer_use.agents.nodes import AGENT_CONTROL_EXECUTORS
 from app.services.computer_use.drive.nodes import DRIVE_EXECUTORS
 from app.services.computer_use.recorder import RECORDING_EXECUTORS
 from app.services.computer_use.steer.nodes import STEER_EXECUTORS
+from app.services.orchestration.subagent import SUBAGENT_EXECUTORS
 from app.services.token_tracker import calculate_cost, token_tracker
 
 # Merge computer use executors into the dispatch tables
@@ -29,7 +30,7 @@ _ALL_DETERMINISTIC = {
     **AGENT_CONTROL_EXECUTORS,
     **RECORDING_EXECUTORS,
 }
-_ALL_AGENT = {**AGENT_EXECUTORS, **CU_AGENT_EXECUTORS}
+_ALL_AGENT = {**AGENT_EXECUTORS, **CU_AGENT_EXECUTORS, **SUBAGENT_EXECUTORS}
 
 logger = logging.getLogger(__name__)
 

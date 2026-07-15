@@ -59,7 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Studio",
     items: [
-      { label: "Agents", href: "/dashboard/agents", icon: Bot },
+      { label: "Agent Templates", href: "/dashboard/agents", icon: Bot },
       { label: "Blueprints", href: "/dashboard/blueprints", icon: GitBranch },
       // Library = Prompts + Knowledge as tabs (PR-4); for now redirects to /dashboard/prompts.
       { label: "Library", href: "/dashboard/library", icon: BookOpen },

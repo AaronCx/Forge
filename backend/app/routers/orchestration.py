@@ -1,4 +1,11 @@
-"""Orchestration API routes."""
+"""Orchestration API routes (task_groups Orchestrator).
+
+DEPRECATED (Phase 9.6): superseded by dynamic orchestration — the planner
+(`orchestrate.plan`), consented workflow runs (`/sessions/{id}/workflow/run`,
+`/workflows`), and `subagent_run` with its optional mailbox (which ports this
+Orchestrator's inter-agent messaging). These routes stay functional through a
+deprecation window (zero feature loss) and will be removed in a later major.
+"""
 
 import json
 
