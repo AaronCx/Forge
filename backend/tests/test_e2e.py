@@ -326,7 +326,7 @@ def test_blueprint_node_types(client):
     response = client.get("/api/blueprints/node-types")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 44  # 10 det + 5 agent + 12 steer + 6 drive + 4 cu_agent + 6 agent_control + 1 recording
+    assert len(data) == 45  # 10 det + 5 agent + 12 steer + 6 drive + 4 cu_agent + 6 agent_control + 1 recording + 1 orchestration
 
     # Check categories
     categories = {d["category"] for d in data}

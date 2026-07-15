@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS agents (
     blueprint_id      TEXT REFERENCES blueprints(id) ON DELETE SET NULL,
     -- 20260312_multi_model
     model             TEXT DEFAULT NULL,
+    -- Phase 9 (dynamic orchestration): workflow-spawned ephemeral sub-agents
+    ephemeral          INTEGER DEFAULT 0,
+    spawned_by_session TEXT DEFAULT NULL,
+    spec_json          TEXT DEFAULT NULL,
     created_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -910,4 +914,8 @@ COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("user_preferences", "fallback_policy_json", "TEXT DEFAULT '{}'"),
     # Phase 9 (dynamic orchestration) — planner effort on sessions
     ("sessions", "effort", "TEXT DEFAULT 'standard'"),
+    # Phase 9 (dynamic orchestration) — ephemeral workflow sub-agents
+    ("agents", "ephemeral", "INTEGER DEFAULT 0"),
+    ("agents", "spawned_by_session", "TEXT DEFAULT NULL"),
+    ("agents", "spec_json", "TEXT DEFAULT NULL"),
 ]

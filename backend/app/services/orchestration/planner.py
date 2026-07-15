@@ -86,6 +86,7 @@ async def _ensure_planner_template(user_id: str) -> str:
             "name": "Workflow Planner",
             "description": "System agent holding the workflow planner prompt template.",
             "system_prompt": PLANNER_TEMPLATE_V1,
+            "ephemeral": 1,
         }).execute()
     await prompt_version_service.create_version(
         user_id=user_id, agent_id=agent_id,

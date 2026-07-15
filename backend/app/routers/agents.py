@@ -10,10 +10,15 @@ router = APIRouter(tags=["agents"])
 
 @router.get("/agents", response_model=list[AgentResponse])
 async def list_agents(
+    include_ephemeral: bool = False,
     user=Depends(get_current_user),  # noqa: B008
 ):
     result = get_db().table("agents").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
-    return result.data
+    rows = result.data or []
+    if not include_ephemeral:
+        # Workflow-spawned sub-agents stay out of the default template list.
+        rows = [r for r in rows if not r.get("ephemeral")]
+    return rows
 
 
 @router.get("/agents/templates", response_model=list[AgentResponse])

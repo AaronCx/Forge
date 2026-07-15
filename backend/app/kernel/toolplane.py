@@ -81,6 +81,9 @@ _NODE_CATEGORY_DANGER: dict[str, DangerLevel] = {
     "computer_use_terminal": "dangerous",
     "computer_use_agent": "safe",
     "agent_control": "dangerous",
+    # Spawning a scoped sub-agent asks by default; the sub-agent's own tool
+    # calls still go through this plane under the same policy.
+    "orchestration": "caution",
 }
 _DANGEROUS_DRIVE = {"drive_run", "drive_fanout", "drive_send"}
 _AGENT_OP_DANGER: dict[str, DangerLevel] = {

@@ -19,8 +19,9 @@ ALL_NODE_KEYS = sorted(NODE_REGISTRY.keys())
 
 
 def test_registry_has_expected_node_count():
-    # Ground truth is 44 (the plan's "48" counts 4 phantom workspace nodes).
-    assert len(NODE_REGISTRY) == 44
+    # Ground truth was 44 (the plan's "48" counted 4 phantom workspace nodes);
+    # Phase 9 added subagent_run as registry entry 45.
+    assert len(NODE_REGISTRY) == 45
 
 
 def test_every_node_has_a_parity_fixture():

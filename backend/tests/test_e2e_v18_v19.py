@@ -1087,9 +1087,9 @@ class TestCrossFeatureIntegration:
         assert "recording_control" in NODE_REGISTRY
 
     def test_20_2_total_node_count(self):
-        """20.2 — Total node count is 44."""
+        """20.2 — Total node count is 45."""
         from app.services.blueprint_nodes.registry import NODE_REGISTRY
-        assert len(NODE_REGISTRY) == 44
+        assert len(NODE_REGISTRY) == 45
 
     def test_20_3_dispatch_tables_complete(self):
         """20.3 — All dispatch tables are complete."""
@@ -1135,11 +1135,11 @@ class TestCrossFeatureIntegration:
         assert sum(len(layer) for layer in layers) == len(nodes)
 
     def test_20_full_api_node_types(self, auth_client):
-        """20 — Full API returns all 44 node types with all categories."""
+        """20 — Full API returns all 45 node types with all categories."""
         r = auth_client.get("/api/blueprints/node-types")
         assert r.status_code == 200
         data = r.json()
-        assert len(data) == 44
+        assert len(data) == 45
         categories = {d["category"] for d in data}
         for expected_cat in ["context", "transform", "validate", "agent", "output",
                              "computer_use_gui", "computer_use_terminal", "computer_use_agent",

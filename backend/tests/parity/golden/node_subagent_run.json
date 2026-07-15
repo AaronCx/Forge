@@ -1,0 +1,13 @@
+{
+  "agent_id": "agent-eph-1",
+  "input_tokens": 7,
+  "output_tokens": 11,
+  "result_scout-1": {
+    "node_id": "scout-1",
+    "role": "scout",
+    "success_criteria": "cites each unauthenticated route",
+    "text": "subagent result"
+  },
+  "role": "scout",
+  "text": "subagent result"
+}
